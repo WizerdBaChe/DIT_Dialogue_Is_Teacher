@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SpanGroup } from "@/types/spanTree";
 import type { SpanNode } from "@/core/view/viewModel";
 import { useSessionStore } from "@/store/sessionStore";
+import { useT } from "@/i18n";
+import { GROUP_DOT } from "./labels";
 import { AnnotationBlock } from "./parts";
 import { SpanBody } from "./SpanCard";
 
@@ -15,6 +17,7 @@ export function GroupCard({
   group: SpanGroup;
   nodes: SpanNode[];
 }): ReactNode {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(true);
 
@@ -46,14 +49,15 @@ export function GroupCard({
       }`}
     >
       <div className="group-head" onClick={() => setCollapsed((c) => !c)}>
-        <span className="g-icon">📦</span>
+        <span className="g-icon" aria-hidden="true">{GROUP_DOT}</span>
         <span className="layer-title" style={{ margin: 0, padding: 0, border: 0 }}>
-          <span className="kind">群組</span>
+          <span className="kind">{t.card.kindTag}</span>
           <span className="title-text">
-            {group.label}（折疊 {nodes.length} 步）
+            {group.label}
+            {t.card.groupFolded(nodes.length)}
           </span>
         </span>
-        <span className="group-hint">確定性降噪 · 點擊{collapsed ? "展開" : "收合"} ▼</span>
+        <span className="group-hint">{t.card.groupHint(collapsed)}</span>
       </div>
       <div className="group-children">
         {nodes.map((n) => (
