@@ -10,6 +10,7 @@ import { buildSessionDocument, PipelineError } from "@/core/pipeline";
 import { buildViewModel, type ViewItem } from "@/core/view/viewModel";
 import { getProvider, checkOllama, DEFAULT_OLLAMA_CONFIG, type OllamaStatus } from "@/core/llm";
 import { sampleSession } from "@/fixtures";
+import { MESSAGES, type Locale } from "@/i18n/locales";
 
 /** Ollama 在 store 內的可調設定。 */
 interface OllamaConfigState {
@@ -58,6 +59,8 @@ interface SessionState {
   providerId: ProviderId;
   showAnnotations: boolean;
   viewMode: ViewMode;
+  /** UI 語言；也決定講解層 prompt 的輸出語言 (R7)。 */
+  locale: Locale;
 
   /** Ollama 連線設定 (使用者可在面板調整)。 */
   ollamaConfig: OllamaConfigState;
@@ -82,6 +85,7 @@ interface SessionState {
   loadFromText: (raw: string) => void;
   reset: () => void;
   setProvider: (id: ProviderId) => void;
+  setLocale: (locale: Locale) => void;
   setOllamaModel: (model: string) => void;
   updateOllamaConfig: (patch: Partial<OllamaConfigState>) => void;
   refreshOllamaStatus: () => Promise<void>;
@@ -118,6 +122,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   providerId: "none",
   showAnnotations: true,
   viewMode: "cognitive",
+  locale: "zh-TW",
 
   ollamaConfig: {
     baseUrl: DEFAULT_OLLAMA_CONFIG.baseUrl,
@@ -161,7 +166,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         annotationErrors: {},
       });
     } catch (e) {
-      const msg = e instanceof PipelineError ? e.message : `載入失敗：${(e as Error).message}`;
+      // PipelineError 訊息來自 core (資料流診斷，維持 zh-TW)；其餘包裝訊息跟隨 UI 語言。
+      const msg = e instanceof PipelineError ? e.message : MESSAGES[get().locale].header.loadFailed((e as Error).message);
       set({ doc: null, viewItems: [], warnings: [], error: msg, activeId: null });
     }
   },
@@ -176,6 +182,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (id === "ollama") void get().refreshOllamaStatus();
   },
 
+  // 切換語言即時生效；不動已載入 doc / 講解結果 (狀態不丟失，符 R7 驗收)。
+  setLocale: (locale) => set({ locale }),
+
   setOllamaModel: (model) => {
     set((s) => ({ ollamaConfig: { ...s.ollamaConfig, model } }));
     void get().refreshOllamaStatus();
@@ -186,7 +195,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   updateCloudConfig: (patch) => set((s) => ({ cloudConfig: { ...s.cloudConfig, ...patch } })),
 
   refreshOllamaStatus: async () => {
-    set((s) => ({ ollamaStatus: { ...(s.ollamaStatus ?? { models: [] as string[] }), state: "checking", baseUrl: s.ollamaConfig.baseUrl, model: s.ollamaConfig.model, message: "探測中…" } as OllamaStatus }));
+    const checkingMsg = MESSAGES[get().locale].ollama.states.checking;
+    set((s) => ({ ollamaStatus: { ...(s.ollamaStatus ?? { models: [] as string[] }), state: "checking", baseUrl: s.ollamaConfig.baseUrl, model: s.ollamaConfig.model, message: checkingMsg } as OllamaStatus }));
     const status = await checkOllama(get().ollamaConfig);
     set({ ollamaStatus: status });
   },
@@ -288,7 +298,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           numPredict: oc.numPredict > 0 ? oc.numPredict : undefined,
         },
       });
-      const ann = await provider.annotate(span, { sessionTitle: doc.session.title, prevSummary: prev });
+      const ann = await provider.annotate(span, { sessionTitle: doc.session.title, prevSummary: prev, locale: get().locale });
       if (ann) set((s) => ({ annotations: { ...s.annotations, [id]: ann } }));
     } catch (e) {
       set((s) => ({ annotationErrors: { ...s.annotationErrors, [id]: (e as Error).message } }));

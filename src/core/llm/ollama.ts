@@ -5,7 +5,7 @@
  */
 import type { Annotation } from "@/types/spanTree";
 import type { LLMProvider, AnnotateContext } from "./types";
-import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
+import { buildSystemPrompt, buildUserPrompt } from "./prompt";
 import type { Span } from "@/types/spanTree";
 
 export interface OllamaConfig {
@@ -151,7 +151,7 @@ export function createOllamaProvider(config: OllamaConfig = DEFAULT_OLLAMA_CONFI
           // 僅在使用者明確要求時才送 think (避免對不支援 thinking 的模型報錯)。
           ...(config.think === false ? { think: false } : {}),
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: buildSystemPrompt(ctx.locale) },
             { role: "user", content: buildUserPrompt(span, ctx) },
           ],
         }),
