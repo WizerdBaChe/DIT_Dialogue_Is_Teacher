@@ -10,6 +10,8 @@ export interface AnnotateContext {
   sessionTitle: string;
   /** 前一個節點的摘要，提供因果脈絡。 */
   prevSummary?: string;
+  /** 輸出語言，跟隨 UI 語言 (R7)；未指定時 prompt 預設繁體中文。 */
+  locale?: "zh-TW" | "en";
 }
 
 export interface LLMProvider {
