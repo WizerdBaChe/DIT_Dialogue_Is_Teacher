@@ -1,9 +1,11 @@
 /** 左側 Span Tree 目錄。點擊項目高亮對應卡片。 */
 import type { ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
-import { SPAN_DOT } from "./labels";
+import { useT } from "@/i18n";
+import { SPAN_DOT, GROUP_DOT } from "./labels";
 
 export function Sidebar(): ReactNode {
+  const t = useT();
   const doc = useSessionStore((s) => s.doc);
   const viewItems = useSessionStore((s) => s.viewItems);
   const activeId = useSessionStore((s) => s.activeId);
@@ -13,15 +15,15 @@ export function Sidebar(): ReactNode {
   if (!doc) {
     return (
       <aside className="sidebar">
-        <h2>📁 Session 結構</h2>
-        <p className="session-meta">尚未載入 session。</p>
+        <h2>{t.sidebar.heading}</h2>
+        <p className="session-meta">{t.sidebar.empty}</p>
       </aside>
     );
   }
 
   return (
     <aside className="sidebar">
-      <h2>📁 Session 結構（Span Tree）</h2>
+      <h2>{t.sidebar.headingWithTree}</h2>
       <div className="session-meta">
         title: {doc.session.title}
         <br />
@@ -37,7 +39,7 @@ export function Sidebar(): ReactNode {
         {doc.skeleton && (
           <>
             <br />
-            蒸餾骨架：主線 {doc.skeleton.nodes.length} · 支線 {doc.skeleton.ribs.length}
+            {t.sidebar.skeleton(doc.skeleton.nodes.length, doc.skeleton.ribs.length)}
           </>
         )}
       </div>
@@ -45,7 +47,7 @@ export function Sidebar(): ReactNode {
       {viewItems.map((item) => {
         const span = item.type === "span" ? item.node.span : item.nodes[0].span;
         const label = item.type === "group" ? item.group.label : span.summary;
-        const dot = item.type === "group" ? "📦" : SPAN_DOT[span.type];
+        const dot = item.type === "group" ? GROUP_DOT : SPAN_DOT[span.type];
         const cls = playingId === item.id ? "playing" : activeId === item.id ? "active" : "";
         return (
           <div key={item.id} className={`tree-item ${cls}`} onClick={() => setActive(item.id)} title={label}>
