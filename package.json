@@ -1,0 +1,25 @@
+{
+  "name": "dit-dialogue-is-teacher",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "把 AI coding agent 的執行軌跡轉成可學習的結構化節點視圖",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

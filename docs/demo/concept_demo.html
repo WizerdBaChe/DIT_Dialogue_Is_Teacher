@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIT — Dialogue Is Teacher｜概念展示</title>
+<!--
+  概念展示頁 (Concept Demo) — 僅供溝通，非 MVP、不進產品碼。
+  以一段「修 Todo App bug」的真實風格 session 示範最終想呈現的效果：
+  Span Tree 降噪結構化 + 逐節點教學講解 + 可摺疊思考層 + step-through 重播 + Provider 選擇/責任說明。
+  資料為手寫範例，但欄位結構對齊 RPD 附錄的 Span Tree schema。
+-->
+<style>
+  :root{
+    --bg-main:#0a1020; --bg-card:#101a30; --bg-hover:#16213c; --border-color:#233252;
+    --text-main:#e8edf7; --text-muted:#94a3c4; --text-dark:#5d6e94;
+    --accent-primary:#4fd1c5; --accent-secondary:#f5a524;
+    --danger:#f56565; --decision:#a78bfa; --milestone:#4fd1c5;
+    --font-sans:system-ui,-apple-system,sans-serif; --font-mono:ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-main);color:var(--text-main);font-family:var(--font-sans);
+    display:flex;flex-direction:column;height:100vh;width:100vw;overflow:hidden}
+
+  /* Header */
+  header{flex-shrink:0;background:var(--bg-card);border-bottom:1px solid var(--border-color);
+    padding:12px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;z-index:10}
+  .brand h1{font-size:17px;color:var(--accent-primary)}
+  .brand p{font-size:11.5px;color:var(--text-muted)}
+  .toolbar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:flex-end}
+  .control{display:flex;align-items:center;gap:8px}
+  .control label{font-size:11px;color:var(--text-dark);text-transform:uppercase;letter-spacing:.5px}
+  select,button{font-family:var(--font-sans)}
+  select{background:var(--bg-main);color:var(--text-main);border:1px solid var(--border-color);
+    border-radius:6px;padding:6px 10px;font-size:12.5px;cursor:pointer}
+  .btn{background:var(--bg-hover);color:var(--text-main);border:1px solid var(--border-color);
+    border-radius:6px;padding:6px 12px;font-size:12.5px;cursor:pointer;transition:all .18s}
+  .btn:hover{border-color:var(--accent-primary);color:var(--accent-primary)}
+  .btn.primary{background:rgba(79,209,197,.14);border-color:var(--accent-primary);color:var(--accent-primary)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;user-select:none}
+
+  /* Provider disclaimer banner */
+  .disclaimer{flex-shrink:0;font-size:12px;padding:8px 24px;border-bottom:1px solid var(--border-color);
+    display:flex;align-items:center;gap:8px}
+  .disclaimer.none{background:rgba(79,209,197,.07);color:var(--text-muted)}
+  .disclaimer.ollama{background:rgba(79,209,197,.10);color:#9fe9e0}
+  .disclaimer.cloud{background:rgba(245,165,36,.10);color:#f5cd8a;border-bottom-color:rgba(245,165,36,.3)}
+  .disclaimer b{font-weight:700}
+
+  .container{flex:1;display:flex;width:100%;overflow:hidden}
+
+  /* Sidebar tree */
+  .sidebar{width:300px;flex-shrink:0;background:#0d1527;border-right:1px solid var(--border-color);
+    padding:18px 16px;overflow-y:auto}
+  .sidebar h2{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dark);
+    margin-bottom:6px}
+  .session-meta{font-size:11px;color:var(--text-dark);margin-bottom:16px;line-height:1.6;
+    font-family:var(--font-mono);border-bottom:1px dashed var(--border-color);padding-bottom:12px}
+  .tree-folder{color:var(--text-muted);font-weight:600;padding:6px 4px;margin-top:10px;margin-bottom:2px;
+    font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none;transition:color .2s}
+  .tree-folder:hover{color:var(--text-main)}
+  .tree-folder::before{content:'▼';font-size:8px;color:var(--text-dark);transition:transform .2s}
+  .tree-folder.collapsed::before{transform:rotate(-90deg)}
+  .tree-item{font-family:var(--font-mono);font-size:12px;padding:6px 10px;border-radius:5px;cursor:pointer;
+    display:flex;align-items:center;gap:7px;color:var(--text-muted);transition:all .18s;margin-bottom:2px;user-select:none}
+  .tree-item:hover{background:var(--bg-hover);color:var(--text-main)}
+  .tree-item.active{background:rgba(79,209,197,.12);color:var(--accent-primary);font-weight:500}
+  .tree-item.playing{background:rgba(245,165,36,.16);color:var(--accent-secondary)}
+  .tree-item .dot{font-size:9px}
+  .indent{margin-left:14px}
+  .hidden{display:none!important}
+
+  /* Main content */
+  .main-content{flex:1;padding:26px 30px;overflow-y:auto;background:var(--bg-main)}
+
+  .layer-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:9px;
+    padding:20px 22px;margin-bottom:20px;transition:all .22s ease;position:relative}
+  .layer-card.highlighted{border-color:var(--accent-primary);box-shadow:0 0 20px rgba(79,209,197,.14);transform:scale(1.006)}
+  .layer-card.playing{border-color:var(--accent-secondary);box-shadow:0 0 22px rgba(245,165,36,.18)}
+
+  .badges{position:absolute;top:18px;right:20px;display:flex;gap:6px}
+  .badge{font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:11px;
+    background:rgba(255,255,255,.05);color:var(--text-muted)}
+  .badge.tool{background:rgba(79,209,197,.12);color:var(--accent-primary)}
+  .badge.milestone{background:var(--milestone);color:var(--bg-main);font-weight:700}
+  .badge.decision{background:rgba(167,139,250,.18);color:var(--decision);font-weight:600}
+  .badge.retry,.badge.error{background:rgba(245,101,101,.16);color:var(--danger);font-weight:600}
+
+  .layer-title{font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:10px;padding-right:120px}
+  .layer-title .kind{font-family:var(--font-mono);font-size:10.5px;color:var(--text-dark);
+    border:1px solid var(--border-color);border-radius:4px;padding:1px 6px}
+  .layer-title::before{content:'';width:4px;height:15px;background:var(--text-dark);border-radius:2px;flex-shrink:0}
+  .layer-card.highlighted .layer-title::before{background:var(--accent-primary)}
+  .layer-card.playing .layer-title::before{background:var(--accent-secondary)}
+
+  .layer-desc{font-size:13px;color:var(--text-muted);line-height:1.65;margin-bottom:14px}
+  .layer-desc code{font-family:var(--font-mono);background:rgba(0,0,0,.3);padding:1px 6px;border-radius:4px;
+    color:var(--accent-primary);font-size:12px}
+
+  /* thinking layer (collapsible) */
+  .thinking{margin-bottom:12px}
+  .thinking-head{font-size:11.5px;color:var(--decision);cursor:pointer;user-select:none;
+    display:flex;align-items:center;gap:6px;font-weight:600}
+  .thinking-head::before{content:'🧠'}
+  .thinking-head .chev{margin-left:auto;font-size:9px;color:var(--text-dark);transition:transform .2s}
+  .thinking.collapsed .chev{transform:rotate(-90deg)}
+  .thinking-body{font-size:12.5px;color:var(--text-muted);line-height:1.6;font-style:italic;
+    border-left:2px solid var(--decision);padding:8px 0 8px 12px;margin-top:8px}
+  .thinking.collapsed .thinking-body{display:none}
+
+  /* code/output block (foldable) */
+  .io-block{background:rgba(0,0,0,.3);border-radius:6px;font-family:var(--font-mono);font-size:11.5px;
+    color:var(--text-muted);margin-bottom:12px;overflow:hidden}
+  .io-head{padding:7px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+    color:var(--text-dark);border-bottom:1px solid var(--border-color)}
+  .io-head .chev{margin-left:auto;font-size:9px;transition:transform .2s}
+  .io-block.collapsed .io-head{border-bottom:none}
+  .io-block.collapsed .chev{transform:rotate(-90deg)}
+  .io-body{padding:10px 12px;white-space:pre-wrap;line-height:1.55;max-height:240px;overflow:auto}
+  .io-body .err{color:var(--danger)}
+  .io-body .ok{color:var(--accent-primary)}
+  .io-block.collapsed .io-body{display:none}
+
+  /* annotation (teaching layer) */
+  .annotation{background:linear-gradient(90deg,rgba(79,209,197,.07),rgba(16,26,48,.4));
+    border:1px solid rgba(79,209,197,.25);border-radius:8px;padding:14px 16px;margin-top:6px}
+  .annotation .src{font-size:10px;color:var(--text-dark);font-family:var(--font-mono);float:right}
+  .annotation h4{font-size:11px;color:var(--accent-primary);text-transform:uppercase;letter-spacing:.6px;
+    margin-bottom:4px;margin-top:10px}
+  .annotation h4:first-of-type{margin-top:0}
+  .annotation p{font-size:12.5px;color:var(--text-main);line-height:1.6}
+  .annotation .lesson{color:var(--accent-secondary)}
+  body.no-annotation .annotation{display:none}
+
+  /* group (denoise) */
+  .group-card{border-style:dashed}
+  .group-head{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+  .group-head .g-icon{color:var(--accent-secondary)}
+  .group-children{margin-top:14px;padding-top:14px;border-top:1px dashed var(--border-color)}
+  .group-card.collapsed .group-children{display:none}
+  .group-hint{font-size:11.5px;color:var(--text-dark);margin-left:auto}
+
+  .info-box{margin-top:28px;background:linear-gradient(90deg,#16213c,#101a30);border:1px dashed var(--border-color);
+    border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .info-box strong{color:var(--accent-secondary);font-size:13px}
+  .info-box p{font-size:12px;color:var(--text-muted);line-height:1.6}
+  .flow{font-family:var(--font-mono);font-size:11px;color:var(--accent-primary);
+    background:rgba(0,0,0,.25);padding:8px 12px;border-radius:5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>🎓 DIT — Dialogue Is Teacher</h1>
+    <p>把 agent 執行軌跡轉成「可學習」的節點 ·（概念展示，資料為範例）</p>
+  </div>
+  <div class="toolbar">
+    <label class="toggle"><input type="checkbox" id="annoToggle" checked> 顯示教學講解</label>
+    <div class="control">
+      <button class="btn" id="prevBtn" title="上一步">⏮</button>
+      <button class="btn primary" id="playBtn">▶ 重播</button>
+      <button class="btn" id="nextBtn" title="下一步">⏭</button>
+    </div>
+    <div class="control">
+      <label>講解來源</label>
+      <select id="provider">
+        <option value="none">不講解（純結構，零外傳）</option>
+        <option value="ollama" selected>本地 Ollama（離線）</option>
+        <option value="cloud">雲端 API（需外傳）</option>
+      </select>
+    </div>
+  </div>
+</header>
+
+<div class="disclaimer ollama" id="disclaimer"></div>
+
+<div class="container">
+
+  <aside class="sidebar">
+    <h2>📁 Session 結構（Span Tree）</h2>
+    <div class="session-meta">
+      source: claude-code<br>
+      task: 修好刪除待辦後列表不更新<br>
+      spans: 8 ｜ groups: 1
+    </div>
+
+    <div class="tree-item" data-target="card-1"><span class="dot">●</span>使用者：刪除後沒更新</div>
+    <div class="tree-item" data-target="card-2"><span class="dot">🧠</span>診斷：可能 mutate 原陣列</div>
+    <div class="tree-item" data-target="card-3"><span class="dot">📖</span>讀 TodoList.jsx</div>
+    <div class="tree-item" data-target="card-4"><span class="dot">✦</span>決策：改用不可變更新</div>
+    <div class="tree-item" data-target="card-5"><span class="dot">✏️</span>Edit：splice → filter</div>
+    <div class="tree-item" data-target="card-6"><span class="dot">⚠</span>測試失敗（key 問題）</div>
+
+    <div class="tree-folder" id="folder-grp"><span>群組：反覆修改 key</span></div>
+    <div class="tree-item indent grp" data-target="card-7"><span class="dot">✏️</span>修改 key（2 次）</div>
+
+    <div class="tree-item" data-target="card-8"><span class="dot">✅</span>測試通過 · 完成</div>
+  </aside>
+
+  <main class="main-content" id="main-content">
+
+    <!-- 1 -->
+    <section class="layer-card" id="card-1">
+      <div class="badges"><span class="badge milestone">里程碑</span><span class="badge">user_msg</span></div>
+      <div class="layer-title"><span class="kind">使用者意圖</span>刪除待辦後，畫面列表沒有更新</div>
+      <div class="layer-desc">使用者回報：在 Todo App 點「刪除」後，資料雖然少了一筆，但畫面上的清單沒有跟著消失，要重新整理才會對。</div>
+    </section>
+
+    <!-- 2 -->
+    <section class="layer-card" id="card-2">
+      <div class="badges"><span class="badge">thinking</span></div>
+      <div class="layer-title"><span class="kind">思考</span>先假設是 state 沒觸發 re-render</div>
+      <div class="layer-desc">畫面沒更新但資料變了，最常見原因是「直接改了原本的陣列」，React 偵測不到變化。先去讀刪除的處理邏輯確認。</div>
+      <div class="thinking">
+        <div class="thinking-head">展開原始思考鏈 <span class="chev">▼</span></div>
+        <div class="thinking-body">資料有變、畫面沒變 → 多半是 referential equality 沒變。可能用了 splice/push 之類就地修改的方法。需要先讀元件才能確認，不要先猜著改。</div>
+      </div>
+      <div class="annotation">
+        <span class="src">via ollama · qwen2.5-coder</span>
+        <h4>這步在做什麼</h4><p>不急著改，先建立假設再去驗證。</p>
+        <h4>為什麼這樣做</h4><p>盲改容易治標不治本；先定位根因能避免反覆試錯。</p>
+        <h4 class="lesson">通用做法</h4><p class="lesson">遇到「資料對、畫面錯」，第一直覺先查 state 是否被「就地修改」。</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class="layer-card" id="card-3">
+      <div class="badges"><span class="badge tool">Read</span><span class="badge">tool_use</span></div>
+      <div class="layer-title"><span class="kind">操作</span>讀取 TodoList.jsx</div>
+      <div class="layer-desc">讀進元件原始碼，定位刪除按鈕的 handler。</div>
+      <div class="io-block collapsed">
+        <div class="io-head">tool_result · 已摺疊（節省噪音，點擊展開）<span class="chev">▼</span></div>
+        <div class="io-body">function handleDelete(id) {
+  const idx = todos.findIndex(t =&gt; t.id === id);
+  todos.splice(idx, 1);     // ← 就地修改原陣列
+  setTodos(todos);          // ← 傳的還是同一個 reference
+}
+// ...
+{todos.map((t, i) =&gt; &lt;Todo key={i} ... /&gt;)}  // ← key 用 index</div>
+      </div>
+      <div class="annotation">
+        <span class="src">via ollama · qwen2.5-coder</span>
+        <h4>這步在做什麼</h4><p>把懷疑的檔案讀進來，用證據取代猜測。</p>
+        <h4>為什麼這樣做</h4><p>果然看到 <code>todos.splice()</code> 直接改原陣列，且 <code>key</code> 用 index——兩個潛在問題一次浮現。</p>
+        <h4 class="lesson">通用做法</h4><p class="lesson">改之前先讀；讓原始碼告訴你哪裡錯，而不是憑記憶。</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="layer-card" id="card-4">
+      <div class="badges"><span class="badge decision">決策點</span></div>
+      <div class="layer-title"><span class="kind">決策</span>改用「不可變更新」</div>
+      <div class="layer-desc">決定不用 <code>splice</code>，改成 <code>filter</code> 回傳一個全新陣列，讓 React 偵測得到變化。</div>
+      <div class="annotation">
+        <span class="src">via ollama · qwen2.5-coder</span>
+        <h4>為什麼這樣做</h4><p>React 用引用比較判斷 state 是否變化；原地修改後 reference 沒變，就不會 re-render。</p>
+        <h4 class="lesson">通用做法</h4><p class="lesson">更新 state 一律回傳<strong>新物件/新陣列</strong>（<code>filter</code>/<code>map</code>/展開運算子），不要 <code>push</code>/<code>splice</code>/<code>sort</code> 原值。</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section class="layer-card" id="card-5">
+      <div class="badges"><span class="badge tool">Edit</span><span class="badge">tool_use</span></div>
+      <div class="layer-title"><span class="kind">操作</span>splice → filter</div>
+      <div class="layer-desc">把 handler 改成不可變寫法。</div>
+      <div class="io-block collapsed">
+        <div class="io-head">diff · 已摺疊<span class="chev">▼</span></div>
+        <div class="io-body"><span class="err">- todos.splice(idx, 1);
+- setTodos(todos);</span>
+<span class="ok">+ setTodos(todos.filter(t =&gt; t.id !== id));</span></div>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="layer-card" id="card-6">
+      <div class="badges"><span class="badge retry">重試</span><span class="badge error">測試失敗</span></div>
+      <div class="layer-title"><span class="kind">結果</span>跑測試，仍有一項失敗</div>
+      <div class="layer-desc">刪除有反應了，但測試指出「刪中間項後，畫面內容對不上」。根因是 <code>key={i}</code> 用 index，刪除後 index 位移導致 React 重用錯元件。</div>
+      <div class="io-block">
+        <div class="io-head">npm test · 輸出<span class="chev">▼</span></div>
+        <div class="io-body"><span class="ok">✓ removes the item from state</span>
+<span class="err">✗ renders the correct remaining items after deleting middle item</span>
+   Expected "Buy milk", received "Walk dog"</div>
+      </div>
+      <div class="annotation">
+        <span class="src">via ollama · qwen2.5-coder</span>
+        <h4>這步在做什麼</h4><p>用測試驗證修復，結果揭露了第二個更隱蔽的 bug。</p>
+        <h4 class="lesson">通用做法</h4><p class="lesson">列表的 <code>key</code> 要用穩定的唯一 id，<strong>不要用陣列 index</strong>——增刪時 index 會錯位。</p>
+      </div>
+    </section>
+
+    <!-- 7 group (denoise: edit-loop) -->
+    <section class="layer-card group-card collapsed" id="card-7">
+      <div class="group-head">
+        <span class="g-icon">📦</span>
+        <span class="layer-title" style="margin:0;padding:0;border:0;"><span class="kind">群組</span>反覆修改 key（已折疊 2 次編輯）</span>
+        <span class="group-hint">確定性降噪 · 點擊展開 ▼</span>
+      </div>
+      <div class="group-children">
+        <div class="layer-desc">系統偵測到對同一檔案連續編輯，自動折疊為一個群組，避免噪音：</div>
+        <div class="io-block">
+          <div class="io-head">合併 diff<span class="chev">▼</span></div>
+          <div class="io-body"><span class="err">- {todos.map((t, i) =&gt; &lt;Todo key={i} ... /&gt;)}</span>
+<span class="ok">+ {todos.map((t) =&gt; &lt;Todo key={t.id} ... /&gt;)}</span></div>
+        </div>
+        <div class="annotation">
+          <span class="src">via ollama · qwen2.5-coder</span>
+          <h4 class="lesson">通用做法</h4><p class="lesson">把這種「同檔案反覆微調」收成一個學習點，比逐次展示更好吸收。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section class="layer-card" id="card-8">
+      <div class="badges"><span class="badge milestone">完成</span><span class="badge tool">Bash</span></div>
+      <div class="layer-title"><span class="kind">結果</span>測試全綠，bug 修復</div>
+      <div class="layer-desc">兩個根因（就地修改 state、key 用 index）都處理後，測試全數通過。</div>
+      <div class="io-block collapsed">
+        <div class="io-head">npm test · 已摺疊<span class="chev">▼</span></div>
+        <div class="io-body"><span class="ok">✓ removes the item from state
+✓ renders the correct remaining items after deleting middle item
+
+Tests: 2 passed, 2 total</span></div>
+      </div>
+    </section>
+
+    <div class="info-box">
+      <strong>💡 這頁在示範什麼</strong>
+      <p>同一份 session 原本是幾百行混雜的 log；DIT 把它整理成 8 個可學習節點：思考層可展開、長輸出可摺疊、反覆編輯自動分組降噪、每步附「為什麼 + 通用做法」。上方可切換講解來源（責任釐清）、可開關講解層、可用 ▶ 重播逐步走過整段任務。</p>
+      <div class="flow">原始 .jsonl ─→ Adapter ─→ Span Tree ─→ 降噪/分組 ─→ [Ollama 講解] ─→ 視圖（本頁）</div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // ---- 資料流：tree ↔ cards 對應 ----
+  const treeItems = [...document.querySelectorAll('.tree-item')];
+  const cards = [...document.querySelectorAll('.layer-card')];
+  const main = document.getElementById('main-content');
+  // 播放順序（含群組）= 視覺上 8 個節點
+  const order = ['card-1','card-2','card-3','card-4','card-5','card-6','card-7','card-8'];
+
+  function highlight(id, playing){
+    cards.forEach(c=>c.classList.remove('highlighted','playing'));
+    treeItems.forEach(t=>t.classList.remove('active','playing'));
+    const card = document.getElementById(id);
+    const item = treeItems.find(t=>t.dataset.target===id);
+    if(card) card.classList.add(playing?'playing':'highlighted');
+    if(item) item.classList.add(playing?'playing':'active');
+    if(card) card.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+
+  treeItems.forEach(item=>item.addEventListener('click',e=>{
+    e.stopPropagation();
+    highlight(item.dataset.target,false);
+  }));
+
+  // ---- 思考層 / IO 區塊 / 群組 折疊 ----
+  document.querySelectorAll('.thinking-head').forEach(h=>
+    h.addEventListener('click',()=>h.parentElement.classList.toggle('collapsed')));
+  document.querySelectorAll('.io-head').forEach(h=>
+    h.addEventListener('click',()=>h.parentElement.classList.toggle('collapsed')));
+  document.querySelector('#card-7 .group-head').addEventListener('click',()=>
+    document.getElementById('card-7').classList.toggle('collapsed'));
+
+  // 預設折疊思考層（示範「降噪」初始狀態）
+  document.querySelectorAll('.thinking').forEach(t=>t.classList.add('collapsed'));
+
+  // 側欄群組資料夾折疊
+  const folder = document.getElementById('folder-grp');
+  folder.addEventListener('click',()=>{
+    folder.classList.toggle('collapsed');
+    document.querySelectorAll('.tree-item.grp').forEach(i=>i.classList.toggle('hidden'));
+  });
+
+  // ---- 教學講解開關 ----
+  document.getElementById('annoToggle').addEventListener('change',e=>{
+    document.body.classList.toggle('no-annotation',!e.target.checked);
+  });
+
+  // ---- Provider 選擇 + 責任說明 ----
+  const provider = document.getElementById('provider');
+  const disc = document.getElementById('disclaimer');
+  const annoToggle = document.getElementById('annoToggle');
+  const TEXT = {
+    none:'🔒 <b>不講解</b>：僅做本地結構化與降噪，<b>沒有任何資料離開你的裝置</b>，也不產生「為什麼/通用做法」說明。',
+    ollama:'🏠 <b>本地 Ollama</b>：講解由你機器上的模型產生，<b>程式碼與紀錄不會外傳</b>。品質取決於本地模型。',
+    cloud:'☁️ <b>雲端 API</b>：你的 session 片段將<b>傳送至外部服務</b>以產生講解。請確認內容不含機密；是否外傳由你知情選擇，責任歸使用者。'
+  };
+  function applyProvider(){
+    const v = provider.value;
+    disc.className = 'disclaimer '+v;
+    disc.innerHTML = TEXT[v];
+    // 標註來源文字同步
+    document.querySelectorAll('.annotation .src').forEach(s=>{
+      s.textContent = v==='cloud' ? 'via cloud API' : v==='ollama' ? 'via ollama · qwen2.5-coder' : '—';
+    });
+    // none 時自動關閉講解層
+    if(v==='none'){ annoToggle.checked=false; document.body.classList.add('no-annotation'); }
+    else { annoToggle.checked=true; document.body.classList.remove('no-annotation'); }
+  }
+  provider.addEventListener('change',applyProvider);
+  applyProvider();
+
+  // ---- Step-through 重播 ----
+  let idx = -1, timer = null;
+  const playBtn = document.getElementById('playBtn');
+  function goto(i){
+    idx = Math.max(0, Math.min(order.length-1, i));
+    // 若節點在折疊群組內，先展開
+    if(order[idx]==='card-7') document.getElementById('card-7').classList.remove('collapsed');
+    highlight(order[idx], true);
+  }
+  function stop(){ clearInterval(timer); timer=null; playBtn.textContent='▶ 重播'; playBtn.classList.add('primary'); }
+  function play(){
+    if(timer){ stop(); return; }
+    if(idx>=order.length-1) idx=-1;
+    playBtn.textContent='⏸ 暫停';
+    timer = setInterval(()=>{
+      if(idx>=order.length-1){ stop(); return; }
+      goto(idx+1);
+    }, 1500);
+    goto(idx+1);
+  }
+  playBtn.addEventListener('click',play);
+  document.getElementById('nextBtn').addEventListener('click',()=>{stop();goto(idx+1);});
+  document.getElementById('prevBtn').addEventListener('click',()=>{stop();goto(idx-1);});
+</script>
+</body>
+</html>
