@@ -2,6 +2,37 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R1 — 測試地基｜2026-07-04｜✅ 已完成並驗證
+
+依 [PSM_DIT_v1.0.md](PSM_DIT_v1.0.md) §3.2 R1 施工。首個里程碑起，本資料夾已 `git init`
+（ADR-014），本 R 於 feature branch `feat/r1-test-foundation` 進行。
+
+- [x] **Repo 初始化**：`git init` + `.gitignore`（排除 `node_modules/`/`dist/`/`archive/`），
+  基線 commit `chore: baseline DIT M1-M3 accepted state`，預設分支 `main`。
+- [x] **Vitest 配置**：`vite.config.ts` 加 `test` 區塊（`environment: "node"`，因本輪僅測純函式，
+  無元件測試）；`package.json` 加 `"test": "vitest run"`。
+- [x] **第二份 fixture**：`src/fixtures/subagentSession.jsonl`——含 `isSidechain:true` 的
+  subagent 內部步驟（Task 工具派送 → 子代理人 Grep 兩輪 → 回報）、一則長輸出（含測試框架
+  coverage 摘要格式的 `tool_result`）、兩個使用者任務分界（先查清單、再統一改用中央處理並跑測試），
+  為 R4 子代理人跨檔串接鋪路。
+- [x] **Pipeline 快照測試**（`src/core/pipeline.test.ts`）：對 `sampleSession`/`subagentSession`
+  兩份 fixture 做 adapter→normalize→denoise→distill 全流程快照；另驗證空輸入/無法辨識格式/
+  解析後零可呈現節點皆拋 `PipelineError`（不是原始例外）。
+- [x] **Denoiser 單元測試**（`src/core/denoise/denoiser.test.ts`）：milestone / error / retry /
+  decision / edit-loop 五條規則各至少一正一反例，共 13 個案例（含「思考層才算 decision，
+  回覆文字不算」「不同工具/不同檔案才打斷連續編輯」等邊界）。
+- [x] **Distiller 單元測試**（`src/core/distill/distiller.test.ts`）：spine 三種
+  （objective/decision/outcome）與 rib 四種（investigation/error/retry/edit-loop）各正反例，
+  共 13 個案例（含「錯誤已上拋父卡，故 tool_result 本身略過」「同群組僅代表 span 出一條 rib」）。
+- [x] **容錯測試**（`src/core/adapters/claudeCodeJsonl.test.ts`）：損壞 JSON 行、未知事件型別、
+  已知噪音型別、空白輸入皆不拋例外且 warnings 正確帶行號/型別名；另於 pipeline 層驗證
+  「損壞行＋未知型別混合」仍能產出文件並保留全部 warnings。
+- 驗證：`npm test` 4 個測試檔、42 個案例全綠；`npm run build`（tsc + vite build）75 modules 全綠。
+- 過程備註：vitest 4.1.9 在跑測試時透過 `vite:react-babel` 插件印出
+  `esbuild`/`oxc` 已棄用選項警告（純工具鏈訊息，`vite build` 本身不出現，不影響測試/建置結果，
+  未動任何專案程式碼修正，記錄供日後升級 vitest 時參考）。
+- 未做（依 PSM 範圍界定）：元件測試、E2E（本階段收益低，留待日後 R 視需要補）。
+
 ## M3 — 實機驗收回饋修正｜2026-06-26｜✅ 已完成並驗證
 
 依使用者第一輪實機驗收回饋：
