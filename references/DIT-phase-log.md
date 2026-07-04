@@ -76,3 +76,62 @@
 ## Open Questions / TODO
 - 目前所屬 phase：Phase 3 已完成交付，**正處於等待使用者實機驗收的邊界**；驗收結果決定下一步。
 - Phase 4 候選（見 docs/BACKLOG.md）：接本地 Ollama 實測講解品質、響應式/行動版、大檔虛擬化、自動化測試、雲端 Provider 實作、魚骨上方「觀念 rib」需講解層產生。
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 4 – R1 Test Foundation (PSM R-numbering)
+- Status: completed (merged to main)
+- Date: 2026-07-04
+- Detail: docs/PROGRESS.md (R1 section) + docs/PSM_DIT_v1.0.md (§3.2 R1, §5)
+
+## Context shift
+- M1–M3 accepted; repo was not under version control. PSM_DIT_v1.0 (v1.2) is now the single build entry point; execution order fixed R1→R7→R2→R3→R4→R5→R6 (ADR-012).
+- ADR-014: `git init` in place (no new repo, nothing archived); baseline commit, then feature branch per milestone.
+
+## Goals
+- Establish the test foundation so every later milestone can touch the pipeline without manual regression.
+
+## Decisions
+- Vitest with node environment (pure-function tests only this round; no component/E2E tests — low value now).
+- Pipeline snapshot tests are the SIT gate; committed snapshots freeze adapter→normalize→denoise→distill output.
+- Added a second fixture (subagentSession.jsonl) with isSidechain / long output / multi-task boundaries to seed R4.
+
+## Changes
+- git: `.gitignore` (node_modules/dist/archive), baseline commit on main, branch feat/r1-test-foundation.
+- package.json + vite.config.ts: Vitest wired (`npm test` = vitest run).
+- src/fixtures/subagentSession.jsonl + index.ts: second fixture.
+- src/core/pipeline.test.ts, denoise/denoiser.test.ts, distill/distiller.test.ts, adapters/claudeCodeJsonl.test.ts + __snapshots__: 42 test cases.
+
+## Open Questions / TODO
+- None blocking. `npm test` 42/42 + `npm run build` green.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 5 – R7 i18n + anti-slop Editorial Redesign
+- Status: completed (merged to main)
+- Date: 2026-07-04
+- Detail: docs/PROGRESS.md (R7 section) + docs/PSM_DIT_v1.0.md (§3.2 R7, ADR-015~018)
+
+## Goals
+- Ship a zh-TW/EN bilingual module and remove the "AI-SaaS" look in favor of a plain, deliberate editorial design.
+
+## Decisions (UX pre-locked before build, ADR-015~018)
+- Visual direction: editorial serif — Georgia/宋體, ink #1c1a17 on warm paper, single oxblood accent #7c2128, hairline rules, no shadows, borderless cards with left-rule emphasis.
+- Remove all emoji → text labels / geometric marks (sidebar dots, text-label fishbone nodes, guillemet replay controls).
+- Default language zh-TW; language switch via Header dropdown; teaching-prompt output language follows UI locale.
+- Custom lightweight i18n (src/i18n), no i18next. EN typed against zh-TW shape (missing key = compile error).
+- Scope boundary: core diagnostic messages (PipelineError / adapter warnings / checkOllama) stay zh-TW — not i18n'd into core to avoid reverse coupling.
+- Comment-language convention confirmed: machine/AI-read → English, human-read → Chinese; existing Chinese comments kept.
+- Digit alignment fix (user feedback): @font-face + unicode-range U+0030-0039 maps digits to a sans face (lining figures), leaving serif text intact.
+
+## Changes
+- src/i18n/locales.ts + index.ts: dictionary + useT()/useLocale().
+- src/store/sessionStore.ts: locale/setLocale; locale threaded into annotate ctx.
+- src/core/llm/{types,prompt,ollama}.ts: AnnotateContext.locale; buildSystemPrompt(locale).
+- src/components/*: all strings via i18n; labels.ts reduced to visual constants; emoji removed.
+- src/styles/index.css: editorial-serif token + component redesign; LiningNums @font-face.
+- docs/PROGRESS.md, docs/PSM_DIT_v1.0.md: R7 logged, §3.2 ticked, ADR-015~018.
+
+## Open Questions / TODO
+- Verified live: language switch is immediate and state-preserving; grep src/components shows CJK only in comments.
+- Next milestone: **R2 – Ollama annotation quality UAT** (needs the user's local machine; run annotateAll on a real session, tune prompt.ts only, produce docs/UAT_ollama_<date>.md).
