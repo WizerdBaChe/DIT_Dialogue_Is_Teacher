@@ -2,6 +2,33 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R7 — i18n 雙語 + anti-slop 編輯排印版面｜2026-07-04｜✅ 已完成並驗證
+
+依 PSM §3.2 R7 施工，於 feature branch `feat/r7-i18n-antislop`。實作前先拍板 4 項 UX 語意
+（ADR-015~018）：編輯排印風、移除 emoji、預設 zh-TW、Header 下拉切換。
+
+- [x] **i18n 雙語模組（自製輕量，零依賴）**：新增 `src/i18n/locales.ts`（zh-TW 權威字典 +
+  EN，EN 以 `typeof zhTW` 型別約束，缺鍵/型別不符即編譯錯）與 `src/i18n/index.ts`
+  （`useT()` / `useLocale()`）。store 加 `locale`（預設 zh-TW）/`setLocale`。所有元件面向使用者的
+  中文移入字典；`src/components/labels.ts` 縮為與語言無關的視覺常數（節點記號、CSS class）。
+- [x] **講解層 prompt 語言跟隨 UI**：`AnnotateContext.locale`；`prompt.ts` 依 locale 切換
+  system/user prompt 與要求的回覆語言；`ollama.ts` 改呼叫 `buildSystemPrompt(ctx.locale)`。
+- [x] **語言切換**：Header 下拉（繁體中文 / English）；實機驗證切換即時生效、已載入 session 與
+  講解/選取狀態不丟失（store 只換 locale，不動 doc）。
+- [x] **anti-slop 編輯排印風（ADR-015）**：`:root` 重做——襯線內文/標題（Georgia/宋體）、
+  15px、line-height 1.75、ink `#1c1a17` + 暖白紙面、單一暗紅 accent `#7c2128`、hairline 細線、
+  **全面移除 box-shadow**；無框卡片靠左規 + 底部細線分區；眉標走無襯線小型大寫。
+- [x] **移除 emoji（ADR-016）**：側欄改幾何記號（● ○ ◇ ▸ ↳ ■）、魚骨節點/支線與徽章改純文字
+  標籤 + 邊框配色區辨、播放鍵改 guillemets（‹ ›）、思考/群組/資訊框去 emoji。
+- [x] **數字對齊修正（使用者回饋）**：Georgia 舊體數字在襯線文字中高低不齊 → 以
+  `@font-face` + `unicode-range: U+0030-0039` 只把數字映射到 sans（Arial）的 lining figures，
+  其餘襯線字元不動。
+- 驗收：`npm test` 42/42 全綠、`npm run build` 77 modules 全綠、主控台無錯誤；
+  grep `src/components` 僅註解命中中文（零硬編 UI 字串）；認知/高密度雙模式與中/英切換均實機確認。
+- **範圍界定**：core 層診斷訊息（pipeline `PipelineError`、adapter warnings、`checkOllama` 狀態）
+  維持 zh-TW——屬資料流診斷、非 UI chrome，避免 i18n 反向耦合進 core；如日後需雙語化，改走錯誤碼。
+- 註解語言：依 codebase 慣例（AI/程式讀→英文、人類讀→中文），既有中文註解保留。
+
 ## R1 — 測試地基｜2026-07-04｜✅ 已完成並驗證
 
 依 [PSM_DIT_v1.0.md](PSM_DIT_v1.0.md) §3.2 R1 施工。首個里程碑起，本資料夾已 `git init`
