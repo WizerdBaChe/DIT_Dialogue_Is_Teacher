@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
@@ -12,4 +13,8 @@ export default defineConfig({
   },
   // .jsonl 樣本以 ?raw 字串方式匯入（見 src/fixtures）。
   assetsInclude: ["**/*.jsonl"],
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+  },
 });

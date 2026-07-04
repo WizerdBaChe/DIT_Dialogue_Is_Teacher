@@ -1,0 +1,1524 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for sampleSession fixture 1`] = `
+{
+  "groups": [
+    {
+      "id": "group-0",
+      "kind": "edit-loop",
+      "label": "反覆修改 TodoList.jsx",
+      "spanIds": [
+        "span-14",
+        "span-17",
+      ],
+    },
+  ],
+  "schemaVersion": "0.1",
+  "session": {
+    "id": "demo-todo",
+    "model": "claude-opus-4-8",
+    "projectPath": "D:\\demo\\todo-app",
+    "source": "claude-code",
+    "startedAt": "2026-06-25T10:00:00.000Z",
+    "title": "修好刪除待辦後列表不更新",
+    "tool": "claude-code",
+  },
+  "skeleton": {
+    "nodes": [
+      {
+        "kind": "objective",
+        "label": "刪除待辦後，畫面列表沒有更新，要重新整理才會對。幫我修。",
+        "order": 0,
+        "spanId": "span-0",
+      },
+      {
+        "kind": "decision",
+        "label": "找到了：splice 直接改原陣列，setTodos 傳…",
+        "order": 5,
+        "spanId": "span-5",
+      },
+      {
+        "kind": "decision",
+        "label": "測試失敗是因為 key 用了陣列 index，刪除中間項…",
+        "order": 12,
+        "spanId": "span-12",
+      },
+      {
+        "kind": "outcome",
+        "label": "兩個根因都處理好了：(1) 改用不可變更新讓畫面會 re…",
+        "order": 22,
+        "spanId": "span-22",
+      },
+    ],
+    "ribs": [
+      {
+        "attachTo": "span-0",
+        "kind": "investigation",
+        "label": "Read TodoList.jsx",
+        "order": 3,
+        "spanId": "span-3",
+      },
+      {
+        "attachTo": "span-5",
+        "kind": "error",
+        "label": "Bash npm test",
+        "order": 10,
+        "spanId": "span-10",
+      },
+      {
+        "attachTo": "span-12",
+        "groupId": "group-0",
+        "kind": "edit-loop",
+        "label": "反覆修改 TodoList.jsx",
+        "order": 14,
+        "spanId": "span-14",
+      },
+      {
+        "attachTo": "span-12",
+        "kind": "retry",
+        "label": "Bash npm test",
+        "order": 20,
+        "spanId": "span-20",
+      },
+    ],
+    "schemaVersion": "0.1",
+  },
+  "spans": [
+    {
+      "durationMs": null,
+      "id": "span-0",
+      "order": 0,
+      "parentId": null,
+      "raw": {
+        "cwd": "D:\\demo\\todo-app",
+        "message": {
+          "content": "刪除待辦後，畫面列表沒有更新，要重新整理才會對。幫我修。",
+          "role": "user",
+        },
+        "parentUuid": null,
+        "sessionId": "demo-todo",
+        "timestamp": "2026-06-25T10:00:00.000Z",
+        "type": "user",
+        "uuid": "u1",
+      },
+      "startedAt": "2026-06-25T10:00:00.000Z",
+      "summary": "刪除待辦後，畫面列表沒有更新，要重新整理才會對。幫我修。",
+      "tags": [
+        "milestone",
+      ],
+      "text": "刪除待辦後，畫面列表沒有更新，要重新整理才會對。幫我修。",
+      "type": "user_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-1",
+      "order": 1,
+      "parentId": null,
+      "raw": {
+        "thinking": "資料有變但畫面沒變，最常見原因是直接 mutate 了原本的陣列，React 用引用比較偵測不到變化。先讀元件確認刪除邏輯，不要先猜著改。",
+        "type": "thinking",
+      },
+      "startedAt": "2026-06-25T10:00:08.000Z",
+      "summary": "資料有變但畫面沒變，最常見原因是直接 mutate 了原本的陣列，React 用引用比較偵測不到變化。先讀元件確認刪除邏輯，不要先猜著改。",
+      "tags": [],
+      "text": "資料有變但畫面沒變，最常見原因是直接 mutate 了原本的陣列，React 用引用比較偵測不到變化。先讀元件確認刪除邏輯，不要先猜著改。",
+      "type": "thinking",
+    },
+    {
+      "durationMs": null,
+      "id": "span-2",
+      "order": 2,
+      "parentId": null,
+      "raw": {
+        "text": "我先讀 TodoList.jsx，確認刪除按鈕的處理邏輯。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-25T10:00:08.000Z",
+      "summary": "我先讀 TodoList.jsx，確認刪除按鈕的處理邏輯。",
+      "tags": [],
+      "text": "我先讀 TodoList.jsx，確認刪除按鈕的處理邏輯。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-3",
+      "order": 3,
+      "parentId": null,
+      "raw": {
+        "id": "t1",
+        "input": {
+          "file_path": "src/TodoList.jsx",
+        },
+        "name": "Read",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-25T10:00:08.000Z",
+      "summary": "Read TodoList.jsx",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Read",
+        "params": {
+          "file_path": "src/TodoList.jsx",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-4",
+      "order": 4,
+      "parentId": "span-3",
+      "raw": {
+        "content": "function handleDelete(id) {
+  const idx = todos.findIndex(t => t.id === id);
+  todos.splice(idx, 1);        // 就地修改原陣列
+  setTodos(todos);             // 傳回同一個 reference
+}
+
+return todos.map((t, i) => <Todo key={i} todo={t} onDelete={handleDelete} />);",
+        "tool_use_id": "t1",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "function handleDelete(id) {
+  const idx = todos.findIndex(t => t.id === id);
+  todos.splice(idx, 1);        // 就地修改原陣列
+  setTodos(todos);             // 傳回同一個 reference
+}
+
+return todos.map((t, i) => <Todo key={i} todo={t} onDelete={handleDelete} />);",
+      },
+      "startedAt": "2026-06-25T10:00:10.000Z",
+      "summary": "結果 (7 行)",
+      "tags": [],
+      "text": "function handleDelete(id) {
+  const idx = todos.findIndex(t => t.id === id);
+  todos.splice(idx, 1);        // 就地修改原陣列
+  setTodos(todos);             // 傳回同一個 reference
+}
+
+return todos.map((t, i) => <Todo key={i} todo={t} onDelete={handleDelete} />);",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-5",
+      "order": 5,
+      "parentId": null,
+      "raw": {
+        "thinking": "找到了：splice 直接改原陣列，setTodos 傳回的還是同一個 reference，所以不會 re-render。決定改用 filter 回傳一個全新陣列。",
+        "type": "thinking",
+      },
+      "startedAt": "2026-06-25T10:00:20.000Z",
+      "summary": "找到了：splice 直接改原陣列，setTodos 傳回的還是同一個 reference，所以不會 re-render。決定改用 filt…",
+      "tags": [
+        "decision",
+      ],
+      "text": "找到了：splice 直接改原陣列，setTodos 傳回的還是同一個 reference，所以不會 re-render。決定改用 filter 回傳一個全新陣列。",
+      "type": "thinking",
+    },
+    {
+      "durationMs": null,
+      "id": "span-6",
+      "order": 6,
+      "parentId": null,
+      "raw": {
+        "text": "問題在於就地修改 state。我改用不可變更新（filter 回傳新陣列）。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-25T10:00:20.000Z",
+      "summary": "問題在於就地修改 state。我改用不可變更新（filter 回傳新陣列）。",
+      "tags": [],
+      "text": "問題在於就地修改 state。我改用不可變更新（filter 回傳新陣列）。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-7",
+      "order": 7,
+      "parentId": null,
+      "raw": {
+        "id": "t2",
+        "input": {
+          "file_path": "src/TodoList.jsx",
+          "new_string": "setTodos(todos.filter(t => t.id !== id));",
+          "old_string": "todos.splice(idx, 1);
+  setTodos(todos);",
+        },
+        "name": "Edit",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-25T10:00:20.000Z",
+      "summary": "Edit TodoList.jsx",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Edit",
+        "params": {
+          "file_path": "src/TodoList.jsx",
+          "new_string": "setTodos(todos.filter(t => t.id !== id));",
+          "old_string": "todos.splice(idx, 1);
+  setTodos(todos);",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-8",
+      "order": 8,
+      "parentId": "span-7",
+      "raw": {
+        "content": "Edit applied to src/TodoList.jsx",
+        "tool_use_id": "t2",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "Edit applied to src/TodoList.jsx",
+      },
+      "startedAt": "2026-06-25T10:00:21.000Z",
+      "summary": "結果 (1 行)",
+      "tags": [],
+      "text": "Edit applied to src/TodoList.jsx",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-9",
+      "order": 9,
+      "parentId": null,
+      "raw": {
+        "text": "跑測試驗證。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-25T10:00:28.000Z",
+      "summary": "跑測試驗證。",
+      "tags": [],
+      "text": "跑測試驗證。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-10",
+      "order": 10,
+      "parentId": null,
+      "raw": {
+        "id": "t3",
+        "input": {
+          "command": "npm test",
+        },
+        "name": "Bash",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-25T10:00:28.000Z",
+      "summary": "Bash npm test",
+      "tags": [
+        "error",
+      ],
+      "text": "",
+      "tool": {
+        "name": "Bash",
+        "params": {
+          "command": "npm test",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-11",
+      "order": 11,
+      "parentId": "span-10",
+      "raw": {
+        "content": "✓ removes the item from state
+✗ renders the correct remaining items after deleting middle item
+   Expected "Buy milk", received "Walk dog"
+
+Tests: 1 passed, 1 failed",
+        "is_error": true,
+        "tool_use_id": "t3",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": true,
+        "text": "✓ removes the item from state
+✗ renders the correct remaining items after deleting middle item
+   Expected "Buy milk", received "Walk dog"
+
+Tests: 1 passed, 1 failed",
+      },
+      "startedAt": "2026-06-25T10:00:35.000Z",
+      "summary": "工具錯誤",
+      "tags": [
+        "error",
+      ],
+      "text": "✓ removes the item from state
+✗ renders the correct remaining items after deleting middle item
+   Expected "Buy milk", received "Walk dog"
+
+Tests: 1 passed, 1 failed",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-12",
+      "order": 12,
+      "parentId": null,
+      "raw": {
+        "thinking": "測試失敗是因為 key 用了陣列 index，刪除中間項時 index 位移，React 會重用錯元件。應該改用穩定的 t.id 當 key。",
+        "type": "thinking",
+      },
+      "startedAt": "2026-06-25T10:00:45.000Z",
+      "summary": "測試失敗是因為 key 用了陣列 index，刪除中間項時 index 位移，React 會重用錯元件。應該改用穩定的 t.id 當 key…",
+      "tags": [
+        "decision",
+      ],
+      "text": "測試失敗是因為 key 用了陣列 index，刪除中間項時 index 位移，React 會重用錯元件。應該改用穩定的 t.id 當 key。",
+      "type": "thinking",
+    },
+    {
+      "durationMs": null,
+      "id": "span-13",
+      "order": 13,
+      "parentId": null,
+      "raw": {
+        "text": "還有第二個 bug：key 用 index。改用 t.id。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-25T10:00:45.000Z",
+      "summary": "還有第二個 bug：key 用 index。改用 t.id。",
+      "tags": [],
+      "text": "還有第二個 bug：key 用 index。改用 t.id。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-14",
+      "order": 14,
+      "parentId": null,
+      "raw": {
+        "id": "t4",
+        "input": {
+          "file_path": "src/TodoList.jsx",
+          "new_string": "key={t.id}",
+          "old_string": "key={i}",
+        },
+        "name": "Edit",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-25T10:00:45.000Z",
+      "summary": "Edit TodoList.jsx",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Edit",
+        "params": {
+          "file_path": "src/TodoList.jsx",
+          "new_string": "key={t.id}",
+          "old_string": "key={i}",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-15",
+      "order": 15,
+      "parentId": "span-14",
+      "raw": {
+        "content": "Edit applied to src/TodoList.jsx",
+        "tool_use_id": "t4",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "Edit applied to src/TodoList.jsx",
+      },
+      "startedAt": "2026-06-25T10:00:46.000Z",
+      "summary": "結果 (1 行)",
+      "tags": [],
+      "text": "Edit applied to src/TodoList.jsx",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-16",
+      "order": 16,
+      "parentId": null,
+      "raw": {
+        "text": "順手移除沒用到的 index 參數。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-25T10:00:52.000Z",
+      "summary": "順手移除沒用到的 index 參數。",
+      "tags": [],
+      "text": "順手移除沒用到的 index 參數。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-17",
+      "order": 17,
+      "parentId": null,
+      "raw": {
+        "id": "t5",
+        "input": {
+          "file_path": "src/TodoList.jsx",
+          "new_string": "todos.map((t) =>",
+          "old_string": "todos.map((t, i) =>",
+        },
+        "name": "Edit",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-25T10:00:52.000Z",
+      "summary": "Edit TodoList.jsx",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Edit",
+        "params": {
+          "file_path": "src/TodoList.jsx",
+          "new_string": "todos.map((t) =>",
+          "old_string": "todos.map((t, i) =>",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-18",
+      "order": 18,
+      "parentId": "span-17",
+      "raw": {
+        "content": "Edit applied to src/TodoList.jsx",
+        "tool_use_id": "t5",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "Edit applied to src/TodoList.jsx",
+      },
+      "startedAt": "2026-06-25T10:00:53.000Z",
+      "summary": "結果 (1 行)",
+      "tags": [],
+      "text": "Edit applied to src/TodoList.jsx",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-19",
+      "order": 19,
+      "parentId": null,
+      "raw": {
+        "text": "再跑一次測試。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-25T10:00:59.000Z",
+      "summary": "再跑一次測試。",
+      "tags": [],
+      "text": "再跑一次測試。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-20",
+      "order": 20,
+      "parentId": null,
+      "raw": {
+        "id": "t6",
+        "input": {
+          "command": "npm test",
+        },
+        "name": "Bash",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-25T10:00:59.000Z",
+      "summary": "Bash npm test",
+      "tags": [
+        "milestone",
+        "retry",
+      ],
+      "text": "",
+      "tool": {
+        "name": "Bash",
+        "params": {
+          "command": "npm test",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-21",
+      "order": 21,
+      "parentId": "span-20",
+      "raw": {
+        "content": "✓ removes the item from state
+✓ renders the correct remaining items after deleting middle item
+
+Tests: 2 passed, 2 total",
+        "tool_use_id": "t6",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "✓ removes the item from state
+✓ renders the correct remaining items after deleting middle item
+
+Tests: 2 passed, 2 total",
+      },
+      "startedAt": "2026-06-25T10:01:06.000Z",
+      "summary": "結果 (4 行)",
+      "tags": [
+        "milestone",
+      ],
+      "text": "✓ removes the item from state
+✓ renders the correct remaining items after deleting middle item
+
+Tests: 2 passed, 2 total",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-22",
+      "order": 22,
+      "parentId": null,
+      "raw": {
+        "text": "兩個根因都處理好了：(1) 改用不可變更新讓畫面會 re-render；(2) key 改用穩定 id。測試全數通過。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-25T10:01:10.000Z",
+      "summary": "兩個根因都處理好了：(1) 改用不可變更新讓畫面會 re-render；(2) key 改用穩定 id。測試全數通過。",
+      "tags": [],
+      "text": "兩個根因都處理好了：(1) 改用不可變更新讓畫面會 re-render；(2) key 改用穩定 id。測試全數通過。",
+      "type": "assistant_msg",
+    },
+  ],
+}
+`;
+
+exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for sampleSession fixture 2`] = `[]`;
+
+exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for subagentSession fixture 1`] = `
+{
+  "groups": [],
+  "schemaVersion": "0.1",
+  "session": {
+    "id": "demo-subagent",
+    "model": "claude-opus-4-8",
+    "projectPath": "D:\\demo\\api-service",
+    "source": "claude-code",
+    "startedAt": "2026-06-28T09:00:00.000Z",
+    "title": "重構 API 錯誤處理並新增測試覆蓋率",
+    "tool": "claude-code",
+  },
+  "skeleton": {
+    "nodes": [
+      {
+        "kind": "objective",
+        "label": "先幫我找出目前 API 錯誤處理散落在哪些檔案，整理一份…",
+        "order": 0,
+        "spanId": "span-0",
+      },
+      {
+        "kind": "decision",
+        "label": "這是一個跨檔案搜尋任務，範圍可能很大，交給 subage…",
+        "order": 1,
+        "spanId": "span-1",
+      },
+      {
+        "kind": "decision",
+        "label": "中央處理漏了 PaymentDeclinedError …",
+        "order": 16,
+        "spanId": "span-16",
+      },
+      {
+        "kind": "outcome",
+        "label": "完成：錯誤處理集中到 errorHandler（新增 P…",
+        "order": 32,
+        "spanId": "span-32",
+      },
+    ],
+    "ribs": [
+      {
+        "attachTo": "span-1",
+        "kind": "investigation",
+        "label": "Grep src",
+        "order": 5,
+        "spanId": "span-5",
+      },
+      {
+        "attachTo": "span-1",
+        "kind": "investigation",
+        "label": "Grep src",
+        "order": 7,
+        "spanId": "span-7",
+      },
+      {
+        "attachTo": "span-1",
+        "kind": "investigation",
+        "label": "Read errorHandler.ts",
+        "order": 14,
+        "spanId": "span-14",
+      },
+      {
+        "attachTo": "span-16",
+        "kind": "error",
+        "label": "Bash npm test",
+        "order": 23,
+        "spanId": "span-23",
+      },
+      {
+        "attachTo": "span-16",
+        "kind": "retry",
+        "label": "Bash npm test",
+        "order": 30,
+        "spanId": "span-30",
+      },
+    ],
+    "schemaVersion": "0.1",
+  },
+  "spans": [
+    {
+      "durationMs": null,
+      "id": "span-0",
+      "order": 0,
+      "parentId": null,
+      "raw": {
+        "cwd": "D:\\demo\\api-service",
+        "message": {
+          "content": "先幫我找出目前 API 錯誤處理散落在哪些檔案，整理一份清單。",
+          "role": "user",
+        },
+        "parentUuid": null,
+        "sessionId": "demo-subagent",
+        "timestamp": "2026-06-28T09:00:00.000Z",
+        "type": "user",
+        "uuid": "u1",
+      },
+      "startedAt": "2026-06-28T09:00:00.000Z",
+      "summary": "先幫我找出目前 API 錯誤處理散落在哪些檔案，整理一份清單。",
+      "tags": [
+        "milestone",
+      ],
+      "text": "先幫我找出目前 API 錯誤處理散落在哪些檔案，整理一份清單。",
+      "type": "user_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-1",
+      "order": 1,
+      "parentId": null,
+      "raw": {
+        "thinking": "這是一個跨檔案搜尋任務，範圍可能很大，交給 subagent 去做全庫搜尋比較不會佔用主線 context。決定改用 Task 工具派送子代理人。",
+        "type": "thinking",
+      },
+      "startedAt": "2026-06-28T09:00:05.000Z",
+      "summary": "這是一個跨檔案搜尋任務，範圍可能很大，交給 subagent 去做全庫搜尋比較不會佔用主線 context。決定改用 Task 工具派送子代…",
+      "tags": [
+        "decision",
+      ],
+      "text": "這是一個跨檔案搜尋任務，範圍可能很大，交給 subagent 去做全庫搜尋比較不會佔用主線 context。決定改用 Task 工具派送子代理人。",
+      "type": "thinking",
+    },
+    {
+      "durationMs": null,
+      "id": "span-2",
+      "order": 2,
+      "parentId": null,
+      "raw": {
+        "text": "我派一個子代理人去掃描整個專案的錯誤處理程式碼。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:00:05.000Z",
+      "summary": "我派一個子代理人去掃描整個專案的錯誤處理程式碼。",
+      "tags": [],
+      "text": "我派一個子代理人去掃描整個專案的錯誤處理程式碼。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-3",
+      "order": 3,
+      "parentId": null,
+      "raw": {
+        "id": "t1",
+        "input": {
+          "description": "掃描錯誤處理",
+          "prompt": "在 src/ 下搜尋所有 try/catch 與自訂 Error 類別，回報檔案清單",
+        },
+        "name": "Task",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:00:05.000Z",
+      "summary": "Task",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Task",
+        "params": {
+          "description": "掃描錯誤處理",
+          "prompt": "在 src/ 下搜尋所有 try/catch 與自訂 Error 類別，回報檔案清單",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-4",
+      "order": 4,
+      "parentId": null,
+      "raw": {
+        "thinking": "先用 Grep 找 try/catch 關鍵字，再找自訂 Error class 定義。",
+        "type": "thinking",
+      },
+      "startedAt": "2026-06-28T09:00:06.000Z",
+      "summary": "先用 Grep 找 try/catch 關鍵字，再找自訂 Error class 定義。",
+      "tags": [],
+      "text": "先用 Grep 找 try/catch 關鍵字，再找自訂 Error class 定義。",
+      "type": "thinking",
+    },
+    {
+      "durationMs": null,
+      "id": "span-5",
+      "order": 5,
+      "parentId": null,
+      "raw": {
+        "id": "st1",
+        "input": {
+          "path": "src",
+          "pattern": "try \\{",
+        },
+        "name": "Grep",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:00:06.000Z",
+      "summary": "Grep src",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Grep",
+        "params": {
+          "path": "src",
+          "pattern": "try \\{",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-6",
+      "order": 6,
+      "parentId": "span-5",
+      "raw": {
+        "content": "src/routes/orders.ts:12
+src/routes/users.ts:30
+src/routes/payments.ts:8
+src/services/orderService.ts:44
+src/services/userService.ts:19
+src/services/paymentService.ts:61
+src/middleware/errorHandler.ts:5
+src/middleware/errorHandler.ts:22
+src/utils/retry.ts:14
+src/utils/httpClient.ts:33",
+        "tool_use_id": "st1",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "src/routes/orders.ts:12
+src/routes/users.ts:30
+src/routes/payments.ts:8
+src/services/orderService.ts:44
+src/services/userService.ts:19
+src/services/paymentService.ts:61
+src/middleware/errorHandler.ts:5
+src/middleware/errorHandler.ts:22
+src/utils/retry.ts:14
+src/utils/httpClient.ts:33",
+      },
+      "startedAt": "2026-06-28T09:00:07.000Z",
+      "summary": "結果 (10 行)",
+      "tags": [],
+      "text": "src/routes/orders.ts:12
+src/routes/users.ts:30
+src/routes/payments.ts:8
+src/services/orderService.ts:44
+src/services/userService.ts:19
+src/services/paymentService.ts:61
+src/middleware/errorHandler.ts:5
+src/middleware/errorHandler.ts:22
+src/utils/retry.ts:14
+src/utils/httpClient.ts:33",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-7",
+      "order": 7,
+      "parentId": null,
+      "raw": {
+        "id": "st2",
+        "input": {
+          "path": "src",
+          "pattern": "class \\w+Error extends",
+        },
+        "name": "Grep",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:00:09.000Z",
+      "summary": "Grep src",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Grep",
+        "params": {
+          "path": "src",
+          "pattern": "class \\w+Error extends",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-8",
+      "order": 8,
+      "parentId": "span-7",
+      "raw": {
+        "content": "src/errors/ValidationError.ts:1
+src/errors/NotFoundError.ts:1
+src/errors/PaymentDeclinedError.ts:1
+src/errors/UnauthorizedError.ts:1",
+        "tool_use_id": "st2",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "src/errors/ValidationError.ts:1
+src/errors/NotFoundError.ts:1
+src/errors/PaymentDeclinedError.ts:1
+src/errors/UnauthorizedError.ts:1",
+      },
+      "startedAt": "2026-06-28T09:00:10.000Z",
+      "summary": "結果 (4 行)",
+      "tags": [],
+      "text": "src/errors/ValidationError.ts:1
+src/errors/NotFoundError.ts:1
+src/errors/PaymentDeclinedError.ts:1
+src/errors/UnauthorizedError.ts:1",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-9",
+      "order": 9,
+      "parentId": null,
+      "raw": {
+        "text": "掃描完成：10 處 try/catch、4 個自訂 Error 類別，散落在 routes/services/middleware/utils/errors 五個目錄。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:00:12.000Z",
+      "summary": "掃描完成：10 處 try/catch、4 個自訂 Error 類別，散落在 routes/services/middleware/utils/errors 五個目錄。",
+      "tags": [],
+      "text": "掃描完成：10 處 try/catch、4 個自訂 Error 類別，散落在 routes/services/middleware/utils/errors 五個目錄。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-10",
+      "order": 10,
+      "parentId": "span-3",
+      "raw": {
+        "content": "子代理人回報：10 處 try/catch、4 個自訂 Error 類別（ValidationError/NotFoundError/PaymentDeclinedError/UnauthorizedError），散落在 routes(3)/services(3)/middleware(2)/utils(2)/errors(4) 共五個目錄。",
+        "tool_use_id": "t1",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "子代理人回報：10 處 try/catch、4 個自訂 Error 類別（ValidationError/NotFoundError/PaymentDeclinedError/UnauthorizedError），散落在 routes(3)/services(3)/middleware(2)/utils(2)/errors(4) 共五個目錄。",
+      },
+      "startedAt": "2026-06-28T09:00:15.000Z",
+      "summary": "結果 (1 行)",
+      "tags": [],
+      "text": "子代理人回報：10 處 try/catch、4 個自訂 Error 類別（ValidationError/NotFoundError/PaymentDeclinedError/UnauthorizedError），散落在 routes(3)/services(3)/middleware(2)/utils(2)/errors(4) 共五個目錄。",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-11",
+      "order": 11,
+      "parentId": null,
+      "raw": {
+        "text": "清單整理好了，散落在五個目錄、共 10 處手動 try/catch。要不要我接著統一改用中央 errorHandler middleware？",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:00:20.000Z",
+      "summary": "清單整理好了，散落在五個目錄、共 10 處手動 try/catch。要不要我接著統一改用中央 errorHandler middleware？",
+      "tags": [],
+      "text": "清單整理好了，散落在五個目錄、共 10 處手動 try/catch。要不要我接著統一改用中央 errorHandler middleware？",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-12",
+      "order": 12,
+      "parentId": null,
+      "raw": {
+        "message": {
+          "content": "好，統一改用中央處理，然後跑一次完整測試套件確認沒壞掉。",
+          "role": "user",
+        },
+        "parentUuid": "a2",
+        "sessionId": "demo-subagent",
+        "timestamp": "2026-06-28T09:05:00.000Z",
+        "type": "user",
+        "uuid": "u3",
+      },
+      "startedAt": "2026-06-28T09:05:00.000Z",
+      "summary": "好，統一改用中央處理，然後跑一次完整測試套件確認沒壞掉。",
+      "tags": [
+        "milestone",
+      ],
+      "text": "好，統一改用中央處理，然後跑一次完整測試套件確認沒壞掉。",
+      "type": "user_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-13",
+      "order": 13,
+      "parentId": null,
+      "raw": {
+        "text": "先讀 errorHandler.ts 確認現有中央處理的介面。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:05:10.000Z",
+      "summary": "先讀 errorHandler.ts 確認現有中央處理的介面。",
+      "tags": [],
+      "text": "先讀 errorHandler.ts 確認現有中央處理的介面。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-14",
+      "order": 14,
+      "parentId": null,
+      "raw": {
+        "id": "t2",
+        "input": {
+          "file_path": "src/middleware/errorHandler.ts",
+        },
+        "name": "Read",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:05:10.000Z",
+      "summary": "Read errorHandler.ts",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Read",
+        "params": {
+          "file_path": "src/middleware/errorHandler.ts",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-15",
+      "order": 15,
+      "parentId": "span-14",
+      "raw": {
+        "content": "export function errorHandler(err, req, res, next) {
+  if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+  if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+  console.error(err);
+  res.status(500).json({ error: 'internal error' });
+}",
+        "tool_use_id": "t2",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "export function errorHandler(err, req, res, next) {
+  if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+  if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+  console.error(err);
+  res.status(500).json({ error: 'internal error' });
+}",
+      },
+      "startedAt": "2026-06-28T09:05:11.000Z",
+      "summary": "結果 (6 行)",
+      "tags": [],
+      "text": "export function errorHandler(err, req, res, next) {
+  if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+  if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+  console.error(err);
+  res.status(500).json({ error: 'internal error' });
+}",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-16",
+      "order": 16,
+      "parentId": null,
+      "raw": {
+        "thinking": "中央處理漏了 PaymentDeclinedError 和 UnauthorizedError 兩種，難怪各檔案還要自己 try/catch 補上。決定在 errorHandler 補上這兩種分支，其餘呼叫端的 try/catch 就能移除。",
+        "type": "thinking",
+      },
+      "startedAt": "2026-06-28T09:05:20.000Z",
+      "summary": "中央處理漏了 PaymentDeclinedError 和 UnauthorizedError 兩種，難怪各檔案還要自己 try/catch…",
+      "tags": [
+        "decision",
+      ],
+      "text": "中央處理漏了 PaymentDeclinedError 和 UnauthorizedError 兩種，難怪各檔案還要自己 try/catch 補上。決定在 errorHandler 補上這兩種分支，其餘呼叫端的 try/catch 就能移除。",
+      "type": "thinking",
+    },
+    {
+      "durationMs": null,
+      "id": "span-17",
+      "order": 17,
+      "parentId": null,
+      "raw": {
+        "id": "t3",
+        "input": {
+          "file_path": "src/middleware/errorHandler.ts",
+          "new_string": "if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+  if (err instanceof PaymentDeclinedError) return res.status(402).json({ error: err.message });
+  if (err instanceof UnauthorizedError) return res.status(401).json({ error: err.message });",
+          "old_string": "if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });",
+        },
+        "name": "Edit",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:05:20.000Z",
+      "summary": "Edit errorHandler.ts",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Edit",
+        "params": {
+          "file_path": "src/middleware/errorHandler.ts",
+          "new_string": "if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+  if (err instanceof PaymentDeclinedError) return res.status(402).json({ error: err.message });
+  if (err instanceof UnauthorizedError) return res.status(401).json({ error: err.message });",
+          "old_string": "if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-18",
+      "order": 18,
+      "parentId": "span-17",
+      "raw": {
+        "content": "Edit applied to src/middleware/errorHandler.ts",
+        "tool_use_id": "t3",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "Edit applied to src/middleware/errorHandler.ts",
+      },
+      "startedAt": "2026-06-28T09:05:21.000Z",
+      "summary": "結果 (1 行)",
+      "tags": [],
+      "text": "Edit applied to src/middleware/errorHandler.ts",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-19",
+      "order": 19,
+      "parentId": null,
+      "raw": {
+        "text": "移除 paymentService 裡多餘的手動 catch。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:05:30.000Z",
+      "summary": "移除 paymentService 裡多餘的手動 catch。",
+      "tags": [],
+      "text": "移除 paymentService 裡多餘的手動 catch。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-20",
+      "order": 20,
+      "parentId": null,
+      "raw": {
+        "id": "t4",
+        "input": {
+          "file_path": "src/services/paymentService.ts",
+          "new_string": "return await charge(order);",
+          "old_string": "try { return await charge(order); } catch (e) { if (e instanceof PaymentDeclinedError) throw e; throw new Error('payment failed'); }",
+        },
+        "name": "Edit",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:05:30.000Z",
+      "summary": "Edit paymentService.ts",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Edit",
+        "params": {
+          "file_path": "src/services/paymentService.ts",
+          "new_string": "return await charge(order);",
+          "old_string": "try { return await charge(order); } catch (e) { if (e instanceof PaymentDeclinedError) throw e; throw new Error('payment failed'); }",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-21",
+      "order": 21,
+      "parentId": "span-20",
+      "raw": {
+        "content": "Edit applied to src/services/paymentService.ts",
+        "tool_use_id": "t4",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "Edit applied to src/services/paymentService.ts",
+      },
+      "startedAt": "2026-06-28T09:05:31.000Z",
+      "summary": "結果 (1 行)",
+      "tags": [],
+      "text": "Edit applied to src/services/paymentService.ts",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-22",
+      "order": 22,
+      "parentId": null,
+      "raw": {
+        "text": "跑完整測試套件確認沒壞掉。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:05:40.000Z",
+      "summary": "跑完整測試套件確認沒壞掉。",
+      "tags": [],
+      "text": "跑完整測試套件確認沒壞掉。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-23",
+      "order": 23,
+      "parentId": null,
+      "raw": {
+        "id": "t5",
+        "input": {
+          "command": "npm test",
+        },
+        "name": "Bash",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:05:40.000Z",
+      "summary": "Bash npm test",
+      "tags": [
+        "error",
+      ],
+      "text": "",
+      "tool": {
+        "name": "Bash",
+        "params": {
+          "command": "npm test",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-24",
+      "order": 24,
+      "parentId": "span-23",
+      "raw": {
+        "content": "PASS  src/routes/orders.test.ts
+PASS  src/routes/users.test.ts
+FAIL  src/services/paymentService.test.ts
+  ● payment service › declines invalid card
+    expect(received).rejects.toThrow(PaymentDeclinedError)
+    Received promise resolved instead of rejected
+      at Object.<anonymous> (src/services/paymentService.test.ts:22:5)
+PASS  src/middleware/errorHandler.test.ts
+PASS  src/utils/retry.test.ts
+PASS  src/utils/httpClient.test.ts
+PASS  src/errors/ValidationError.test.ts
+PASS  src/errors/NotFoundError.test.ts
+PASS  src/errors/UnauthorizedError.test.ts
+
+Test Suites: 1 failed, 8 passed, 9 total
+Tests:       1 failed, 27 passed, 28 total
+Snapshots:   0 total
+Time:        4.821s
+Ran all test suites.
+
+--- coverage summary ---
+File                          | % Stmts | % Branch | % Funcs | % Lines
+------------------------------|---------|----------|---------|--------
+All files                     |   88.42 |    81.03 |   90.11 |   88.02
+ src/errors                   |  100.00 |   100.00 |  100.00 |  100.00
+ src/middleware                |   95.23 |    88.88 |  100.00 |   94.73
+ src/routes                    |   86.66 |    75.00 |   85.71 |   86.66
+ src/services                  |   79.31 |    66.66 |   80.00 |   78.57
+ src/utils                     |   90.00 |    83.33 |   90.00 |   90.00
+------------------------------|---------|----------|---------|--------",
+        "is_error": true,
+        "tool_use_id": "t5",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": true,
+        "text": "PASS  src/routes/orders.test.ts
+PASS  src/routes/users.test.ts
+FAIL  src/services/paymentService.test.ts
+  ● payment service › declines invalid card
+    expect(received).rejects.toThrow(PaymentDeclinedError)
+    Received promise resolved instead of rejected
+      at Object.<anonymous> (src/services/paymentService.test.ts:22:5)
+PASS  src/middleware/errorHandler.test.ts
+PASS  src/utils/retry.test.ts
+PASS  src/utils/httpClient.test.ts
+PASS  src/errors/ValidationError.test.ts
+PASS  src/errors/NotFoundError.test.ts
+PASS  src/errors/UnauthorizedError.test.ts
+
+Test Suites: 1 failed, 8 passed, 9 total
+Tests:       1 failed, 27 passed, 28 total
+Snapshots:   0 total
+Time:        4.821s
+Ran all test suites.
+
+--- coverage summary ---
+File                          | % Stmts | % Branch | % Funcs | % Lines
+------------------------------|---------|----------|---------|--------
+All files                     |   88.42 |    81.03 |   90.11 |   88.02
+ src/errors                   |  100.00 |   100.00 |  100.00 |  100.00
+ src/middleware                |   95.23 |    88.88 |  100.00 |   94.73
+ src/routes                    |   86.66 |    75.00 |   85.71 |   86.66
+ src/services                  |   79.31 |    66.66 |   80.00 |   78.57
+ src/utils                     |   90.00 |    83.33 |   90.00 |   90.00
+------------------------------|---------|----------|---------|--------",
+      },
+      "startedAt": "2026-06-28T09:05:55.000Z",
+      "summary": "工具錯誤",
+      "tags": [
+        "error",
+      ],
+      "text": "PASS  src/routes/orders.test.ts
+PASS  src/routes/users.test.ts
+FAIL  src/services/paymentService.test.ts
+  ● payment service › declines invalid card
+    expect(received).rejects.toThrow(PaymentDeclinedError)
+    Received promise resolved instead of rejected
+      at Object.<anonymous> (src/services/paymentService.test.ts:22:5)
+PASS  src/middleware/errorHandler.test.ts
+PASS  src/utils/retry.test.ts
+PASS  src/utils/httpClient.test.ts
+PASS  src/errors/ValidationError.test.ts
+PASS  src/errors/NotFoundError.test.ts
+PASS  src/errors/UnauthorizedError.test.ts
+
+Test Suites: 1 failed, 8 passed, 9 total
+Tests:       1 failed, 27 passed, 28 total
+Snapshots:   0 total
+Time:        4.821s
+Ran all test suites.
+
+--- coverage summary ---
+File                          | % Stmts | % Branch | % Funcs | % Lines
+------------------------------|---------|----------|---------|--------
+All files                     |   88.42 |    81.03 |   90.11 |   88.02
+ src/errors                   |  100.00 |   100.00 |  100.00 |  100.00
+ src/middleware                |   95.23 |    88.88 |  100.00 |   94.73
+ src/routes                    |   86.66 |    75.00 |   85.71 |   86.66
+ src/services                  |   79.31 |    66.66 |   80.00 |   78.57
+ src/utils                     |   90.00 |    83.33 |   90.00 |   90.00
+------------------------------|---------|----------|---------|--------",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-25",
+      "order": 25,
+      "parentId": null,
+      "raw": {
+        "thinking": "失敗是因為我把 try/catch 整個拿掉，導致 PaymentDeclinedError 不再往上拋而是被吞掉。應該只移除多餘的轉譯 catch，但保留原本的 throw 讓錯誤往上冒。",
+        "type": "thinking",
+      },
+      "startedAt": "2026-06-28T09:06:05.000Z",
+      "summary": "失敗是因為我把 try/catch 整個拿掉，導致 PaymentDeclinedError 不再往上拋而是被吞掉。應該只移除多餘的轉譯 c…",
+      "tags": [],
+      "text": "失敗是因為我把 try/catch 整個拿掉，導致 PaymentDeclinedError 不再往上拋而是被吞掉。應該只移除多餘的轉譯 catch，但保留原本的 throw 讓錯誤往上冒。",
+      "type": "thinking",
+    },
+    {
+      "durationMs": null,
+      "id": "span-26",
+      "order": 26,
+      "parentId": null,
+      "raw": {
+        "text": "我改壞了：拿掉 try/catch 後錯誤沒有再往上拋。改回保留原本 throw，只移除多餘的轉譯。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:06:05.000Z",
+      "summary": "我改壞了：拿掉 try/catch 後錯誤沒有再往上拋。改回保留原本 throw，只移除多餘的轉譯。",
+      "tags": [],
+      "text": "我改壞了：拿掉 try/catch 後錯誤沒有再往上拋。改回保留原本 throw，只移除多餘的轉譯。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-27",
+      "order": 27,
+      "parentId": null,
+      "raw": {
+        "id": "t6",
+        "input": {
+          "file_path": "src/services/paymentService.ts",
+          "new_string": "return await charge(order); // charge() 本身已拋 PaymentDeclinedError，交由中央 errorHandler 處理",
+          "old_string": "return await charge(order);",
+        },
+        "name": "Edit",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:06:05.000Z",
+      "summary": "Edit paymentService.ts",
+      "tags": [],
+      "text": "",
+      "tool": {
+        "name": "Edit",
+        "params": {
+          "file_path": "src/services/paymentService.ts",
+          "new_string": "return await charge(order); // charge() 本身已拋 PaymentDeclinedError，交由中央 errorHandler 處理",
+          "old_string": "return await charge(order);",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-28",
+      "order": 28,
+      "parentId": "span-27",
+      "raw": {
+        "content": "Edit applied to src/services/paymentService.ts",
+        "tool_use_id": "t6",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "Edit applied to src/services/paymentService.ts",
+      },
+      "startedAt": "2026-06-28T09:06:06.000Z",
+      "summary": "結果 (1 行)",
+      "tags": [],
+      "text": "Edit applied to src/services/paymentService.ts",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-29",
+      "order": 29,
+      "parentId": null,
+      "raw": {
+        "text": "再跑一次測試確認。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:06:07.000Z",
+      "summary": "再跑一次測試確認。",
+      "tags": [],
+      "text": "再跑一次測試確認。",
+      "type": "assistant_msg",
+    },
+    {
+      "durationMs": null,
+      "id": "span-30",
+      "order": 30,
+      "parentId": null,
+      "raw": {
+        "id": "t7",
+        "input": {
+          "command": "npm test",
+        },
+        "name": "Bash",
+        "type": "tool_use",
+      },
+      "startedAt": "2026-06-28T09:06:07.000Z",
+      "summary": "Bash npm test",
+      "tags": [
+        "milestone",
+        "retry",
+      ],
+      "text": "",
+      "tool": {
+        "name": "Bash",
+        "params": {
+          "command": "npm test",
+        },
+      },
+      "type": "tool_use",
+    },
+    {
+      "durationMs": null,
+      "id": "span-31",
+      "order": 31,
+      "parentId": "span-30",
+      "raw": {
+        "content": "Test Suites: 9 passed, 9 total
+Tests:       28 passed, 28 total
+Snapshots:   0 total
+Time:        4.65s
+Ran all test suites.",
+        "tool_use_id": "t7",
+        "type": "tool_result",
+      },
+      "result": {
+        "isError": false,
+        "text": "Test Suites: 9 passed, 9 total
+Tests:       28 passed, 28 total
+Snapshots:   0 total
+Time:        4.65s
+Ran all test suites.",
+      },
+      "startedAt": "2026-06-28T09:06:20.000Z",
+      "summary": "結果 (5 行)",
+      "tags": [
+        "milestone",
+      ],
+      "text": "Test Suites: 9 passed, 9 total
+Tests:       28 passed, 28 total
+Snapshots:   0 total
+Time:        4.65s
+Ran all test suites.",
+      "type": "tool_result",
+    },
+    {
+      "durationMs": null,
+      "id": "span-32",
+      "order": 32,
+      "parentId": null,
+      "raw": {
+        "text": "完成：錯誤處理集中到 errorHandler（新增 Payment/Unauthorized 分支），移除多餘的重複 try/catch，測試 28 個全數通過。",
+        "type": "text",
+      },
+      "startedAt": "2026-06-28T09:06:25.000Z",
+      "summary": "完成：錯誤處理集中到 errorHandler（新增 Payment/Unauthorized 分支），移除多餘的重複 try/catch，測試 28 個全數通過。",
+      "tags": [],
+      "text": "完成：錯誤處理集中到 errorHandler（新增 Payment/Unauthorized 分支），移除多餘的重複 try/catch，測試 28 個全數通過。",
+      "type": "assistant_msg",
+    },
+  ],
+}
+`;
+
+exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for subagentSession fixture 2`] = `[]`;
