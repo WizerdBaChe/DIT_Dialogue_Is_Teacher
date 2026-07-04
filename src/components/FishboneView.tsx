@@ -2,12 +2,14 @@
  * 認知學習模式：魚骨橫向蒸餾視圖。
  * 主線 (spine) 橫向延伸；支線 (rib) 掛在節點下；有講解時於節點上方顯示「可帶走的觀念」。
  * 點任一節點/支線 → 下方詳情面板展開該節點的完整卡片 (重用 SpanCard/GroupCard) = drill-down。
+ * 種類差異靠文字標籤 + 邊框配色辨識 (ADR-016：不用 emoji)。
  */
 import { useMemo, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { useT, type Messages } from "@/i18n";
 import { buildFishbone, type FishboneStation } from "@/core/view/fishbone";
 import type { ViewItem } from "@/core/view/viewModel";
-import { SKELETON_NODE_META, SKELETON_RIB_META } from "./labels";
+import { SKELETON_NODE_CLS, SKELETON_RIB_CLS } from "./labels";
 import { SpanCard } from "./SpanCard";
 import { GroupCard } from "./GroupCard";
 
@@ -25,14 +27,16 @@ function Station({
   playingId,
   lesson,
   onSelect,
+  t,
 }: {
   station: FishboneStation;
   activeId: string | null;
   playingId: string | null;
   lesson?: string;
   onSelect: (id: string) => void;
+  t: Messages;
 }): ReactNode {
-  const meta = SKELETON_NODE_META[station.kind];
+  const kindLabel = t.skeletonNode[station.kind];
   const isActive = activeId === station.viewItemId;
   const isPlaying = playingId === station.viewItemId;
 
@@ -41,49 +45,45 @@ function Station({
       <div className="fb-concept">
         {lesson && (
           <div className="fb-lesson" title={lesson}>
-            💡 {lesson}
+            {t.fishbone.lessonPrefix}
+            {lesson}
           </div>
         )}
       </div>
 
       <button
         type="button"
-        className={`fb-node ${meta.cls} ${isPlaying ? "playing" : isActive ? "active" : ""}`}
+        className={`fb-node ${SKELETON_NODE_CLS[station.kind]} ${isPlaying ? "playing" : isActive ? "active" : ""}`}
         onClick={() => onSelect(station.viewItemId)}
         aria-pressed={isActive}
-        aria-label={`${meta.label}：${station.label}`}
+        aria-label={t.fishbone.nodeAria(kindLabel, station.label)}
       >
         <span className="fb-pill">
-          <span className="fb-icon" aria-hidden="true">
-            {meta.icon}
-          </span>
-          <span className="fb-kind">{meta.label}</span>
+          <span className="fb-kind">{kindLabel}</span>
         </span>
         <span className="fb-label">{station.label}</span>
       </button>
 
       <div className="fb-ribs">
-        {station.ribs.map((rib, i) => {
-          const rm = SKELETON_RIB_META[rib.kind];
-          return (
-            <button
-              key={`${rib.viewItemId}-${i}`}
-              type="button"
-              className={`fb-rib ${rm.cls} ${activeId === rib.viewItemId ? "active" : ""}`}
-              onClick={() => onSelect(rib.viewItemId)}
-              aria-label={`${rm.label}：${rib.label}`}
-            >
-              <span aria-hidden="true">{rm.icon}</span>
-              <span className="fb-rib-label">{rib.label}</span>
-            </button>
-          );
-        })}
+        {station.ribs.map((rib, i) => (
+          <button
+            key={`${rib.viewItemId}-${i}`}
+            type="button"
+            className={`fb-rib ${SKELETON_RIB_CLS[rib.kind]} ${activeId === rib.viewItemId ? "active" : ""}`}
+            onClick={() => onSelect(rib.viewItemId)}
+            aria-label={t.fishbone.nodeAria(t.skeletonRib[rib.kind], rib.label)}
+          >
+            <span className="fb-rib-kind">{t.skeletonRib[rib.kind]}</span>
+            <span className="fb-rib-label">{rib.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
 export function FishboneView(): ReactNode {
+  const t = useT();
   const doc = useSessionStore((s) => s.doc);
   const viewItems = useSessionStore((s) => s.viewItems);
   const activeId = useSessionStore((s) => s.activeId);
@@ -101,8 +101,8 @@ export function FishboneView(): ReactNode {
     return (
       <main className="main-content">
         <div className="empty-state">
-          <h2>此 session 無法蒸餾出主線</h2>
-          <p>可能是事件太少或型別不足。切到「高密度」模式仍可逐步檢視全部內容。</p>
+          <h2>{t.fishbone.noSpineTitle}</h2>
+          <p>{t.fishbone.noSpineBody}</p>
         </div>
       </main>
     );
@@ -111,20 +111,20 @@ export function FishboneView(): ReactNode {
   return (
     <main className="main-content cognitive">
       <div className="cog-intro">
-        <h2 className="cog-title">主線：把 {doc.spans.length} 步蒸餾成 {stations.length} 個關鍵節點</h2>
+        <h2 className="cog-title">{t.fishbone.spineTitle(doc.spans.length, stations.length)}</h2>
         <div className="cog-legend">
-          <span>🎯 目標</span>
-          <span>✦ 決策</span>
-          <span>🏁 結果</span>
-          <span className="sep">｜支線：</span>
-          <span>🔍 取證</span>
-          <span>⚠ 錯誤</span>
-          <span>↻ 重試</span>
-          <span>✎ 反覆修改</span>
+          <span className="lg lg-objective">{t.skeletonNode.objective}</span>
+          <span className="lg lg-decision">{t.skeletonNode.decision}</span>
+          <span className="lg lg-outcome">{t.skeletonNode.outcome}</span>
+          <span className="sep">{t.fishbone.legendRibsSep}</span>
+          <span className="lg lg-investigation">{t.skeletonRib.investigation}</span>
+          <span className="lg lg-error">{t.skeletonRib.error}</span>
+          <span className="lg lg-retry">{t.skeletonRib.retry}</span>
+          <span className="lg lg-edit">{t.skeletonRib["edit-loop"]}</span>
         </div>
       </div>
 
-      <div className="fishbone" role="region" aria-label="任務主線魚骨圖（可橫向捲動）">
+      <div className="fishbone" role="region" aria-label={t.fishbone.regionLabel}>
         <div className="fb-track" role="list">
           <div className="fb-spine" aria-hidden="true" />
           {stations.map((st) => (
@@ -135,6 +135,7 @@ export function FishboneView(): ReactNode {
               playingId={playingId}
               lesson={annotations[st.viewItemId]?.generalLesson}
               onSelect={setActive}
+              t={t}
             />
           ))}
         </div>
@@ -142,10 +143,10 @@ export function FishboneView(): ReactNode {
 
       <div className="cog-detail">
         <div className="cog-detail-head">
-          <span>節點詳情（點上方節點或支線展開）</span>
+          <span>{t.fishbone.detailHead}</span>
           {activeItem && (
             <button type="button" className="cog-reset" onClick={clearSelection}>
-              清除選取
+              {t.fishbone.clearSelection}
             </button>
           )}
         </div>
@@ -153,7 +154,7 @@ export function FishboneView(): ReactNode {
           <DetailCard item={activeItem} />
         ) : (
           <div className="empty-state" style={{ height: "auto", padding: "30px 0" }}>
-            <p>點上方任一節點，這裡會展開它「原本發生的內容」（已整理成卡片）。</p>
+            <p>{t.fishbone.detailPlaceholder}</p>
           </div>
         )}
       </div>

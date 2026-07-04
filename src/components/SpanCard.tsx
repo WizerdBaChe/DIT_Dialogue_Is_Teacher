@@ -2,7 +2,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import type { SpanNode } from "@/core/view/viewModel";
 import { useSessionStore } from "@/store/sessionStore";
-import { SPAN_KIND_LABEL } from "./labels";
+import { useT } from "@/i18n";
 import { AnnotationBlock, Badges, IOBlock, ThinkingBlock } from "./parts";
 
 /**
@@ -18,6 +18,7 @@ function fullBodyAddsInfo(span: SpanNode["span"]): boolean {
 
 /** 渲染節點主體 (desc / 思考 / 參數 / 結果)，供 SpanCard 與 GroupCard 共用。 */
 export function SpanBody({ node }: { node: SpanNode }): ReactNode {
+  const t = useT();
   const { span, children } = node;
   return (
     <>
@@ -28,13 +29,13 @@ export function SpanBody({ node }: { node: SpanNode }): ReactNode {
       )}
 
       {span.type === "tool_use" && span.tool && Object.keys(span.tool.params).length > 0 && (
-        <IOBlock title="參數" text={JSON.stringify(span.tool.params, null, 2)} />
+        <IOBlock title={t.card.paramsTitle} text={JSON.stringify(span.tool.params, null, 2)} />
       )}
 
       {children.map((c) => (
         <IOBlock
           key={c.id}
-          title={c.result?.isError ? "結果 · 錯誤" : "結果"}
+          title={c.result?.isError ? t.card.resultErrorTitle : t.card.resultTitle}
           text={c.result?.text ?? c.text}
           colored
           defaultCollapsed={!c.result?.isError}
@@ -45,6 +46,7 @@ export function SpanBody({ node }: { node: SpanNode }): ReactNode {
 }
 
 export function SpanCard({ itemId, node }: { itemId: string; node: SpanNode }): ReactNode {
+  const t = useT();
   const { span } = node;
   const ref = useRef<HTMLDivElement>(null);
 
@@ -73,7 +75,7 @@ export function SpanCard({ itemId, node }: { itemId: string; node: SpanNode }): 
     >
       <Badges span={span} />
       <div className="layer-title">
-        <span className="kind">{SPAN_KIND_LABEL[span.type]}</span>
+        <span className="kind">{t.spanKind[span.type]}</span>
         <span className="title-text">{span.summary}</span>
       </div>
       <SpanBody node={node} />

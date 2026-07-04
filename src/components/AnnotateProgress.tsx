@@ -6,6 +6,7 @@
  */
 import { type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { useT } from "@/i18n";
 import type { ViewItem } from "@/core/view/viewModel";
 
 function itemSummary(item: ViewItem | undefined): string {
@@ -14,6 +15,7 @@ function itemSummary(item: ViewItem | undefined): string {
 }
 
 export function AnnotateProgress(): ReactNode {
+  const t = useT();
   const progress = useSessionStore((s) => s.annotateProgress);
   const viewItems = useSessionStore((s) => s.viewItems);
   const cancel = useSessionStore((s) => s.cancelAnnotateAll);
@@ -30,23 +32,21 @@ export function AnnotateProgress(): ReactNode {
     <div className="annotate-progress" role="status" aria-live="polite">
       <div className="ap-row">
         <span className={`ap-label ${finished ? "done" : ""}`}>
-          {finished ? "✓ 講解完成" : running ? "講解中…" : "已停止"}
+          {finished ? t.progress.done : running ? t.progress.running : t.progress.stopped}
         </span>
-        <span className="ap-count">
-          {done} / {total}（{pct}%）
-        </span>
+        <span className="ap-count">{t.progress.count(done, total, pct)}</span>
         {running ? (
-          <button type="button" className="btn ap-stop" onClick={cancel} title="目前節點跑完即停">
-            停止
+          <button type="button" className="btn ap-stop" onClick={cancel} title={t.progress.stopTitle}>
+            {t.progress.stop}
           </button>
         ) : (
           <button
             type="button"
             className="btn ap-close"
             onClick={() => useSessionStore.setState({ annotateProgress: null })}
-            aria-label="關閉進度"
+            aria-label={t.progress.closeAria}
           >
-            關閉
+            {t.progress.close}
           </button>
         )}
       </div>
@@ -57,7 +57,7 @@ export function AnnotateProgress(): ReactNode {
 
       {running && current && (
         <p className="ap-current" title={itemSummary(current)}>
-          目前：{itemSummary(current)}
+          {t.progress.current(itemSummary(current))}
         </p>
       )}
     </div>
