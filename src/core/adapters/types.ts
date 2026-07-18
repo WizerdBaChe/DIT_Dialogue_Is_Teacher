@@ -24,6 +24,8 @@ export interface RawEvent {
   timestamp?: string | null;
   /** 是否屬於 subagent 旁鏈。 */
   isSidechain?: boolean;
+  /** Multi-file transcript source path, when supplied by the caller. */
+  sourcePath?: string;
   /** 純文字內容 (訊息/思考/結果文字)。 */
   text?: string;
   /** 工具名稱 (kind === "tool_use")。 */

@@ -76,6 +76,7 @@ export function distill(doc: SessionDocument): SessionDocument {
       if (seenGroups.has(groupId)) continue;
       seenGroups.add(groupId);
       const g = doc.groups.find((x) => x.id === groupId)!;
+      if (g.kind === "subagent") continue;
       ribs.push({ spanId: s.id, groupId, attachTo: attachFor(s.order), kind: "edit-loop", label: g.label, order: s.order });
       continue;
     }

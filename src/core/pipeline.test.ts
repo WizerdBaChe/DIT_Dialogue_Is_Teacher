@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildSessionDocument, PipelineError } from "@/core/pipeline";
-import { sampleSession, subagentSession } from "@/fixtures";
+import { buildSessionDocument, buildSessionDocumentFromFiles, PipelineError } from "@/core/pipeline";
+import { r4MainSession, r4SubagentSession, sampleSession, subagentSession } from "@/fixtures";
 
 /**
  * SIT：pipeline 端到端快照。adapter → normalize → denoise → distill 的完整輸出，
@@ -26,10 +26,24 @@ describe("buildSessionDocument (pipeline snapshot)", () => {
 
   it("captures isSidechain events from the subagent fixture without throwing", () => {
     const { doc } = buildSessionDocument(subagentSession);
-    const sidechainSpans = doc.spans.filter((s) => (s.raw as { isSidechain?: boolean })?.isSidechain !== undefined);
-    // raw 事件仍保留在 span.raw 上，供 R4 消費；此階段僅需確認不崩潰且順序保留。
-    expect(doc.spans.length).toBeGreaterThan(0);
-    expect(sidechainSpans.length).toBeGreaterThanOrEqual(0);
+    const subagentGroup = doc.groups.find((group) => group.kind === "subagent");
+    expect(subagentGroup?.spanIds.length).toBeGreaterThan(0);
+    expect(doc.spans.find((span) => span.id === subagentGroup?.spanIds[0])?.parentId).not.toBeNull();
+  });
+
+  it("merges main and subagents/*.jsonl while preserving the cross-file parent branch", () => {
+    const { doc, warnings } = buildSessionDocumentFromFiles([
+      { path: "main.jsonl", content: r4MainSession },
+      { path: "subagents/agent-1.jsonl", content: r4SubagentSession },
+    ]);
+    const group = doc.groups.find((candidate) => candidate.kind === "subagent");
+    const firstBranchSpan = doc.spans.find((span) => span.id === group?.spanIds[0]);
+    const parent = doc.spans.find((span) => span.id === firstBranchSpan?.parentId);
+
+    expect(warnings).toEqual([]);
+    expect(group?.spanIds).toHaveLength(4);
+    expect(parent?.tool?.name).toBe("Task");
+    expect(doc.spans.map((span) => span.startedAt)).toEqual([...doc.spans.map((span) => span.startedAt)].sort());
   });
 
   it("throws PipelineError on empty input", () => {

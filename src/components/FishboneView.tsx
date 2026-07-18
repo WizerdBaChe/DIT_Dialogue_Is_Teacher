@@ -12,6 +12,7 @@ import type { ViewItem } from "@/core/view/viewModel";
 import { SKELETON_NODE_CLS, SKELETON_RIB_CLS } from "./labels";
 import { SpanCard } from "./SpanCard";
 import { GroupCard } from "./GroupCard";
+import { SubagentBranchButton } from "./SubagentBranch";
 
 function DetailCard({ item }: { item: ViewItem }): ReactNode {
   return item.type === "group" ? (
@@ -94,6 +95,10 @@ export function FishboneView(): ReactNode {
 
   const stations = useMemo(() => (doc ? buildFishbone(doc, viewItems) : []), [doc, viewItems]);
   const activeItem = useMemo(() => viewItems.find((v) => v.id === activeId), [viewItems, activeId]);
+  const subagentItems = useMemo(
+    () => viewItems.filter((item): item is Extract<ViewItem, { type: "group" }> => item.type === "group" && item.group.kind === "subagent"),
+    [viewItems],
+  );
 
   if (!doc) return null;
 
@@ -140,6 +145,23 @@ export function FishboneView(): ReactNode {
           ))}
         </div>
       </div>
+
+      {subagentItems.length > 0 && (
+        <section className="subagent-branches" aria-label={t.subagent.sectionLabel}>
+          <h3>{t.subagent.sectionLabel}</h3>
+          <div className="subagent-branch-list">
+            {subagentItems.map((item) => (
+              <SubagentBranchButton
+                key={item.id}
+                group={item.group}
+                nodes={item.nodes}
+                active={activeId === item.id}
+                onSelect={() => setActive(item.id)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="cog-detail">
         <div className="cog-detail-head">

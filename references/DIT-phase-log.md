@@ -135,3 +135,31 @@
 ## Open Questions / TODO
 - Verified live: language switch is immediate and state-preserving; grep src/components shows CJK only in comments.
 - Next milestone: **R2 – Ollama annotation quality UAT** (needs the user's local machine; run annotateAll on a real session, tune prompt.ts only, produce docs/UAT_ollama_<date>.md).
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 6 – R2 Local Analysis, R3 Privacy-Safe OpenCode, and R4 Subagent Branches
+- Status: completed
+- Date: 2026-07-19
+- Detail: docs/PROGRESS.md
+
+## Goals
+- Complete local Ollama teaching-quality UAT, add privacy-safe OpenCode analysis at provider parity, persist reusable annotations, and render cross-file subagent branches.
+
+## Decisions
+- OpenCode is an analysis provider peer to Ollama, never a development worker; DIT uses its loopback server without `--pure` so the project `dit-annotator` agent loads.
+- Every OpenCode payload passes through the reusable Privacy Gateway with local de-identification, preview, session-scoped consent, and secret fail-closed behavior.
+- Web builds only probe runtimes and expose fixed commands because browser pages cannot safely launch local processes; desktop runtime control remains an isolated future product decision.
+- Subagent visualization uses the existing Span Tree contract and a lightweight local SVG branch rather than adding React Flow.
+
+## Changes
+- src/core/privacy/ and src/adapters/dit/: added the reusable de-identification pipeline and the DIT privacy adapter.
+- src/core/annotation/, src/store/sessionStore.ts, and IndexedDB adapters: added missing/retry/all jobs, per-item persistence, restore, and recoverable provider errors.
+- src/core/llm/ and src/core/runtime/: added OpenCode transport/status probing, readable loopback failures, and fixed 5173/4173 CORS commands.
+- src/core/pipeline.ts, normalizer, view model, and UI components: added main-plus-subagents multi-file merge, UUID parent linkage, expandable groups, symbol legend, and local SVG branches.
+- index.html: embedded a data-URL favicon so production preview no longer requests a missing `/favicon.ico`.
+- docs/PROGRESS.md, docs/PSM_DIT_v1.0.md, docs/architecture.md, and references/DIT-tickets.md: recorded completed R2–R4 acceptance and evidence.
+
+## Open Questions / TODO
+- R5 remains optional and should begin only when large-session performance or narrow-screen usability becomes a demonstrated need.
+- A packaged desktop runtime controller remains deferred; current web users start Ollama or OpenCode with the fixed inspectable commands.

@@ -44,6 +44,16 @@ export function Sidebar(): ReactNode {
         )}
       </div>
 
+      <div className="tree-legend" aria-label={t.sidebar.legendLabel}>
+        <span className="tree-legend-title">{t.sidebar.legendLabel}</span>
+        {(Object.keys(SPAN_DOT) as Array<keyof typeof SPAN_DOT>).map((type) => (
+          <span className="tree-legend-item" key={type}>
+            <span className="dot" aria-hidden="true">{SPAN_DOT[type]}</span>
+            {t.spanKind[type]}
+          </span>
+        ))}
+      </div>
+
       {viewItems.map((item) => {
         const span = item.type === "span" ? item.node.span : item.nodes[0].span;
         const label = item.type === "group" ? item.group.label : span.summary;

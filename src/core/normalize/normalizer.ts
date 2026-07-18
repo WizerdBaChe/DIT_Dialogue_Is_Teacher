@@ -73,6 +73,23 @@ export function normalize(parsed: ParseResult): SessionDocument {
   const spans: Span[] = [];
   // toolUseId → 對應 tool_use 的 span id，供 tool_result 掛載父節點。
   const toolUseSpanByUseId = new Map<string, string>();
+  const latestSpanByEventUuid = new Map<string, string>();
+  const eventByUuid = new Map(parsed.events.filter((event) => event.uuid).map((event) => [event.uuid as string, event]));
+  const sidechainSpanIds = new Map<string, string[]>();
+
+  const sidechainRoot = (event: RawEvent, fallback: string): string => {
+    let cursor = event;
+    let root = event.uuid ?? fallback;
+    const visited = new Set<string>();
+    while (cursor.parentUuid && !visited.has(cursor.parentUuid)) {
+      visited.add(cursor.parentUuid);
+      const parent = eventByUuid.get(cursor.parentUuid);
+      if (!parent?.isSidechain) break;
+      cursor = parent;
+      root = parent.uuid ?? root;
+    }
+    return root;
+  };
 
   parsed.events.forEach((ev, index) => {
     const id = `span-${index}`;
@@ -81,6 +98,8 @@ export function normalize(parsed: ParseResult): SessionDocument {
     let parentId: string | null = null;
     if (ev.kind === "tool_result" && ev.toolUseId) {
       parentId = toolUseSpanByUseId.get(ev.toolUseId) ?? null;
+    } else if (ev.isSidechain && ev.parentUuid) {
+      parentId = latestSpanByEventUuid.get(ev.parentUuid) ?? null;
     }
 
     const span: Span = {
@@ -105,12 +124,26 @@ export function normalize(parsed: ParseResult): SessionDocument {
     }
 
     spans.push(span);
+    if (ev.uuid) latestSpanByEventUuid.set(ev.uuid, id);
+    if (ev.isSidechain) {
+      const root = sidechainRoot(ev, `sidechain-${index}`);
+      const ids = sidechainSpanIds.get(root) ?? [];
+      ids.push(id);
+      sidechainSpanIds.set(root, ids);
+    }
   });
+
+  const groups = [...sidechainSpanIds.values()].map((spanIds, index) => ({
+    id: `group-subagent-${index}`,
+    label: `子代理分支 ${index + 1}`,
+    spanIds,
+    kind: "subagent" as const,
+  }));
 
   return {
     schemaVersion: SCHEMA_VERSION,
     session: finalizeMeta(parsed.meta),
     spans,
-    groups: [],
+    groups,
   };
 }

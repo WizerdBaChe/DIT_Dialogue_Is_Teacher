@@ -26,12 +26,19 @@ const zhTW = {
     modes: { cognitive: "認知", dense: "高密度" } as Record<string, string>,
     modeGroupLabel: "檢視模式",
     loadFile: "載入 .jsonl",
+    loadFolder: "載入 Session 資料夾",
+    loadFolderTitle: "同時讀取主檔與 subagents/*.jsonl",
     reset: "重置",
     resetTitle: "回到內建範例與預設設定",
     showAnnotations: "顯示教學講解",
     annotateAll: "講解全部",
-    clearAnnotations: "清除講解",
-    clearAnnotationsTitle: "清除目前所有教學講解",
+    annotateModeLabel: "批次講解模式",
+    annotateModes: { missing: "講解未處理", failed: "重試失敗", all: "全部重新講解" },
+    annotateCount: (mode: string, count: number) => `${mode === "missing" ? "講解未處理" : mode === "failed" ? "重試失敗" : "全部重新講解"}（${count}）`,
+    annotateDisabled: "請先選擇本地 Ollama 或 OpenCode",
+    restored: (count: number) => `已還原 ${count} 則`,
+    clearAnnotations: "清除本次顯示",
+    clearAnnotationsTitle: "只清除畫面上的講解；已儲存內容仍保留，下次可自動還原",
     prevTitle: "上一步",
     nextTitle: "下一步",
     replay: "重播",
@@ -47,6 +54,7 @@ const zhTW = {
     headingWithTree: "Session 結構（Span Tree）",
     empty: "尚未載入 session。",
     skeleton: (nodes: number, ribs: number) => `蒸餾骨架：主線 ${nodes} · 支線 ${ribs}`,
+    legendLabel: "屬性符號圖例",
   },
 
   main: {
@@ -68,7 +76,7 @@ const zhTW = {
     resultTitle: "結果",
     resultErrorTitle: "結果 · 錯誤",
     thinkingHead: "思考鏈",
-    groupFolded: (steps: number) => `（折疊 ${steps} 步）`,
+    groupFolded: (steps: number, collapsed: boolean) => `（${collapsed ? "折疊" : "展開"} ${steps} 步）`,
     groupHint: (collapsed: boolean) => `確定性降噪 · 點擊${collapsed ? "展開" : "收合"}`,
   },
 
@@ -76,6 +84,7 @@ const zhTW = {
     via: (provider: string) => `來源 ${provider}`,
     generating: "教學講解產生中…",
     failed: (msg: string) => `講解失敗：${msg}`,
+    retry: "重新產生",
     generate: "產生教學講解",
     what: "這步在做什麼",
     why: "為什麼這樣做",
@@ -143,22 +152,59 @@ const zhTW = {
       `指定模型「${model}」尚未安裝。可直接在上方下拉切換到已安裝的模型${installed}，或安裝它：`,
     modelMissingInstalled: (list: string[]) => (list.length ? `（${list.join("、")}）` : ""),
     readyNote: "講解將由本機模型產生，程式碼與紀錄不外傳。可按上方「講解全部」開始。",
+    runtimeOwnership: "Web 版 DIT 只檢查連線，不會在背景啟動或停止 Ollama；離線時請複製上方指令自行啟動。",
   },
 
   cloud: {
-    panelLabel: "雲端 API 設定",
-    status: "尚未啟用（UI 預留）",
-    msg: "雲端講解介面已就緒，但實際呼叫尚未接上；填入設定後按「講解全部」會提示尚未啟用。",
-    expand: "展開雲端設定",
-    collapse: "收合雲端設定",
-    endpoint: "API 端點",
-    endpointPlaceholder: "https://api.mistral.ai/v1（範例，尚未接上）",
-    model: "模型",
-    modelPlaceholder: "例：mistral-small-latest",
-    apiKey: "API Key",
-    apiKeyPlaceholder: "僅存在本機記憶體，不會寫入磁碟",
-    hint:
-      "雲端講解會把 session 片段送至外部服務，請確認內容不含機密。此區為預留骨架，待接上供應商 API（如 Mistral 免費方案）後即可使用；金鑰只留在本機記憶體、重新整理即清除。",
+    panelLabel: "OpenCode Cloud AI 設定",
+    states: {
+      checking: "探測中…",
+      ready: "已就緒",
+      offline: "未連線",
+      "provider-missing": "Provider 未連接",
+      "model-missing": "模型不可用",
+      "agent-missing": "DIT agent 不存在",
+    },
+    defaultMsg: "正在檢查本機 OpenCode server…",
+    recheck: "重新檢查",
+    expand: "展開 OpenCode 設定",
+    collapse: "收合 OpenCode 設定",
+    endpoint: "Server",
+    endpointPlaceholder: "http://127.0.0.1:4096",
+    model: "Cloud 模型",
+    timeout: "逾時",
+    privacyPolicy: "外傳保護",
+    privacyBalanced: "平衡（預設）",
+    privacyStrict: "嚴格",
+    sec: (seconds: number) => `${seconds} 秒`,
+    copy: "複製",
+    copied: "已複製",
+    copyAria: "複製 OpenCode server 啟動指令",
+    setupHint: "先在專案根目錄執行上方指令。供應商登入與金鑰由 OpenCode 管理，DIT 不儲存金鑰。",
+    readyHint: "OpenCode 只在本機提供橋接，但講解內容仍會送到所選 Cloud AI；每次講解使用無工具的 dit-annotator agent。",
+    runtimeOwnership: "Web 版 DIT 只檢查連線，不會執行或停止 OpenCode CLI；上方是固定、可檢查的啟動指令。",
+  },
+
+  privacy: {
+    eyebrow: "外傳前檢查",
+    title: "確認送往 OpenCode 的內容",
+    body: "下方是本機去識別化後的實際送出文字。確認前不會建立 OpenCode session。",
+    policy: "政策",
+    expires: "預覽有效至",
+    preview: "處理後預覽",
+    note: "本次同意只適用目前 session、OpenCode endpoint／模型與隱私政策；疑似金鑰或密碼會直接阻擋，不能略過。",
+    cancel: "取消",
+    send: "送出去識別化內容",
+  },
+
+  storage: {
+    degraded: (reason: string) => `講解儲存已降級為暫存記憶體；關閉頁面後不會保留。原因：${reason}`,
+  },
+
+  subagent: {
+    sectionLabel: "子代理局部分支",
+    graphAria: (count: number) => `子代理分支，共 ${count} 個節點`,
+    branch: (label: string, count: number) => `${label}（${count} 節點）`,
   },
 
   progress: {
@@ -166,6 +212,7 @@ const zhTW = {
     running: "講解中…",
     stopped: "已停止",
     count: (done: number, total: number, pct: number) => `${done} / ${total}（${pct}%）`,
+    details: (cached: number, failed: number) => `快取 ${cached} · 失敗 ${failed}`,
     stop: "停止",
     stopTitle: "目前節點跑完即停",
     close: "關閉",
@@ -193,7 +240,7 @@ const zhTW = {
   provider: {
     none: "不講解（純結構，零外傳）",
     ollama: "本地 Ollama（離線）",
-    cloud: "雲端 API（需外傳）",
+    cloud: "OpenCode Cloud AI（需外傳）",
   } as Record<ProviderId, string>,
 
   providerDisclaimer: {
@@ -201,7 +248,7 @@ const zhTW = {
     ollama:
       "本地 Ollama：講解由你機器上的模型產生，程式碼與紀錄不會外傳。連線狀態與模型設定見下方面板。",
     cloud:
-      "雲端 API：你的 session 片段將傳送至外部服務以產生講解。請確認內容不含機密；是否外傳由你知情選擇，責任歸使用者。設定見下方面板（目前為預留骨架，尚未實際接上）。",
+      "OpenCode Cloud AI：DIT 先在本機去識別化並顯示實際送出預覽，確認後才透過 OpenCode 傳給所選雲端模型；疑似金鑰或密碼一律阻擋。",
   } as Record<ProviderId, string>,
 
   skeletonNode: {
@@ -229,12 +276,19 @@ const en: Messages = {
     modes: { cognitive: "Cognitive", dense: "Dense" },
     modeGroupLabel: "View mode",
     loadFile: "Load .jsonl",
+    loadFolder: "Load session folder",
+    loadFolderTitle: "Read the main transcript and subagents/*.jsonl together",
     reset: "Reset",
     resetTitle: "Return to the built-in sample and defaults",
     showAnnotations: "Show teaching notes",
     annotateAll: "Annotate all",
-    clearAnnotations: "Clear notes",
-    clearAnnotationsTitle: "Clear all current teaching notes",
+    annotateModeLabel: "Batch annotation mode",
+    annotateModes: { missing: "Annotate missing", failed: "Retry failed", all: "Re-annotate all" },
+    annotateCount: (mode: string, count: number) => `${mode === "missing" ? "Annotate missing" : mode === "failed" ? "Retry failed" : "Re-annotate all"} (${count})`,
+    annotateDisabled: "Select local Ollama or OpenCode first",
+    restored: (count: number) => `${count} restored`,
+    clearAnnotations: "Clear current view",
+    clearAnnotationsTitle: "Clear notes from this view only; saved notes remain available for automatic restore",
     prevTitle: "Previous step",
     nextTitle: "Next step",
     replay: "Replay",
@@ -250,6 +304,7 @@ const en: Messages = {
     headingWithTree: "Session structure (Span Tree)",
     empty: "No session loaded yet.",
     skeleton: (nodes: number, ribs: number) => `Distilled skeleton: ${nodes} spine · ${ribs} ribs`,
+    legendLabel: "Node symbol legend",
   },
 
   main: {
@@ -271,7 +326,7 @@ const en: Messages = {
     resultTitle: "Result",
     resultErrorTitle: "Result · Error",
     thinkingHead: "Reasoning",
-    groupFolded: (steps: number) => ` (${steps} steps folded)`,
+    groupFolded: (steps: number, collapsed: boolean) => ` (${steps} steps ${collapsed ? "folded" : "expanded"})`,
     groupHint: (collapsed: boolean) => `Deterministic denoise · click to ${collapsed ? "expand" : "collapse"}`,
   },
 
@@ -279,6 +334,7 @@ const en: Messages = {
     via: (provider: string) => `via ${provider}`,
     generating: "Generating teaching notes…",
     failed: (msg: string) => `Notes failed: ${msg}`,
+    retry: "Try again",
     generate: "Generate teaching notes",
     what: "What this step does",
     why: "Why it's done this way",
@@ -346,22 +402,59 @@ const en: Messages = {
       `The specified model "${model}" is not installed. Switch to an installed model in the dropdown above${installed}, or install it:`,
     modelMissingInstalled: (list: string[]) => (list.length ? ` (${list.join(", ")})` : ""),
     readyNote: 'Notes are generated by your local model; code and logs stay on device. Press "Annotate all" above to start.',
+    runtimeOwnership: "The DIT web app only checks connectivity; it does not start or stop Ollama in the background. Copy the command above when Ollama is offline.",
   },
 
   cloud: {
-    panelLabel: "Cloud API settings",
-    status: "Not enabled (UI placeholder)",
-    msg: 'The cloud notes interface is ready but the actual call is not wired up; after filling settings, "Annotate all" will report it as not enabled.',
-    expand: "Expand cloud settings",
-    collapse: "Collapse cloud settings",
-    endpoint: "API endpoint",
-    endpointPlaceholder: "https://api.mistral.ai/v1 (example, not wired up)",
-    model: "Model",
-    modelPlaceholder: "e.g. mistral-small-latest",
-    apiKey: "API Key",
-    apiKeyPlaceholder: "Kept in memory only, never written to disk",
-    hint:
-      "Cloud notes send session fragments to an external service; make sure the content has no secrets. This section is a placeholder — usable once a provider API (e.g. Mistral's free tier) is wired up; the key stays in memory and clears on refresh.",
+    panelLabel: "OpenCode Cloud AI settings",
+    states: {
+      checking: "Checking…",
+      ready: "Ready",
+      offline: "Offline",
+      "provider-missing": "Provider not connected",
+      "model-missing": "Model unavailable",
+      "agent-missing": "DIT agent missing",
+    },
+    defaultMsg: "Checking the local OpenCode server…",
+    recheck: "Check again",
+    expand: "Expand OpenCode settings",
+    collapse: "Collapse OpenCode settings",
+    endpoint: "Server",
+    endpointPlaceholder: "http://127.0.0.1:4096",
+    model: "Cloud model",
+    timeout: "Timeout",
+    privacyPolicy: "Egress protection",
+    privacyBalanced: "Balanced (default)",
+    privacyStrict: "Strict",
+    sec: (seconds: number) => `${seconds}s`,
+    copy: "Copy",
+    copied: "Copied",
+    copyAria: "Copy OpenCode server start command",
+    setupHint: "Run the command above from the project root. OpenCode manages provider sign-in and credentials; DIT stores no API keys.",
+    readyHint: "OpenCode provides a loopback bridge, but annotation content still goes to the selected cloud model. Each request uses the tool-free dit-annotator agent.",
+    runtimeOwnership: "The DIT web app only checks connectivity; it never runs or stops the OpenCode CLI. The command above is fixed and inspectable.",
+  },
+
+  privacy: {
+    eyebrow: "Pre-egress review",
+    title: "Confirm what OpenCode will receive",
+    body: "This is the exact locally de-identified text that will be sent. No OpenCode session is created before confirmation.",
+    policy: "Policy",
+    expires: "Preview expires",
+    preview: "Sanitized preview",
+    note: "Consent applies only to this session, OpenCode endpoint/model, and privacy policy. Suspected keys or passwords are always blocked.",
+    cancel: "Cancel",
+    send: "Send sanitized content",
+  },
+
+  storage: {
+    degraded: (reason: string) => `Annotation storage fell back to memory and will not survive closing the page. Reason: ${reason}`,
+  },
+
+  subagent: {
+    sectionLabel: "Subagent branches",
+    graphAria: (count: number) => `Subagent branch with ${count} nodes`,
+    branch: (label: string, count: number) => `${label} (${count} nodes)`,
   },
 
   progress: {
@@ -369,6 +462,7 @@ const en: Messages = {
     running: "Annotating…",
     stopped: "Stopped",
     count: (done: number, total: number, pct: number) => `${done} / ${total} (${pct}%)`,
+    details: (cached: number, failed: number) => `cache ${cached} · failed ${failed}`,
     stop: "Stop",
     stopTitle: "Stops after the current node finishes",
     close: "Close",
@@ -396,7 +490,7 @@ const en: Messages = {
   provider: {
     none: "No notes (structure only, zero egress)",
     ollama: "Local Ollama (offline)",
-    cloud: "Cloud API (sends data out)",
+    cloud: "OpenCode Cloud AI (sends data out)",
   },
 
   providerDisclaimer: {
@@ -404,7 +498,7 @@ const en: Messages = {
     ollama:
       "Local Ollama: notes come from a model on your machine; code and logs are not sent out. Connection status and model settings are in the panel below.",
     cloud:
-      "Cloud API: your session fragments will be sent to an external service to generate notes. Make sure the content has no secrets; sending out is your informed choice and responsibility. Settings are in the panel below (currently a placeholder, not yet wired up).",
+      "OpenCode Cloud AI: DIT de-identifies content locally and previews the exact payload before OpenCode sends it to the selected cloud model. Suspected keys and passwords are always blocked.",
   },
 
   skeletonNode: {

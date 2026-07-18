@@ -6,15 +6,12 @@ import type { ProviderId } from "@/types/spanTree";
 import type { LLMProvider } from "./types";
 import { noneProvider } from "./none";
 import { createOllamaProvider, DEFAULT_OLLAMA_CONFIG, type OllamaConfig } from "./ollama";
-import { cloudProvider } from "./cloud";
 
-/** 取得 Provider 實作；ollama 可帶入使用者選定的設定 (model / baseUrl)。 */
-export function getProvider(id: ProviderId, opts?: { ollama?: Partial<OllamaConfig> }): LLMProvider {
+/** Return providers that can safely accept raw local spans. OpenCode requires a PrivacyEnvelope. */
+export function getProvider(id: Exclude<ProviderId, "cloud">, opts?: { ollama?: Partial<OllamaConfig> }): LLMProvider {
   switch (id) {
     case "ollama":
       return createOllamaProvider({ ...DEFAULT_OLLAMA_CONFIG, ...opts?.ollama });
-    case "cloud":
-      return cloudProvider;
     case "none":
     default:
       return noneProvider;
@@ -24,3 +21,5 @@ export function getProvider(id: ProviderId, opts?: { ollama?: Partial<OllamaConf
 export type { LLMProvider, AnnotateContext } from "./types";
 export { DEFAULT_OLLAMA_CONFIG, createOllamaProvider, checkOllama, RECOMMENDED_MODELS } from "./ollama";
 export type { OllamaStatus, OllamaState, OllamaConfig } from "./ollama";
+export { DEFAULT_OPENCODE_CONFIG, OPENCODE_AGENT_VERSION, createOpenCodeTransport, checkOpenCode } from "./cloud";
+export type { OpenCodeConfig, OpenCodeState, OpenCodeStatus, OpenCodeTransport } from "./cloud";

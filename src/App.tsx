@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { Disclaimer } from "@/components/Disclaimer";
 import { OllamaPanel } from "@/components/OllamaPanel";
 import { CloudPanel } from "@/components/CloudPanel";
+import { PrivacyReview } from "@/components/PrivacyReview";
 import { AnnotateProgress } from "@/components/AnnotateProgress";
 import { Sidebar } from "@/components/Sidebar";
 import { MainView } from "@/components/MainView";
@@ -28,6 +29,7 @@ export default function App(): ReactNode {
       <Disclaimer />
       <OllamaPanel />
       <CloudPanel />
+      <PrivacyReview />
       <AnnotateProgress />
       <div className="container">
         <Sidebar />

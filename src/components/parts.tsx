@@ -84,7 +84,12 @@ export function AnnotationBlock({
     <div className="annotation">
       {annotation && <span className="src">{t.annotation.via(annotation.provider)}</span>}
       {loading && <p className="pending">{t.annotation.generating}</p>}
-      {!loading && error && <p className="pending">{t.annotation.failed(error)}</p>}
+      {!loading && error && (
+        <div className="annotation-error" role="alert">
+          <p className="pending">{t.annotation.failed(error)}</p>
+          <button className="btn" onClick={onGenerate}>{t.annotation.retry}</button>
+        </div>
+      )}
       {!loading && !error && !annotation && (
         <button className="btn" onClick={onGenerate}>
           {t.annotation.generate}

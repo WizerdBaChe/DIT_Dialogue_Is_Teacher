@@ -7,6 +7,8 @@ import { useT } from "@/i18n";
 import { GROUP_DOT } from "./labels";
 import { AnnotationBlock } from "./parts";
 import { SpanBody } from "./SpanCard";
+import { SubagentMiniGraph } from "./SubagentBranch";
+import { SPAN_DOT } from "./labels";
 
 export function GroupCard({
   itemId,
@@ -54,14 +56,22 @@ export function GroupCard({
           <span className="kind">{t.card.kindTag}</span>
           <span className="title-text">
             {group.label}
-            {t.card.groupFolded(nodes.length)}
+            {t.card.groupFolded(nodes.length, collapsed)}
           </span>
         </span>
         <span className="group-hint">{t.card.groupHint(collapsed)}</span>
       </div>
       <div className="group-children">
+        {group.kind === "subagent" && <SubagentMiniGraph nodes={nodes} />}
         {nodes.map((n) => (
-          <div key={n.span.id} style={{ marginBottom: 8 }}>
+          <div key={n.span.id} className={group.kind === "subagent" ? "subagent-step" : undefined} style={{ marginBottom: 8 }}>
+            {group.kind === "subagent" && (
+              <div className="subagent-step-head">
+                <span aria-hidden="true">{SPAN_DOT[n.span.type]}</span>
+                <span>{t.spanKind[n.span.type]}</span>
+                <strong>{n.span.summary}</strong>
+              </div>
+            )}
             <SpanBody node={n} />
           </div>
         ))}

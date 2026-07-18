@@ -69,14 +69,16 @@ React 元件樹                            src/components/*
 ## 5. LLM 講解層 (D-4)
 
 - 介面 `LLMProvider.annotate(span, ctx)`；逐節點切 chunk（`src/core/llm/prompt.ts` 組裝精簡上下文）。
-- `none`（預設、零外傳）/ `ollama`（本地、真實 fetch `http://localhost:11434`）/ `cloud`（樁）。
+- `none`（預設、零外傳）/ `ollama`（本地、真實 fetch `http://localhost:11434`）/
+  `cloud`（Privacy Gateway 後由 loopback OpenCode server 代理）。
 - `sendsDataOut` 旗標驅動 UI 的責任說明（D-3）。
-- store 的 `annotateAll` 循序處理，對本地小模型友善、避免壓垮 Ollama。
+- AnnotationJobController 循序處理 missing/retry/all；完成即寫 IndexedDB，重開可續跑。
 
 ## 6. 已知限制 / 待辦 (M2+)
 
-- subagent 跨檔（`subagents/*.jsonl`）尚未串接；目前以單檔內 `isSidechain` 為主。
-- 真·節點分支圖（React Flow）尚未做，目前為時間軸卡片 + 群組折疊。
-- cloud Provider 為樁；待接 Claude API / 免費雲端 API。
+- subagent 主檔＋`subagents/*.jsonl` 已可經資料夾輸入合併，並以可展開群組＋輕量 SVG 局部分支呈現。
+- React Flow 仍是未來高互動分支圖的選配升級，不是目前 R4 的依賴。
+- OpenCode 真實 Cloud UAT 已於 production preview 完成：OpenCode 1.17.20 經 Balanced 去識別化預覽
+  與同意後，以 `deepseek-v4-flash-free` 成功回傳講解；離線、取消與失敗路徑也已驗證。
 - 全局摘要（跨節點濃縮）尚未做，目前降噪為逐條規則。
-- 尚無自動化測試；下一步建議補 pipeline 的單元測試（adapter→denoise 的快照）。
+- 核心管線、Privacy Gateway、Provider、快取與 store 已有 81 個自動化測試；瀏覽器元件仍以人工 UAT 為主。

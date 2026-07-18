@@ -175,6 +175,56 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 
 /* 雲端面板：以左規 + 暖色標示「會外傳」的來源。 */
 .cloud-panel { background: rgba(138, 106, 47, 0.05); border-left: 3px solid var(--accent-secondary); border-bottom-color: var(--rule); }
+.batch-control { display: inline-flex; align-items: stretch; }
+.batch-control select {
+  max-width: 132px;
+  border: 1px solid var(--rule-strong);
+  border-right: 0;
+  background: var(--bg-card);
+  color: var(--text-main);
+  padding: 5px 6px;
+  font-size: 11px;
+}
+.batch-control .btn { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.cache-status { color: var(--success); font-size: 11px; white-space: nowrap; }
+.storage-notice { padding: 8px 28px; border-bottom: 1px solid var(--danger); color: var(--danger); background: rgba(154, 48, 48, 0.06); }
+
+.privacy-review {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(28, 26, 23, 0.54);
+}
+.privacy-review-card {
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background: var(--bg-card);
+  border-top: 4px solid var(--accent-secondary);
+  padding: 26px 28px;
+}
+.privacy-review-card h2 { margin: 3px 0 10px; }
+.privacy-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 16px 0; }
+.privacy-summary > div { display: flex; gap: 7px; }
+.privacy-summary dt { color: var(--text-muted); }
+.privacy-summary dd { margin: 0; font-family: var(--font-mono); }
+.privacy-preview-label { display: block; margin-bottom: 6px; font-weight: 600; }
+.privacy-preview {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--rule-strong);
+  background: var(--bg-sunken);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 12px;
+}
+.privacy-note { margin-top: 10px; color: var(--text-muted); font-size: 12px; }
+.privacy-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
 /* ---- 講解進度 ---- */
 .annotate-progress {
@@ -205,6 +255,14 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   font-family: var(--font-mono); border-bottom: 1px solid var(--rule); padding-bottom: 14px;
   word-break: break-all;
 }
+.tree-legend {
+  display: flex; flex-wrap: wrap; gap: 6px 12px; margin: -4px 0 14px;
+  padding: 0 0 12px; border-bottom: 1px solid var(--rule);
+  color: var(--text-muted); font-family: var(--font-sans); font-size: 11px;
+}
+.tree-legend-title { flex-basis: 100%; color: var(--text-dark); font-weight: 600; letter-spacing: 0.04em; }
+.tree-legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.tree-legend-item .dot { min-width: 14px; color: var(--text-dark); font-family: var(--font-mono); font-size: 14px; line-height: 1; text-align: center; }
 .tree-item {
   font-family: var(--font-mono); font-size: 12px; padding: 5px 8px; cursor: pointer;
   display: flex; align-items: center; gap: 8px; color: var(--text-muted); transition: color 0.15s, background 0.15s;
@@ -213,10 +271,26 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .tree-item:hover { background: var(--bg-hover); color: var(--text-main); }
 .tree-item.active { background: var(--accent-tint); color: var(--accent-primary); border-left-color: var(--accent-primary); }
 .tree-item.playing { background: rgba(138, 106, 47, 0.12); color: var(--accent-secondary); border-left-color: var(--accent-secondary); }
-.tree-item .dot { font-size: 9px; flex-shrink: 0; color: var(--text-dark); }
+.tree-item .dot { min-width: 16px; font-size: 14px; line-height: 1; text-align: center; flex-shrink: 0; color: var(--text-dark); }
 .tree-item.active .dot { color: var(--accent-primary); }
 .tree-item .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-item.indent { margin-left: 14px; }
+
+/* ---- Subagent local branches ---- */
+.subagent-branches { margin: 18px 0 22px; padding: 14px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.subagent-branches h3 { margin: 0 0 10px; font-family: var(--font-sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dark); }
+.subagent-branch-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.subagent-branch-button { width: min(100%, 460px); padding: 10px 12px; border: 1px solid var(--rule); background: transparent; color: var(--text-main); text-align: left; cursor: pointer; }
+.subagent-branch-button:hover, .subagent-branch-button.active { border-color: var(--accent-secondary); background: var(--bg-hover); }
+.subagent-branch-head { display: block; margin-bottom: 4px; font-family: var(--font-sans); font-size: 12px; font-weight: 600; }
+.subagent-mini-graph { display: block; width: 100%; max-width: 440px; height: 56px; overflow: visible; }
+.subagent-link { stroke: var(--rule-dark); stroke-width: 1.5; }
+.subagent-node { fill: var(--bg-main); stroke: var(--accent-secondary); stroke-width: 1.5; }
+.subagent-symbol { fill: var(--text-main); font-family: var(--font-mono); font-size: 11px; }
+.subagent-index, .subagent-more { fill: var(--text-muted); font-family: var(--font-sans); font-size: 9px; }
+.subagent-step { padding: 9px 0 9px 14px; border-left: 1px solid var(--accent-secondary); }
+.subagent-step-head { display: flex; align-items: baseline; gap: 7px; margin-bottom: 5px; color: var(--text-muted); font-family: var(--font-sans); font-size: 11px; }
+.subagent-step-head strong { color: var(--text-main); font-family: var(--font-serif); font-size: 13px; font-weight: 600; }
 
 /* ---- Main content ---- */
 .main-content { flex: 1; padding: 30px 40px; overflow-y: auto; background: var(--bg-main); }

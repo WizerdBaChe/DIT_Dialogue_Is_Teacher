@@ -17,8 +17,13 @@ export function Header(): ReactNode {
   const isPlaying = useSessionStore((s) => s.isPlaying);
   const viewMode = useSessionStore((s) => s.viewMode);
   const hasAnnotations = useSessionStore((s) => Object.keys(s.annotations).length > 0);
+  const viewItemCount = useSessionStore((s) => s.viewItems.length);
+  const cachedCount = useSessionStore((s) => Object.keys(s.cachedForCurrentConfig).length);
+  const failedCount = useSessionStore((s) => Object.keys(s.annotationErrors).length);
+  const annotationRunMode = useSessionStore((s) => s.annotationRunMode);
+  const restoredAnnotationCount = useSessionStore((s) => s.restoredAnnotationCount);
 
-  const loadFromText = useSessionStore((s) => s.loadFromText);
+  const loadFromFiles = useSessionStore((s) => s.loadFromFiles);
   const setViewMode = useSessionStore((s) => s.setViewMode);
   const setProvider = useSessionStore((s) => s.setProvider);
   const toggleAnnotations = useSessionStore((s) => s.toggleAnnotations);
@@ -26,18 +31,20 @@ export function Header(): ReactNode {
   const next = useSessionStore((s) => s.next);
   const prev = useSessionStore((s) => s.prev);
   const annotateAll = useSessionStore((s) => s.annotateAll);
+  const setAnnotationRunMode = useSessionStore((s) => s.setAnnotationRunMode);
   const clearAnnotations = useSessionStore((s) => s.clearAnnotations);
   const resetToSample = useSessionStore((s) => s.resetToSample);
 
-  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => loadFromText(String(reader.result ?? ""));
-    reader.onerror = () =>
-      useSessionStore.setState({ error: t.header.readFileFailed(file.name), doc: null, viewItems: [] });
-    reader.readAsText(file);
-    e.target.value = ""; // 允許重複選同一檔。
+  const onFiles = (e: ChangeEvent<HTMLInputElement>) => {
+    const selected = [...(e.target.files ?? [])].filter((file) => /\.(jsonl|json|txt)$/i.test(file.name));
+    e.target.value = "";
+    if (selected.length === 0) return;
+    void Promise.all(selected.map(async (file) => ({
+      path: file.webkitRelativePath || file.name,
+      content: await file.text(),
+    }))).then(loadFromFiles).catch(() => {
+      useSessionStore.setState({ error: t.header.readFileFailed(selected[0].name), doc: null, viewItems: [] });
+    });
   };
 
   return (
@@ -63,7 +70,18 @@ export function Header(): ReactNode {
 
         <label className="btn file-btn">
           {t.header.loadFile}
-          <input type="file" accept=".jsonl,.json,.txt" onChange={onFile} />
+          <input type="file" accept=".jsonl,.json,.txt" multiple onChange={onFiles} />
+        </label>
+
+        <label className="btn file-btn" title={t.header.loadFolderTitle}>
+          {t.header.loadFolder}
+          <input
+            type="file"
+            accept=".jsonl,.json,.txt"
+            multiple
+            onChange={onFiles}
+            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+          />
         </label>
 
         <button className="btn" onClick={resetToSample} title={t.header.resetTitle}>
@@ -75,11 +93,30 @@ export function Header(): ReactNode {
           {t.header.showAnnotations}
         </label>
 
-        {providerId !== "none" && (
-          <button className="btn" onClick={() => void annotateAll()} disabled={!hasDoc}>
-            {t.header.annotateAll}
+        <div className="batch-control">
+          <select
+            aria-label={t.header.annotateModeLabel}
+            value={annotationRunMode}
+            onChange={(event) => setAnnotationRunMode(event.target.value as "missing" | "failed" | "all")}
+          >
+            <option value="missing">{t.header.annotateModes.missing}</option>
+            <option value="failed">{t.header.annotateModes.failed}</option>
+            <option value="all">{t.header.annotateModes.all}</option>
+          </select>
+          <button
+            className="btn"
+            onClick={() => void annotateAll()}
+            disabled={!hasDoc || providerId === "none"}
+            title={providerId === "none" ? t.header.annotateDisabled : undefined}
+          >
+            {t.header.annotateCount(
+              annotationRunMode,
+              annotationRunMode === "missing" ? Math.max(0, viewItemCount - cachedCount) : annotationRunMode === "failed" ? failedCount : viewItemCount,
+            )}
           </button>
-        )}
+        </div>
+
+        {restoredAnnotationCount > 0 && <span className="cache-status">{t.header.restored(restoredAnnotationCount)}</span>}
 
         {providerId !== "none" && hasAnnotations && (
           <button className="btn" onClick={clearAnnotations} title={t.header.clearAnnotationsTitle}>
