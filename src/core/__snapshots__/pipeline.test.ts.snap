@@ -604,7 +604,21 @@ exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for sam
 
 exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for subagentSession fixture 1`] = `
 {
-  "groups": [],
+  "groups": [
+    {
+      "id": "group-subagent-0",
+      "kind": "subagent",
+      "label": "子代理分支 1",
+      "spanIds": [
+        "span-4",
+        "span-5",
+        "span-6",
+        "span-7",
+        "span-8",
+        "span-9",
+      ],
+    },
+  ],
   "schemaVersion": "0.1",
   "session": {
     "id": "demo-subagent",
@@ -643,20 +657,6 @@ exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for sub
       },
     ],
     "ribs": [
-      {
-        "attachTo": "span-1",
-        "kind": "investigation",
-        "label": "Grep src",
-        "order": 5,
-        "spanId": "span-5",
-      },
-      {
-        "attachTo": "span-1",
-        "kind": "investigation",
-        "label": "Grep src",
-        "order": 7,
-        "spanId": "span-7",
-      },
       {
         "attachTo": "span-1",
         "kind": "investigation",
@@ -770,7 +770,7 @@ exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for sub
       "durationMs": null,
       "id": "span-4",
       "order": 4,
-      "parentId": null,
+      "parentId": "span-3",
       "raw": {
         "thinking": "先用 Grep 找 try/catch 關鍵字，再找自訂 Error class 定義。",
         "type": "thinking",
@@ -785,7 +785,7 @@ exports[`buildSessionDocument (pipeline snapshot) > matches the snapshot for sub
       "durationMs": null,
       "id": "span-5",
       "order": 5,
-      "parentId": null,
+      "parentId": "span-3",
       "raw": {
         "id": "st1",
         "input": {
@@ -859,7 +859,7 @@ src/utils/httpClient.ts:33",
       "durationMs": null,
       "id": "span-7",
       "order": 7,
-      "parentId": null,
+      "parentId": "span-6",
       "raw": {
         "id": "st2",
         "input": {
@@ -915,7 +915,7 @@ src/errors/UnauthorizedError.ts:1",
       "durationMs": null,
       "id": "span-9",
       "order": 9,
-      "parentId": null,
+      "parentId": "span-8",
       "raw": {
         "text": "掃描完成：10 處 try/catch、4 個自訂 Error 類別，散落在 routes/services/middleware/utils/errors 五個目錄。",
         "type": "text",

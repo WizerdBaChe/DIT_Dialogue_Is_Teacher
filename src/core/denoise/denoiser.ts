@@ -31,7 +31,7 @@ function addTag(span: Span, tag: Span["tags"][number]): void {
 
 export function denoise(doc: SessionDocument): SessionDocument {
   const spans = doc.spans;
-  const groups: SpanGroup[] = [];
+  const groups: SpanGroup[] = doc.groups.filter((group) => group.kind === "subagent");
 
   // ---- 規則 1：milestone ----
   for (const s of spans) {

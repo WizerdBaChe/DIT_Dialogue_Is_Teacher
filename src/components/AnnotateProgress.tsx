@@ -22,10 +22,11 @@ export function AnnotateProgress(): ReactNode {
 
   if (!progress) return null;
 
-  const { total, done, currentId } = progress;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const running = done < total && currentId !== null;
-  const finished = done >= total;
+  const { total, done, cached, failed, status, currentId } = progress;
+  const processed = done + failed;
+  const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+  const running = status === "running";
+  const finished = status === "completed";
   const current = viewItems.find((v) => v.id === currentId);
 
   return (
@@ -35,6 +36,7 @@ export function AnnotateProgress(): ReactNode {
           {finished ? t.progress.done : running ? t.progress.running : t.progress.stopped}
         </span>
         <span className="ap-count">{t.progress.count(done, total, pct)}</span>
+        {(cached > 0 || failed > 0) && <span className="ap-count">{t.progress.details(cached, failed)}</span>}
         {running ? (
           <button type="button" className="btn ap-stop" onClick={cancel} title={t.progress.stopTitle}>
             {t.progress.stop}

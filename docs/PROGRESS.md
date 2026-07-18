@@ -2,6 +2,66 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R4 — Subagent 跨檔串接 + 局部分支圖｜2026-07-19｜✅ 已完成並驗證
+
+- [x] **多檔輸入**：Header 新增「載入 Session 資料夾」，可一次讀取主 transcript 與
+  `subagents/*.jsonl`；pipeline 逐檔解析、合併 RawEvent 並依 timestamp 穩定排序。
+- [x] **跨檔 parent linkage**：Normalizer 用既有 `uuid/parentUuid/isSidechain` 把旁鏈第一個節點
+  掛回主線 `Task`，旁鏈內的後續節點維持父子關係；不更動 Span Tree v0.1 契約。
+- [x] **可展開子代理群組**：旁鏈收為 `kind=subagent` 的群組；工具結果仍巢狀在其工具節點，
+  不重複呈現。側欄可直接選取分支，魚骨下方有獨立局部分支區。
+- [x] **輕量 SVG 分支圖**：沿用既有排印符號與色票，不新增 React Flow；點擊小型分支圖後，
+  詳情自動展開並顯示每個子代理節點的種類、摘要、參數與結果。
+- [x] **真實 preview 證據**：在 `http://localhost:4173` 選取 `src/fixtures/r4/` 整個資料夾，
+  成功載入 9 spans／1 subagent group；畫面顯示 3 個節點的小型 SVG，Grep 結果維持巢狀。
+- 驗證：使用者於 2026-07-19 確認資料夾載入、跨檔關聯、分支選取與展開等人工驗收 1–4 通過；
+  15 個測試檔、81/81 通過；R1 snapshot 依預期更新；typecheck、96-module production build、
+  `git diff --check` 全部通過。
+
+## R3 — OpenCode 分析 + 去識別化 + 可恢復講解｜2026-07-19｜✅ 使用者驗收通過
+
+- [x] **OpenCode 同級分析 Provider**：OpenCode 與 Ollama 都是講解來源，不作開發 worker；DIT 只連
+  loopback server。`opencode serve --pure` 不載入專案 `opencode.json` 自訂 agent，因此啟動指令固定
+  從專案根目錄使用一般模式，保留 `dit-annotator`。
+- [x] **可重用 Privacy Gateway P0**：純核心位於 `src/core/privacy/`，DIT 整合只在 adapter；Cloud
+  transport 只接受 `PrivacyEnvelope`。本機檢查、實際送出預覽、session-scoped consent、Secret
+  fail-closed 已串接；取消或偵測到疑似金鑰時 OpenCode request 為 0。尚未以真實 session 執行 Cloud
+  送出，避免在人工確認前產生外傳。
+- [x] **全域 missing-first 批次**：「講解未處理／重試失敗／全部重新講解」固定可見；未選 Provider
+  時 disabled 並說明原因。無 React 的 `AnnotationJobController` 負責逐項執行、停止與續跑，完成一項
+  立即保存，失敗不會讓百分比卡在未完成狀態。
+- [x] **IndexedDB 講解快取**：新增 `idb@8.0.3`（ISC）與測試用 `fake-indexeddb@6.2.5`
+  （Apache-2.0）。cache key 納入 item fingerprint、Provider、model、prompt、locale、privacy policy
+  版本；IndexedDB 不可用時顯示降級訊息並改用記憶體。
+- [x] **真實本地還原證據**：以 `qwen2.5-coder:7b` 產生一則講解，重新載入頁面後切回 Ollama，
+  立即顯示「已還原 1 則」、未出現生成狀態，待處理數 16→15。repository integration test 另證明
+  reopen 後 missing job 對 cache hit 的 Provider 呼叫為 0。
+- [x] **誠實的 Web runtime 邊界**：`WebRuntimeController` 可探測與提供固定複製指令，但
+  `start/stopOwned` 回傳結構化 unsupported error，完全不執行 shell。面板明示 DIT 沒有在背景啟動
+  或停止 Ollama／OpenCode；Tauri Desktop 仍是獨立產品決策，不阻擋 Web 版。
+- [x] **清除語意**：按鈕改為「清除本次顯示」，提示明示只清畫面、不刪已存結果，下次仍可還原。
+- [x] **2026-07-19 UAT 收尾**：使用者確認原驗收 1–4 通過。production preview 的 OpenCode
+  `Failed to fetch` 根因為 4096 server 未啟動，且固定指令漏列 preview origin 4173；啟動命令已同時
+  allowlist 5173/4173 的 localhost/127.0.0.1。Transport 將模糊 TypeError 改為 loopback/CORS 指引。
+- [x] **錯誤恢復與真實 Cloud UAT**：Provider 切換或重新檢查轉 ready 時清除 stale node errors；錯誤卡
+  新增「重新產生」，不必重置頁面。production preview 已驗證離線指引與重試；隨後由專案根目錄啟動
+  OpenCode 1.17.20，`/global/health`、`/provider`、`/agent` 均回傳 HTTP 200，且 4173 CORS 正確。
+  內建合成資料經 Balanced 去識別化預覽與同意後，以 `deepseek-v4-flash-free` 真實產生一則講解，
+  畫面顯示 `來源 cloud`，待處理數 16→15。
+- [x] **側欄圖例**：新增使用者／回覆／思考／操作／結果／子代理／群組完整圖例，符號由 9px 提升至
+  14px；production preview 已確認可讀。
+- 驗證：`npm run typecheck` 通過；R3 收尾後與 R4 合併回歸為 15 個測試檔、81/81 通過；
+  `npm run build` 96 modules 成功。`git diff --check` 通過。Vitest 仍有既存
+  `esbuild`/`oxc` 棄用警告；npm audit 的既存 1 moderate + 1 high dev-toolchain 問題未混入本輪修正。
+
+## R2 — Ollama 講解品質實測｜2026-07-18｜✅ 已完成並驗證
+
+- 同一份真實 DIT Claude Code session（解析後 88 spans／41 view items）改用 `qwen2.5-coder:7b` 重跑。
+- 前 10 節點嚴格品質評分 7/10，達到 PSM 門檻；批次停在 24/41，進度與停止正常，頁面無崩潰。
+- 首輪混入簡體字，prompt 已加強「臺灣繁中、不得簡體」；三個代表性節點重跑皆為繁體字。
+- timeout／disconnect 可讀錯誤新增單元測試；與 prompt 測試合跑 5/5 通過。使用者另以工作管理員終止 `ollama.exe`，確認 UI 錯誤提示與重新檢查恢復皆正常。
+- 7B 證據與逐節點判定：[UAT_ollama_2026-07-18.md](UAT_ollama_2026-07-18.md)；3B／Gemma4 基線保留於 [UAT_ollama_2026-07-17.md](UAT_ollama_2026-07-17.md)。
+
 ## R7 — i18n 雙語 + anti-slop 編輯排印版面｜2026-07-04｜✅ 已完成並驗證
 
 依 PSM §3.2 R7 施工，於 feature branch `feat/r7-i18n-antislop`。實作前先拍板 4 項 UX 語意

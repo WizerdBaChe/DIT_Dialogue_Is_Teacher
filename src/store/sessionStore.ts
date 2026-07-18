@@ -6,9 +6,39 @@ import type { Annotation, ProviderId, SessionDocument, Span } from "@/types/span
 
 /** 視圖模式：cognitive=認知/魚骨蒸餾；dense=高密度卡片時間軸。 */
 export type ViewMode = "cognitive" | "dense";
-import { buildSessionDocument, PipelineError } from "@/core/pipeline";
+import {
+  buildSessionDocument,
+  buildSessionDocumentFromFiles,
+  PipelineError,
+  type PipelineResult,
+  type TranscriptFileInput,
+} from "@/core/pipeline";
 import { buildViewModel, type ViewItem } from "@/core/view/viewModel";
-import { getProvider, checkOllama, DEFAULT_OLLAMA_CONFIG, type OllamaStatus } from "@/core/llm";
+import {
+  getProvider,
+  checkOllama,
+  DEFAULT_OLLAMA_CONFIG,
+  checkOpenCode,
+  DEFAULT_OPENCODE_CONFIG,
+  createOpenCodeTransport,
+  OPENCODE_AGENT_VERSION,
+  type OllamaStatus,
+  type OpenCodeStatus,
+} from "@/core/llm";
+import { annotateOpenCodeWithPrivacy } from "@/adapters/dit/privacyAdapter";
+import { defaultPrivacyGateway, PrivacyError, type PrivacyConsent, type PrivacyInspection } from "@/core/privacy";
+import { balancedPrivacyPolicy, strictPrivacyPolicy } from "@/core/privacy/policies";
+import { PROMPT_VERSION } from "@/core/llm/prompt";
+import {
+  AnnotationJobController,
+  buildAnnotationCacheKey,
+  createAnnotationRepository,
+  fingerprintItem,
+  fingerprintSession,
+  type AnnotationProvenance,
+  type AnnotationRecord,
+  type AnnotationRunMode,
+} from "@/core/annotation";
 import { sampleSession } from "@/fixtures";
 import { MESSAGES, type Locale } from "@/i18n/locales";
 
@@ -25,29 +55,177 @@ interface OllamaConfigState {
   numPredict: number;
 }
 
-/** 雲端 provider 設定 (目前為 UI 骨架；呼叫端仍為樁，尚未送出)。 */
+/** OpenCode server settings for cloud annotation. Provider credentials remain in OpenCode. */
 interface CloudConfigState {
   baseUrl: string;
-  model: string;
-  apiKey: string;
+  providerID: string;
+  modelID: string;
+  agent: string;
+  timeoutMs: number;
 }
 
 /** 「講解全部」的進度，供 UI 顯示，緩解等待焦慮。null = 未在執行。 */
 export interface AnnotateProgress {
   total: number;
   done: number;
+  cached: number;
+  failed: number;
+  status: "running" | "stopped" | "completed";
   /** 目前正在講解的 view item id (null = 節點間空檔 / 已完成)。 */
   currentId: string | null;
+}
+
+export interface PrivacyReviewState {
+  inspection: PrivacyInspection;
+  itemId: string;
 }
 
 const REPLAY_INTERVAL_MS = 1600;
 let replayTimer: ReturnType<typeof setInterval> | null = null;
 /** 「講解全部」取消旗標 (模組層級，不入 state 以免每次勾選觸發 re-render)。 */
-let annotateCancelled = false;
+let pendingPrivacyReviewer: ((consent: PrivacyConsent | null) => void) | null = null;
+let cloudConsent: { scope: string; consentId: string } | null = null;
+let cacheLoadGeneration = 0;
+const annotationJobController = new AnnotationJobController();
+const annotationRepository = createAnnotationRepository((error) => {
+  useSessionStore.setState({ storageNotice: `Annotation storage degraded to memory: ${error.message}` });
+});
 
 /** 取某個 view item 的代表 span (group 取第一個成員)。 */
 function primarySpan(item: ViewItem): Span {
   return item.type === "span" ? item.node.span : item.nodes[0].span;
+}
+
+interface CacheConfigState {
+  providerId: ProviderId;
+  locale: Locale;
+  ollamaConfig: OllamaConfigState;
+  cloudConfig: CloudConfigState;
+  privacyPolicyId: "balanced" | "strict";
+}
+
+function currentProvenance(state: CacheConfigState): Omit<AnnotationProvenance, "createdAt"> | null {
+  if (state.providerId === "none") return null;
+  if (state.providerId === "ollama") {
+    return {
+      providerId: "ollama",
+      modelId: state.ollamaConfig.model,
+      promptVersion: PROMPT_VERSION,
+      locale: state.locale,
+      privacyPolicyId: null,
+      privacyPolicyVersion: null,
+    };
+  }
+  const policy = state.privacyPolicyId === "strict" ? strictPrivacyPolicy : balancedPrivacyPolicy;
+  return {
+    providerId: "opencode",
+    modelId: `${state.cloudConfig.providerID}/${state.cloudConfig.modelID}`,
+    promptVersion: `${PROMPT_VERSION}:agent-${OPENCODE_AGENT_VERSION}:${state.cloudConfig.agent}`,
+    locale: state.locale,
+    privacyPolicyId: policy.id,
+    privacyPolicyVersion: policy.version,
+  };
+}
+
+async function buildItemFingerprintMap(viewItems: ViewItem[]): Promise<Record<string, string>> {
+  const entries = await Promise.all(viewItems.map(async (item, index) => {
+    const previousSummary = index > 0 ? primarySpan(viewItems[index - 1]).summary : undefined;
+    return [item.id, await fingerprintItem(primarySpan(item), previousSummary)] as const;
+  }));
+  return Object.fromEntries(entries);
+}
+
+async function refreshCurrentCacheMatches(): Promise<void> {
+  const state = useSessionStore.getState();
+  const provenance = currentProvenance(state);
+  if (!provenance || !state.sessionFingerprint) {
+    useSessionStore.setState({ cachedForCurrentConfig: {} });
+    return;
+  }
+  const sessionFingerprint = state.sessionFingerprint;
+  const entries = await Promise.all(Object.entries(state.itemFingerprints).map(async ([itemId, itemFingerprint]) => {
+    const cacheKey = await buildAnnotationCacheKey(itemFingerprint, provenance);
+    const record = await annotationRepository.get(cacheKey);
+    return [itemId, record] as const;
+  }));
+  if (useSessionStore.getState().sessionFingerprint !== sessionFingerprint) return;
+  const cachedForCurrentConfig: Record<string, true> = {};
+  const annotations: Record<string, Annotation> = { ...useSessionStore.getState().annotations };
+  for (const [itemId, record] of entries) {
+    if (!record) continue;
+    cachedForCurrentConfig[itemId] = true;
+    annotations[itemId] = record.annotation;
+  }
+  useSessionStore.setState({ cachedForCurrentConfig, annotations });
+}
+
+function cancelPendingPrivacyReview(): void {
+  pendingPrivacyReviewer?.(null);
+  pendingPrivacyReviewer = null;
+}
+
+function loadPipeline(build: () => PipelineResult): void {
+  const current = useSessionStore.getState();
+  current.pause();
+  cancelPendingPrivacyReview();
+  cloudConsent = null;
+  const generation = ++cacheLoadGeneration;
+  useSessionStore.setState({
+    annotateProgress: null,
+    privacyReview: null,
+    sessionFingerprint: null,
+    itemFingerprints: {},
+    cachedForCurrentConfig: {},
+    cacheReady: false,
+    restoredAnnotationCount: 0,
+  });
+  try {
+    const { doc, warnings } = build();
+    const viewItems = buildViewModel(doc);
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      (window as unknown as { __DIT?: unknown }).__DIT = { doc, viewItems };
+    }
+    useSessionStore.setState({
+      doc,
+      viewItems,
+      warnings,
+      error: null,
+      activeId: viewItems[0]?.id ?? null,
+      playingId: null,
+      annotations: {},
+      annotatingIds: {},
+      annotationErrors: {},
+    });
+    void (async () => {
+      const itemFingerprints = await buildItemFingerprintMap(viewItems);
+      const sessionFingerprint = await fingerprintSession(doc);
+      const records = await annotationRepository.getBySession(sessionFingerprint);
+      if (generation !== cacheLoadGeneration) return;
+      const currentItemIds = new Set(viewItems.map((item) => item.id));
+      const latest = new Map<string, AnnotationRecord>();
+      for (const record of records) {
+        if (!currentItemIds.has(record.itemId) || itemFingerprints[record.itemId] !== record.itemFingerprint) continue;
+        const existing = latest.get(record.itemId);
+        if (!existing || existing.provenance.createdAt < record.provenance.createdAt) latest.set(record.itemId, record);
+      }
+      const restored = Object.fromEntries([...latest].map(([itemId, record]) => [itemId, record.annotation]));
+      useSessionStore.setState((state) => ({
+        sessionFingerprint,
+        itemFingerprints,
+        cacheReady: true,
+        restoredAnnotationCount: latest.size,
+        annotations: { ...state.annotations, ...restored },
+      }));
+      await refreshCurrentCacheMatches();
+    })().catch((error) => {
+      if (generation !== cacheLoadGeneration) return;
+      useSessionStore.setState({ cacheReady: true, storageNotice: `Annotation restore failed: ${(error as Error).message}` });
+    });
+  } catch (error) {
+    const locale = useSessionStore.getState().locale;
+    const message = error instanceof PipelineError ? error.message : MESSAGES[locale].header.loadFailed((error as Error).message);
+    useSessionStore.setState({ doc: null, viewItems: [], warnings: [], error: message, activeId: null, cacheReady: true });
+  }
 }
 
 interface SessionState {
@@ -66,8 +244,18 @@ interface SessionState {
   ollamaConfig: OllamaConfigState;
   /** 最近一次 Ollama 探測結果 (null = 尚未探測)。 */
   ollamaStatus: OllamaStatus | null;
-  /** 雲端設定 (UI 骨架；尚未實際送出)。 */
+  /** OpenCode-backed cloud provider settings and connection status. */
   cloudConfig: CloudConfigState;
+  openCodeStatus: OpenCodeStatus | null;
+  privacyPolicyId: "balanced" | "strict";
+  privacyReview: PrivacyReviewState | null;
+  annotationRunMode: AnnotationRunMode;
+  sessionFingerprint: string | null;
+  itemFingerprints: Record<string, string>;
+  cachedForCurrentConfig: Record<string, true>;
+  cacheReady: boolean;
+  restoredAnnotationCount: number;
+  storageNotice: string | null;
 
   /** 「講解全部」進度 (null = 未執行)。 */
   annotateProgress: AnnotateProgress | null;
@@ -83,6 +271,7 @@ interface SessionState {
 
   // ---- actions ----
   loadFromText: (raw: string) => void;
+  loadFromFiles: (files: TranscriptFileInput[]) => void;
   reset: () => void;
   setProvider: (id: ProviderId) => void;
   setLocale: (locale: Locale) => void;
@@ -90,6 +279,12 @@ interface SessionState {
   updateOllamaConfig: (patch: Partial<OllamaConfigState>) => void;
   refreshOllamaStatus: () => Promise<void>;
   updateCloudConfig: (patch: Partial<CloudConfigState>) => void;
+  setOpenCodeModel: (modelID: string) => void;
+  refreshOpenCodeStatus: () => Promise<void>;
+  setPrivacyPolicy: (id: "balanced" | "strict") => void;
+  approvePrivacyReview: () => void;
+  cancelPrivacyReview: () => void;
+  setAnnotationRunMode: (mode: AnnotationRunMode) => void;
   toggleAnnotations: () => void;
 
   /** 全域重置：回到內建範例與預設設定。 */
@@ -107,7 +302,7 @@ interface SessionState {
   prev: () => void;
   gotoIndex: (i: number) => void;
 
-  annotateItem: (id: string) => Promise<void>;
+  annotateItem: (id: string) => Promise<boolean>;
   annotateAll: () => Promise<void>;
   /** 中止進行中的「講解全部」(目前節點跑完即停)。 */
   cancelAnnotateAll: () => void;
@@ -133,7 +328,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     numPredict: DEFAULT_OLLAMA_CONFIG.numPredict ?? 512,
   },
   ollamaStatus: null,
-  cloudConfig: { baseUrl: "", model: "", apiKey: "" },
+  cloudConfig: { ...DEFAULT_OPENCODE_CONFIG },
+  openCodeStatus: null,
+  privacyPolicyId: "balanced",
+  privacyReview: null,
+  annotationRunMode: "missing",
+  sessionFingerprint: null,
+  itemFingerprints: {},
+  cachedForCurrentConfig: {},
+  cacheReady: false,
+  restoredAnnotationCount: 0,
+  storageNotice: null,
 
   annotateProgress: null,
 
@@ -145,74 +350,142 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   annotatingIds: {},
   annotationErrors: {},
 
-  loadFromText: (raw) => {
-    get().pause();
-    annotateCancelled = true;
-    set({ annotateProgress: null });
-    try {
-      const { doc, warnings } = buildSessionDocument(raw);
-      const viewItems = buildViewModel(doc);
-      // 開發期除錯：把處理結果掛到 window，方便檢視資料流 (production build 不含)。
-      if (import.meta.env.DEV) (window as unknown as { __DIT?: unknown }).__DIT = { doc, viewItems };
-      set({
-        doc,
-        viewItems,
-        warnings,
-        error: null,
-        activeId: viewItems[0]?.id ?? null,
-        playingId: null,
-        annotations: {},
-        annotatingIds: {},
-        annotationErrors: {},
-      });
-    } catch (e) {
-      // PipelineError 訊息來自 core (資料流診斷，維持 zh-TW)；其餘包裝訊息跟隨 UI 語言。
-      const msg = e instanceof PipelineError ? e.message : MESSAGES[get().locale].header.loadFailed((e as Error).message);
-      set({ doc: null, viewItems: [], warnings: [], error: msg, activeId: null });
-    }
-  },
+  loadFromText: (raw) => loadPipeline(() => buildSessionDocument(raw)),
+
+  loadFromFiles: (files) => loadPipeline(() => buildSessionDocumentFromFiles(files)),
 
   reset: () => {
     get().pause();
-    set({ doc: null, viewItems: [], warnings: [], error: null, activeId: null, playingId: null });
+    cancelPendingPrivacyReview();
+    cloudConsent = null;
+    ++cacheLoadGeneration;
+    set({
+      doc: null,
+      viewItems: [],
+      warnings: [],
+      error: null,
+      activeId: null,
+      playingId: null,
+      privacyReview: null,
+      sessionFingerprint: null,
+      itemFingerprints: {},
+      cachedForCurrentConfig: {},
+      cacheReady: true,
+      restoredAnnotationCount: 0,
+    });
   },
 
   setProvider: (id) => {
-    set({ providerId: id, showAnnotations: id !== "none" });
+    if (id !== "cloud") {
+      cancelPendingPrivacyReview();
+      cloudConsent = null;
+    }
+    set({ providerId: id, showAnnotations: id !== "none", annotationErrors: {} });
     if (id === "ollama") void get().refreshOllamaStatus();
+    if (id === "cloud") void get().refreshOpenCodeStatus();
+    void refreshCurrentCacheMatches();
   },
 
   // 切換語言即時生效；不動已載入 doc / 講解結果 (狀態不丟失，符 R7 驗收)。
-  setLocale: (locale) => set({ locale }),
+  setLocale: (locale) => {
+    set({ locale });
+    void refreshCurrentCacheMatches();
+  },
 
   setOllamaModel: (model) => {
     set((s) => ({ ollamaConfig: { ...s.ollamaConfig, model } }));
     void get().refreshOllamaStatus();
+    void refreshCurrentCacheMatches();
   },
 
-  updateOllamaConfig: (patch) => set((s) => ({ ollamaConfig: { ...s.ollamaConfig, ...patch } })),
+  updateOllamaConfig: (patch) => {
+    set((s) => ({ ollamaConfig: { ...s.ollamaConfig, ...patch } }));
+    if (patch.model) void refreshCurrentCacheMatches();
+  },
 
-  updateCloudConfig: (patch) => set((s) => ({ cloudConfig: { ...s.cloudConfig, ...patch } })),
+  updateCloudConfig: (patch) => {
+    cloudConsent = null;
+    set((s) => ({ cloudConfig: { ...s.cloudConfig, ...patch } }));
+    void refreshCurrentCacheMatches();
+  },
+
+  setOpenCodeModel: (modelID) => {
+    cloudConsent = null;
+    set((s) => ({ cloudConfig: { ...s.cloudConfig, modelID } }));
+    void refreshCurrentCacheMatches();
+  },
 
   refreshOllamaStatus: async () => {
     const checkingMsg = MESSAGES[get().locale].ollama.states.checking;
     set((s) => ({ ollamaStatus: { ...(s.ollamaStatus ?? { models: [] as string[] }), state: "checking", baseUrl: s.ollamaConfig.baseUrl, model: s.ollamaConfig.model, message: checkingMsg } as OllamaStatus }));
     const status = await checkOllama(get().ollamaConfig);
-    set({ ollamaStatus: status });
+    set((state) => ({
+      ollamaStatus: status,
+      annotationErrors: status.state === "ready" ? {} : state.annotationErrors,
+    }));
+  },
+
+  refreshOpenCodeStatus: async () => {
+    const config = get().cloudConfig;
+    set({
+      openCodeStatus: {
+        state: "checking",
+        baseUrl: config.baseUrl,
+        version: null,
+        models: [],
+        message: MESSAGES[get().locale].cloud.states.checking,
+      },
+    });
+    const status = await checkOpenCode(config);
+    set((state) => ({
+      openCodeStatus: status,
+      annotationErrors: status.state === "ready" ? {} : state.annotationErrors,
+    }));
+  },
+
+  setPrivacyPolicy: (privacyPolicyId) => {
+    if (pendingPrivacyReviewer) return;
+    cloudConsent = null;
+    set({ privacyPolicyId });
+    void refreshCurrentCacheMatches();
+  },
+
+  setAnnotationRunMode: (annotationRunMode) => set({ annotationRunMode }),
+
+  approvePrivacyReview: () => {
+    const reviewer = pendingPrivacyReviewer;
+    const review = get().privacyReview;
+    if (!reviewer || !review) return;
+    const consentId = `consent_${crypto.randomUUID()}`;
+    const { doc, cloudConfig, privacyPolicyId } = get();
+    cloudConsent = {
+      scope: `${doc?.session.id ?? "none"}\0${cloudConfig.baseUrl}\0${cloudConfig.providerID}\0${cloudConfig.modelID}\0${privacyPolicyId}`,
+      consentId,
+    };
+    pendingPrivacyReviewer = null;
+    set({ privacyReview: null });
+    reviewer({ consentId });
+  },
+
+  cancelPrivacyReview: () => {
+    annotationJobController.cancel();
+    cancelPendingPrivacyReview();
+    set({ privacyReview: null });
   },
 
   toggleAnnotations: () => set((s) => ({ showAnnotations: !s.showAnnotations })),
 
   resetToSample: () => {
     get().pause();
-    annotateCancelled = true;
-    set({ providerId: "none", showAnnotations: true, viewMode: "cognitive", ollamaStatus: null, annotateProgress: null });
+    cancelPendingPrivacyReview();
+    cloudConsent = null;
+    set({ providerId: "none", showAnnotations: true, viewMode: "cognitive", ollamaStatus: null, openCodeStatus: null, annotateProgress: null, privacyReview: null });
     get().loadFromText(sampleSession);
   },
 
   // 清空講解後，魚骨「可帶走的觀念」(讀 annotations) 也會自動消失。
   clearAnnotations: () => {
-    annotateCancelled = true;
+    annotationJobController.cancel();
     set({ annotations: {}, annotatingIds: {}, annotationErrors: {}, annotateProgress: null });
   },
 
@@ -278,55 +551,114 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   annotateItem: async (id) => {
     const { doc, viewItems, providerId, annotatingIds } = get();
-    if (!doc || providerId === "none" || annotatingIds[id]) return;
+    if (!doc || providerId === "none" || annotatingIds[id]) return false;
 
     const idx = viewItems.findIndex((v) => v.id === id);
-    if (idx < 0) return;
+    if (idx < 0) return false;
     const span = primarySpan(viewItems[idx]);
     const prev = idx > 0 ? primarySpan(viewItems[idx - 1]).summary : undefined;
 
     set((s) => ({ annotatingIds: { ...s.annotatingIds, [id]: true }, annotationErrors: omit(s.annotationErrors, id) }));
+    let succeeded = false;
     try {
       const oc = get().ollamaConfig;
-      const provider = getProvider(providerId, {
-        ollama: {
-          baseUrl: oc.baseUrl,
-          model: oc.model,
-          timeoutMs: oc.timeoutMs,
-          think: oc.disableThinking ? false : undefined,
-          keepAlive: oc.keepAlive || undefined,
-          numPredict: oc.numPredict > 0 ? oc.numPredict : undefined,
-        },
-      });
-      const ann = await provider.annotate(span, { sessionTitle: doc.session.title, prevSummary: prev, locale: get().locale });
-      if (ann) set((s) => ({ annotations: { ...s.annotations, [id]: ann } }));
+      const context = { sessionTitle: doc.session.title, prevSummary: prev, locale: get().locale };
+      let ann: Annotation | null;
+      if (providerId === "cloud") {
+        const cloud = get().cloudConfig;
+        const scope = `${doc.session.id}\0${cloud.baseUrl}\0${cloud.providerID}\0${cloud.modelID}\0${get().privacyPolicyId}`;
+        ann = await annotateOpenCodeWithPrivacy(span, context, {
+          gateway: defaultPrivacyGateway,
+          transport: createOpenCodeTransport(cloud),
+          privacyRequest: { policyId: get().privacyPolicyId },
+          reviewer: async (inspection) => {
+            if (cloudConsent?.scope === scope) return { consentId: cloudConsent.consentId };
+            if (pendingPrivacyReviewer) {
+              throw new PrivacyError("PRIVACY_DETECTOR_FAILED", "Another privacy review is already in progress; no data was sent.");
+            }
+            return new Promise<PrivacyConsent | null>((resolve) => {
+              pendingPrivacyReviewer = resolve;
+              set({ privacyReview: { inspection, itemId: id } });
+            });
+          },
+        });
+      } else {
+        const provider = getProvider(providerId, {
+          ollama: {
+            baseUrl: oc.baseUrl,
+            model: oc.model,
+            timeoutMs: oc.timeoutMs,
+            think: oc.disableThinking ? false : undefined,
+            keepAlive: oc.keepAlive || undefined,
+            numPredict: oc.numPredict > 0 ? oc.numPredict : undefined,
+          },
+        });
+        ann = await provider.annotate(span, context);
+      }
+      if (ann) {
+        const cacheState = get();
+        const provenance = currentProvenance(cacheState);
+        if (provenance) {
+          const itemFingerprint = cacheState.itemFingerprints[id] ?? await fingerprintItem(span, prev);
+          const sessionFingerprint = cacheState.sessionFingerprint ?? await fingerprintSession(doc);
+          const cacheKey = await buildAnnotationCacheKey(itemFingerprint, provenance);
+          const record: AnnotationRecord = {
+            cacheKey,
+            sessionFingerprint,
+            itemFingerprint,
+            itemId: id,
+            annotation: ann,
+            provenance: { ...provenance, createdAt: new Date().toISOString() },
+          };
+          await annotationRepository.put(record);
+          set((state) => ({
+            sessionFingerprint,
+            itemFingerprints: { ...state.itemFingerprints, [id]: itemFingerprint },
+            cachedForCurrentConfig: { ...state.cachedForCurrentConfig, [id]: true },
+            annotations: { ...state.annotations, [id]: ann },
+          }));
+        } else {
+          set((state) => ({ annotations: { ...state.annotations, [id]: ann } }));
+        }
+        succeeded = true;
+      }
     } catch (e) {
-      set((s) => ({ annotationErrors: { ...s.annotationErrors, [id]: (e as Error).message } }));
+      if (!(e instanceof PrivacyError && e.code === "PRIVACY_REVIEW_CANCELLED")) {
+        set((s) => ({ annotationErrors: { ...s.annotationErrors, [id]: (e as Error).message } }));
+      }
     } finally {
       set((s) => ({ annotatingIds: omit(s.annotatingIds, id) }));
     }
+    return succeeded;
   },
 
   annotateAll: async () => {
-    const { viewItems, providerId } = get();
+    const { viewItems, providerId, annotationRunMode, cachedForCurrentConfig, annotationErrors } = get();
     if (providerId === "none" || viewItems.length === 0) return;
-    if (get().annotateProgress) return; // 已在執行，避免重入。
-    annotateCancelled = false;
-    set({ annotateProgress: { total: viewItems.length, done: 0, currentId: null } });
-    // 逐節點循序處理 (本地小模型友善；避免一次大量並發壓垮 Ollama)。
-    for (const item of viewItems) {
-      if (annotateCancelled) break;
-      set((s) => (s.annotateProgress ? { annotateProgress: { ...s.annotateProgress, currentId: item.id } } : {}));
-      await get().annotateItem(item.id);
-      set((s) =>
-        s.annotateProgress ? { annotateProgress: { ...s.annotateProgress, done: s.annotateProgress.done + 1, currentId: null } } : {},
-      );
-    }
-    // 保留最終進度供 UI 顯示「完成 / 已停止」，由使用者關閉或下次重跑時清除。
+    if (get().annotateProgress?.status === "running") return;
+    await annotationJobController.start({
+      mode: annotationRunMode,
+      items: viewItems.map((item) => ({
+        id: item.id,
+        cached: Boolean(cachedForCurrentConfig[item.id]),
+        failed: Boolean(annotationErrors[item.id]),
+      })),
+      runItem: (id) => get().annotateItem(id),
+      onSnapshot: (snapshot) => set({
+        annotateProgress: {
+          total: snapshot.total,
+          done: snapshot.done,
+          cached: snapshot.cached,
+          failed: snapshot.failed,
+          status: snapshot.status,
+          currentId: snapshot.currentId,
+        },
+      }),
+    });
   },
 
   cancelAnnotateAll: () => {
-    annotateCancelled = true;
+    annotationJobController.cancel();
   },
 }));
 

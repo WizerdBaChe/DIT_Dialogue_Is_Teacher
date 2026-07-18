@@ -52,6 +52,7 @@ export function buildViewModel(doc: SessionDocument): ViewItem[] {
       const nodes = group.spanIds
         .map((sid) => byId.get(sid))
         .filter((x): x is Span => Boolean(x))
+        .filter((span) => !(span.type === "tool_result" && span.parentId && group.spanIds.includes(span.parentId)))
         .map(nodeOf);
       items.push({ type: "group", id: group.id, group, nodes });
       continue;

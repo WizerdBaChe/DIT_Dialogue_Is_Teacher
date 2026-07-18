@@ -1,24 +1,50 @@
-/**
- * 雲端講解設定面板 (僅在「講解來源 = 雲端 API」時顯示)。
- *
- * 目前為「UI 骨架」：欄位會寫入 store.cloudConfig，但 cloudProvider 仍是樁、
- * 按「講解全部」會明確報「尚未啟用」。真正的雲端呼叫 (例如 Mistral 免費 API)
- * 待之後接上 —— 設計上欄位/資料流已就緒，屆時只需實作 provider.annotate。
- *
- * 此面板與 OllamaPanel 對齊 (可摺疊、同一套樣式)，維持兩種來源的一致體驗。
- */
-import { useState, type ReactNode } from "react";
+/** OpenCode server controls for cloud-backed teaching annotations. */
+import { useEffect, useState, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
+import type { OpenCodeState } from "@/core/llm";
+import { WEB_RUNTIME_START_COMMANDS } from "@/core/runtime";
+
+const STATE_CLASS: Record<OpenCodeState, string> = {
+  checking: "checking",
+  ready: "ready",
+  offline: "offline",
+  "provider-missing": "warn",
+  "model-missing": "warn",
+  "agent-missing": "warn",
+};
 
 export function CloudPanel(): ReactNode {
   const t = useT();
   const providerId = useSessionStore((s) => s.providerId);
   const config = useSessionStore((s) => s.cloudConfig);
+  const status = useSessionStore((s) => s.openCodeStatus);
   const updateConfig = useSessionStore((s) => s.updateCloudConfig);
+  const setModel = useSessionStore((s) => s.setOpenCodeModel);
+  const refresh = useSessionStore((s) => s.refreshOpenCodeStatus);
+  const privacyPolicyId = useSessionStore((s) => s.privacyPolicyId);
+  const setPrivacyPolicy = useSessionStore((s) => s.setPrivacyPolicy);
   const [open, setOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (providerId === "cloud" && !status) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (providerId !== "cloud") return null;
+
+  const state = status?.state ?? "checking";
+  const models = Array.from(new Set([...(status?.models ?? []), config.modelID]));
+  const copyCommand = () => {
+    void navigator.clipboard?.writeText(WEB_RUNTIME_START_COMMANDS.opencode).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1400);
+      },
+      () => undefined,
+    );
+  };
 
   return (
     <section className="ollama-panel cloud-panel" aria-label={t.cloud.panelLabel}>
@@ -26,20 +52,21 @@ export function CloudPanel(): ReactNode {
         <button
           type="button"
           className="ol-toggle"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           aria-label={open ? t.cloud.collapse : t.cloud.expand}
           title={open ? t.cloud.collapse : t.cloud.expand}
         >
           {open ? "▾" : "▸"}
         </button>
-        <span className="ol-status warn">
-          <span className="ol-dot" aria-hidden="true">
-            ●
-          </span>
-          {t.cloud.status}
+        <span className={`ol-status ${STATE_CLASS[state]}`}>
+          <span className="ol-dot" aria-hidden="true">●</span>
+          {t.cloud.states[state]}
         </span>
-        <span className="ol-msg">{t.cloud.msg}</span>
+        <span className="ol-msg">{status?.message ?? t.cloud.defaultMsg}</span>
+        <button type="button" className="btn ol-recheck" onClick={() => void refresh()}>
+          {t.cloud.recheck}
+        </button>
       </div>
 
       {open && (
@@ -52,34 +79,44 @@ export function CloudPanel(): ReactNode {
               type="text"
               placeholder={t.cloud.endpointPlaceholder}
               value={config.baseUrl}
-              onChange={(e) => updateConfig({ baseUrl: e.target.value })}
+              onChange={(event) => updateConfig({ baseUrl: event.target.value })}
             />
-          </div>
 
-          <div className="ol-row">
             <label htmlFor="cl-model">{t.cloud.model}</label>
-            <input
-              id="cl-model"
-              className="ol-input"
-              type="text"
-              placeholder={t.cloud.modelPlaceholder}
-              value={config.model}
-              onChange={(e) => updateConfig({ model: e.target.value })}
-            />
+            <select id="cl-model" value={config.modelID} onChange={(event) => setModel(event.target.value)}>
+              {models.map((model) => <option key={model} value={model}>{model}</option>)}
+            </select>
 
-            <label htmlFor="cl-key">{t.cloud.apiKey}</label>
-            <input
-              id="cl-key"
-              className="ol-input"
-              type="password"
-              placeholder={t.cloud.apiKeyPlaceholder}
-              value={config.apiKey}
-              onChange={(e) => updateConfig({ apiKey: e.target.value })}
-              autoComplete="off"
-            />
+            <label htmlFor="cl-timeout">{t.cloud.timeout}</label>
+            <select
+              id="cl-timeout"
+              value={config.timeoutMs}
+              onChange={(event) => updateConfig({ timeoutMs: Number(event.target.value) })}
+            >
+              <option value={60000}>{t.cloud.sec(60)}</option>
+              <option value={120000}>{t.cloud.sec(120)}</option>
+              <option value={180000}>{t.cloud.sec(180)}</option>
+            </select>
+
+            <label htmlFor="cl-privacy">{t.cloud.privacyPolicy}</label>
+            <select
+              id="cl-privacy"
+              value={privacyPolicyId}
+              onChange={(event) => setPrivacyPolicy(event.target.value as "balanced" | "strict")}
+            >
+              <option value="balanced">{t.cloud.privacyBalanced}</option>
+              <option value="strict">{t.cloud.privacyStrict}</option>
+            </select>
           </div>
 
-          <p className="ol-hint">{t.cloud.hint}</p>
+          <div className="ol-cmd">
+            <code>{WEB_RUNTIME_START_COMMANDS.opencode}</code>
+            <button type="button" className="ol-copy" onClick={copyCommand} aria-label={t.cloud.copyAria}>
+              {copied ? t.cloud.copied : t.cloud.copy}
+            </button>
+          </div>
+          <p className="ol-hint">{state === "ready" ? t.cloud.readyHint : t.cloud.setupHint}</p>
+          <p className="ol-hint">{t.cloud.runtimeOwnership}</p>
         </>
       )}
     </section>

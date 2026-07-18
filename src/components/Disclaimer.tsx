@@ -6,5 +6,11 @@ import { useT } from "@/i18n";
 export function Disclaimer(): ReactNode {
   const t = useT();
   const providerId = useSessionStore((s) => s.providerId);
-  return <div className={`disclaimer ${providerId}`}>{t.providerDisclaimer[providerId]}</div>;
+  const storageNotice = useSessionStore((s) => s.storageNotice);
+  return (
+    <>
+      <div className={`disclaimer ${providerId}`}>{t.providerDisclaimer[providerId]}</div>
+      {storageNotice && <div className="storage-notice" role="alert">{t.storage.degraded(storageNotice)}</div>}
+    </>
+  );
 }
