@@ -32,6 +32,27 @@ export function ReaderMinimap({ visibleStart, visibleEnd }: ReaderMinimapProps):
   const currentX = trackLeft + (currentIndex / denominator) * trackWidth;
   const viewportX = trackLeft + (Math.max(0, visibleStart) / denominator) * trackWidth;
   const viewportEndX = trackLeft + (Math.max(visibleStart, visibleEnd) / denominator) * trackWidth;
+  const landmarkPath: string[] = [];
+  const clusterPath: string[] = [];
+
+  projection.targets.forEach((target, index) => {
+    const x = trackLeft + (index / Math.max(1, projection.targets.length - 1)) * trackWidth;
+    if (target.type === "landmark") {
+      landmarkPath.push(`M ${x - 2.5} 56 a 2.5 2.5 0 1 0 5 0 a 2.5 2.5 0 1 0 -5 0`);
+    } else {
+      clusterPath.push(`M ${x - 2.5} 52 h 5 v 8 h -5 z`);
+    }
+  });
+
+  const minimapSvg = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">`,
+    `<path d="M ${trackLeft} 56 H ${width - trackLeft}" fill="none" stroke="#c3bcab" stroke-width="1.5"/>`,
+    `<path d="${landmarkPath.join(" ")}" fill="#4f4a41"/>`,
+    `<path d="${clusterPath.join(" ")}" fill="#8a6a2f" fill-opacity=".72"/>`,
+    `<rect x="${viewportX}" y="34" width="${Math.max(4, viewportEndX - viewportX)}" height="44" fill="rgba(124,33,40,.08)" stroke="#8a6a2f"/>`,
+    `<circle cx="${currentX}" cy="56" r="5" fill="#7c2128" stroke="#fffdf8" stroke-width="2"/>`,
+    "</svg>",
+  ].join("");
 
   return (
     <button
@@ -40,28 +61,9 @@ export function ReaderMinimap({ visibleStart, visibleEnd }: ReaderMinimapProps):
       aria-label={t.map.minimapLabel}
       aria-haspopup="dialog"
       aria-controls="session-map-dialog"
+      data-label={t.map.youAreHere}
+      style={{ backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(minimapSvg)}")` }}
       onClick={openMap}
-    >
-      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
-        <path className="minimap-spine" d={`M ${trackLeft} 56 H ${width - trackLeft}`} />
-        {projection.targets.map((target, index) => {
-          const x = trackLeft + (index / Math.max(1, projection.targets.length - 1)) * trackWidth;
-          return target.type === "landmark"
-            ? <circle key={target.id} className="minimap-landmark" cx={x} cy="56" r="2.5" />
-            : <rect key={target.id} className="minimap-cluster" x={x - 2.5} y="52" width="5" height="8" />;
-        })}
-        <rect
-          className="minimap-viewport"
-          x={viewportX}
-          y="34"
-          width={Math.max(4, viewportEndX - viewportX)}
-          height="44"
-        >
-          <title>{t.map.viewport}</title>
-        </rect>
-        <circle className="minimap-current" cx={currentX} cy="56" r="5" />
-      </svg>
-      <span>{t.map.youAreHere}</span>
-    </button>
+    />
   );
 }
