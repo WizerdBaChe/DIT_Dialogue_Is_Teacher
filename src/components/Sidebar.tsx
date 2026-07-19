@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, type ReactNode, type Ref } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
+import { buildFishbone } from "@/core/view/fishbone";
 import { SPAN_DOT, GROUP_DOT } from "./labels";
 
 interface SidebarProps {
@@ -23,10 +24,24 @@ export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }
   const closeStructureDrawer = useSessionStore((s) => s.closeStructureDrawer);
   const scrollRef = useRef<HTMLDivElement>(null);
   const indexById = useMemo(() => new Map(viewItems.map((item, index) => [item.id, index])), [viewItems]);
+  const landmarkKindById = useMemo(() => {
+    const kinds = new Map<string, string>();
+    if (!doc) return kinds;
+    for (const station of buildFishbone(doc, viewItems)) {
+      kinds.set(station.viewItemId, station.kind);
+      for (const rib of station.ribs) {
+        if (!kinds.has(rib.viewItemId)) kinds.set(rib.viewItemId, rib.kind);
+      }
+    }
+    for (const item of viewItems) {
+      if (item.type === "group" && item.group.kind === "subagent") kinds.set(item.id, "subagent");
+    }
+    return kinds;
+  }, [doc, viewItems]);
   const virtualizer = useVirtualizer({
     count: viewItems.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 31,
+    estimateSize: () => 49,
     overscan: 8,
     getItemKey: (index) => viewItems[index]?.id ?? index,
   });
@@ -69,6 +84,9 @@ export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }
           </button>
         </div>
         <p className="structure-position">{t.structure.position(position.current ?? "—", position.total)}</p>
+        <p className="tree-legend">
+          {`${t.sidebar.legendLabel}: □ ${t.skeletonNode.objective} · ◇ ${t.skeletonNode.decision} · ⬡ ${t.skeletonNode.milestone} · ▰ ${t.skeletonNode.outcome} · ├ ${t.skeletonRib.investigation} · △ ${t.skeletonRib.error} · ○ ${t.skeletonRib.retry} · ◆ ${t.skeletonRib["edit-loop"]} · ◆ ${t.workspace.tabs.subagents}`}
+        </p>
       </div>
 
       <div ref={scrollRef} className="tree-scroll" data-testid="sidebar-virtual-scroll">
@@ -78,17 +96,26 @@ export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }
             const span = item.type === "span" ? item.node.span : item.nodes[0].span;
             const label = item.type === "group" ? item.group.label : span.summary;
             const dot = item.type === "group" ? GROUP_DOT : SPAN_DOT[span.type];
+            const landmarkKind = landmarkKindById.get(item.id);
+            const landmarkLabel = landmarkKind === "subagent"
+              ? t.workspace.tabs.subagents
+              : landmarkKind && landmarkKind in t.skeletonNode
+                ? t.skeletonNode[landmarkKind as keyof typeof t.skeletonNode]
+                : landmarkKind && landmarkKind in t.skeletonRib
+                  ? t.skeletonRib[landmarkKind as keyof typeof t.skeletonRib]
+                  : null;
             const cls = playingId === item.id ? "playing" : activeId === item.id ? "active" : "";
             return (
               <button
                 key={item.id}
                 type="button"
-                className={`tree-item ${cls}`}
+                className={`tree-item ${landmarkKind ? `landmark landmark-${landmarkKind}` : ""} ${cls}`}
                 onClick={() => {
                   onItemSelect?.(item.id);
                   setActive(item.id);
                 }}
-                title={label}
+                title={landmarkLabel ? `${landmarkLabel}: ${label}` : label}
+                data-landmark-label={landmarkLabel ?? undefined}
                 data-index={virtualItem.index}
                 style={{ transform: `translateY(${virtualItem.start}px)` }}
               >

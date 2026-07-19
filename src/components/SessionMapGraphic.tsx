@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import type { SessionMapProjection, SessionMapTarget } from "@/core/view/sessionMap";
+import {
+  buildSessionMapGraphicLayout,
+  type MapLandmark,
+  type SessionMapProjection,
+  type SessionMapTarget,
+} from "@/core/view/sessionMap";
+import { useT, type Messages } from "@/i18n";
 
 interface SessionMapGraphicProps {
   projection: SessionMapProjection;
@@ -8,24 +14,69 @@ interface SessionMapGraphicProps {
   onSelect: (target: SessionMapTarget) => void;
 }
 
+function landmarkKindLabel(t: Messages, landmark: MapLandmark): string {
+  if (landmark.kind === "subagent") return t.workspace.tabs.subagents;
+  if (landmark.kind === "objective" || landmark.kind === "decision" || landmark.kind === "milestone" || landmark.kind === "outcome") {
+    return t.skeletonNode[landmark.kind];
+  }
+  return t.skeletonRib[landmark.kind];
+}
+
+function targetShape(target: SessionMapTarget): ReactNode {
+  if (target.type === "cluster") return <rect className="map-shape" x="-48" y="-24" width="96" height="48" rx="3" />;
+  if (target.kind === "decision") return <path className="map-shape" d="M 0 -30 L 48 0 L 0 30 L -48 0 Z" />;
+  if (target.kind === "milestone") return <path className="map-shape" d="M -38 -26 H 38 L 52 0 L 38 26 H -38 L -52 0 Z" />;
+  if (target.kind === "outcome") return <rect className="map-shape" x="-52" y="-26" width="104" height="52" rx="26" />;
+  if (target.kind === "subagent") return <path className="map-shape" d="M -48 -24 H 32 L 48 -8 V 24 H -32 L -48 8 Z" />;
+  return <rect className="map-shape" x="-52" y="-26" width="104" height="52" rx="3" />;
+}
+
 export function SessionMapGraphic({
   projection,
   currentViewItemId,
   selectedId,
   onSelect,
 }: SessionMapGraphicProps): ReactNode {
+  const t = useT();
   if (projection.targets.length === 0) return null;
   const graphicTargets = projection.level === "detail"
     ? projection.targets.filter((target) => target.type === "cluster" || target.parentStationId === null)
     : projection.targets;
-  const width = Math.max(640, graphicTargets.length * 88 + 80);
-  const y = 110;
+  const layout = buildSessionMapGraphicLayout(graphicTargets.length);
+  const ribKinds = ["investigation", "error", "retry", "edit-loop"] as const;
+  const stationTargets = graphicTargets.map((target, index) => ({ target, x: layout.xPositions[index] }))
+    .filter((entry): entry is { target: MapLandmark; x: number } => entry.target.type === "landmark" && entry.target.parentStationId === null);
+  const branchTrunks = stationTargets
+    .filter(({ target }) => target.ribCount > 0)
+    .map(({ x }) => `M ${x} ${layout.nodeY - 28} V ${layout.nodeY - 88}`)
+    .join(" ");
+  const branchCues = ribKinds.map((kind, kindIndex) => {
+    const y = layout.nodeY - 42 - kindIndex * 14;
+    const entries = stationTargets.filter(({ target }) => (target.ribKindCounts[kind] ?? 0) > 0);
+    const path = entries.map(({ x }) => {
+      if (kind === "investigation") return `M ${x - 12} ${y} H ${x + 12}`;
+      if (kind === "error") return `M ${x} ${y - 7} L ${x + 7} ${y + 6} H ${x - 7} Z`;
+      if (kind === "retry") return `M ${x - 7} ${y} A 7 7 0 1 0 ${x + 7} ${y} A 7 7 0 1 0 ${x - 7} ${y}`;
+      return `M ${x} ${y - 7} L ${x + 7} ${y} L ${x} ${y + 7} L ${x - 7} ${y} Z`;
+    }).join(" ");
+    return path ? <path key={kind} className={`map-rib-cue map-rib-${kind}`} d={path} /> : null;
+  });
 
   return (
-    <svg className="session-map-graphic" viewBox={`0 0 ${width} 220`} aria-hidden="true">
-      <path className="map-spine" d={`M 40 ${y} H ${width - 40}`} />
+    <svg
+      className="session-map-graphic"
+      width={layout.width}
+      height={layout.height}
+      viewBox={`0 0 ${layout.width} ${layout.height}`}
+      aria-hidden="true"
+    >
+      {layout.spineStart !== layout.spineEnd && (
+        <path className="map-spine" d={`M ${layout.spineStart} ${layout.nodeY} H ${layout.spineEnd}`} />
+      )}
+      {branchTrunks && <path className="map-rib-trunks" d={branchTrunks} />}
+      {branchCues}
       {graphicTargets.map((target, index) => {
-        const x = 60 + index * 88;
+        const x = layout.xPositions[index];
         const current = target.type === "landmark" && (
           target.viewItemId === currentViewItemId
           || (target.parentStationId === null && target.stationIndex === projection.focusStationIndex)
@@ -34,13 +85,17 @@ export function SessionMapGraphic({
         return (
           <g
             key={target.id}
-            className={`map-target map-${target.type} ${current ? "current" : ""} ${selected ? "selected" : ""}`}
-            transform={`translate(${x} ${y})`}
+            className={`map-target map-${target.type} ${target.type === "landmark" ? `map-kind-${target.kind}` : ""} ${current ? "current" : ""} ${selected ? "selected" : ""}`}
+            transform={`translate(${x} ${layout.nodeY})`}
             onClick={() => onSelect(target)}
           >
-            {target.type === "landmark" ? <circle r="12" /> : <rect x="-18" y="-12" width="36" height="24" />}
-            <text y="34" textAnchor="middle">{target.type === "cluster" ? target.count : index + 1}</text>
-            {current && <circle className="map-current-ring" r="18" />}
+            {targetShape(target)}
+            <text y="52" textAnchor="middle">
+              {target.type === "cluster"
+                ? `${index + 1} · ${target.count}`
+                : `${index + 1} · ${landmarkKindLabel(t, target)}${target.ribCount > 0 ? ` · ${t.map.branchCount(target.ribCount)}` : ""}`}
+            </text>
+            {current && <rect className="map-current-ring" x="-60" y="-34" width="120" height="68" rx="6" />}
           </g>
         );
       })}

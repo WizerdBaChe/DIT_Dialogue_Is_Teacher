@@ -120,7 +120,7 @@ const zhTW = {
   map: {
     open: "地圖",
     title: "Session 地圖",
-    close: "關閉 Session 地圖",
+    close: "關閉地圖",
     youAreHere: "你在這裡",
     currentPosition: (current: number | string, total: number) => `位置 ${current} / ${total}`,
     levels: {
@@ -134,6 +134,7 @@ const zhTW = {
     jump: "跳到這一步",
     openCluster: "查看這個區段",
     clusterLabel: (count: number, first: number, last: number) => `聚合 ${count} 項 · ${first}–${last}`,
+    branchCount: (count: number) => `${count} 條支線`,
     empty: "此 Session 沒有可建立地圖的骨架。",
     returnReader: "回到閱讀",
     invalidTarget: (id: string) => `地圖目標已失效：${id}`,
@@ -471,7 +472,7 @@ const en: Messages = {
   map: {
     open: "Map",
     title: "Session map",
-    close: "Close session map",
+    close: "Close map",
     youAreHere: "You are here",
     currentPosition: (current: number | string, total: number) => `Position ${current} / ${total}`,
     levels: {
@@ -485,6 +486,7 @@ const en: Messages = {
     jump: "Go to this step",
     openCluster: "Explore this section",
     clusterLabel: (count: number, first: number, last: number) => `Cluster of ${count} · ${first}–${last}`,
+    branchCount: (count: number) => `${count} branches`,
     empty: "This session has no mappable skeleton.",
     returnReader: "Return to Reader",
     invalidTarget: (id: string) => `The map target is no longer available: ${id}`,

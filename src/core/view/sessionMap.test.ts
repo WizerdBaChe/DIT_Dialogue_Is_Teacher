@@ -8,6 +8,7 @@ import {
   MAX_MOUNTED_DETAIL_RIBS,
   MAX_SECTION_TARGETS,
   buildGlobalSessionMapProjection,
+  buildSessionMapGraphicLayout,
   buildSessionMapProjection,
   canJumpToMapTarget,
   type MapCluster,
@@ -67,6 +68,25 @@ function createLargeMapFixture(stationCount: number, ribCount = 0): { doc: Sessi
 }
 
 describe("global session map projection", () => {
+  it("centers four targets and ends the spine at the first and last target", () => {
+    const layout = buildSessionMapGraphicLayout(4);
+
+    expect(layout.xPositions).toEqual([90, 270, 450, 630]);
+    expect(layout.spineStart).toBe(layout.xPositions[0]);
+    expect(layout.spineEnd).toBe(layout.xPositions[3]);
+    expect((layout.spineStart + layout.spineEnd) / 2).toBe(layout.width / 2);
+  });
+
+  it("does not create a trailing spine for empty or single-target maps", () => {
+    const empty = buildSessionMapGraphicLayout(0);
+    const single = buildSessionMapGraphicLayout(1);
+
+    expect(empty.xPositions).toEqual([]);
+    expect(empty.spineStart).toBe(empty.spineEnd);
+    expect(single.xPositions).toEqual([single.width / 2]);
+    expect(single.spineStart).toBe(single.spineEnd);
+  });
+
   it("maps every landmark to a real ViewItem id", () => {
     const { doc } = buildSessionDocument(sampleSession);
     const viewItems = buildViewModel(doc);
