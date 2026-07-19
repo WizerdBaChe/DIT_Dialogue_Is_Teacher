@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   MAX_MOUNTED_DETAIL_RIBS,
   buildSessionMapProjection,
   canJumpToMapTarget,
+  resolveSessionMapSelection,
   type MapLandmark,
   type MapZoomLevel,
   type SessionMapTarget,
@@ -45,7 +46,6 @@ export function SessionMapDialog(): ReactNode {
   const annotations = useSessionStore((state) => state.annotations);
   const closeMap = useSessionStore((state) => state.closeMap);
   const setMapZoom = useSessionStore((state) => state.setMapZoom);
-  const setMapFocus = useSessionStore((state) => state.setMapFocus);
   const jumpToMapItem = useSessionStore((state) => state.jumpToMapItem);
   const startReading = useSessionStore((state) => state.startReading);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -53,6 +53,7 @@ export function SessionMapDialog(): ReactNode {
   const listRef = useRef<HTMLDivElement>(null);
   const graphicScrollRef = useRef<HTMLDivElement>(null);
   const focusReaderAfterClose = useRef(false);
+  const [selectedMapTargetId, setSelectedMapTargetId] = useState<string | null>(null);
   const currentViewItemId = playingId ?? activeId;
   const viewItemIds = useMemo(() => viewItems.map((item) => item.id), [viewItems]);
   const position = selectCurrentPosition({ viewItems, activeId, playingId });
@@ -62,9 +63,7 @@ export function SessionMapDialog(): ReactNode {
       : { level: "global" as const, focusStationIndex: 0, targets: [], totalStations: 0, totalRibs: 0 },
     [currentViewItemId, doc, mapFocusId, mapOpen, mapZoomLevel, viewItems],
   );
-  const selectedTarget = projection.targets.find((target) => (
-    target.id === mapFocusId || (target.type === "landmark" && target.viewItemId === mapFocusId)
-  )) ?? projection.targets.find((target) => target.type === "landmark" && target.stationIndex === projection.focusStationIndex) ?? null;
+  const selectedTarget = resolveSessionMapSelection(projection, selectedMapTargetId ?? mapFocusId);
   const virtualizer = useVirtualizer({
     count: projection.targets.length,
     getScrollElement: () => listRef.current,
@@ -88,6 +87,10 @@ export function SessionMapDialog(): ReactNode {
       dialog.close();
     }
   }, [mapOpen]);
+
+  useEffect(() => {
+    setSelectedMapTargetId(mapOpen ? mapFocusId ?? currentViewItemId : null);
+  }, [currentViewItemId, mapFocusId, mapOpen]);
 
   useEffect(() => {
     if (!mapOpen || projection.targets.length === 0) return;
@@ -124,9 +127,12 @@ export function SessionMapDialog(): ReactNode {
     });
   };
 
-  const selectTarget = (target: SessionMapTarget) => setMapFocus(target.type === "landmark" ? target.viewItemId : target.id);
+  const selectTarget = (target: SessionMapTarget) => {
+    setSelectedMapTargetId(target.type === "landmark" ? target.viewItemId : target.id);
+  };
   const changeZoom = (level: MapZoomLevel, target: SessionMapTarget | null = selectedTarget) => {
     const focusId = focusIdForTarget(target, currentViewItemId, viewItemIds);
+    setSelectedMapTargetId(focusId);
     setMapZoom(level, focusId ?? undefined);
   };
   const mountedRows = virtualizer.getVirtualItems().slice(0, MAX_MOUNTED_DETAIL_RIBS);

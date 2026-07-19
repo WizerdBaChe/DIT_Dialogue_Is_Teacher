@@ -85,6 +85,7 @@ export function SessionMapGraphic({
         return (
           <g
             key={target.id}
+            data-target-id={target.id}
             className={`map-target map-${target.type} ${target.type === "landmark" ? `map-kind-${target.kind}` : ""} ${current ? "current" : ""} ${selected ? "selected" : ""}`}
             transform={`translate(${x} ${layout.nodeY})`}
             onClick={() => onSelect(target)}

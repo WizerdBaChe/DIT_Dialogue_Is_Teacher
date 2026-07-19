@@ -2,7 +2,10 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
-## R5 — 大型 Session 效能 + Guided Navigation｜2026-07-19｜🟡 GN-01～GN-09 已實作，待 GN-09 視覺驗收
+## R5 — 大型 Session 效能 + Guided Navigation｜2026-07-19｜🟡 GN-01～GN-10 已實作，待 GN-10 視覺驗收
+
+- [x] **GN-10 Section 與視覺平衡修復**：Map preview selection 與 projection focus 已拆開；production 實際選取另一個 Section 地標前後，5 個 target ID 與順序完全相同，只有 selected 狀態移動。Sidebar 恢復 20 px 透明底純文字 glyph，重要節點文字標籤保留；圖例改為每列四種；Map 節點填色改回所在區域底色，不再出現額外白底圖塊。
+- [x] **GN-10 production 證據**：390×844、740×1113、1280×720 文件級水平溢位皆為 false；Sidebar glyph 對底色為 8.03:1，Map 文字為 7.21:1，紅色 Close 為 7.92:1。50.0018 MiB fixture 的 Reader DOM 最大 247、Map DOM 最大 434；`r5-gn10-metrics.json` benchmark 18/18 checks pass。load／cancel、134 ms open latency 與 deep index 28,541 沿用未改管線的 GN-09 同機證據。
 
 - [x] **GN-09 視覺 UAT 修復**：Structure 恢復精簡圖例與重要節點類型，節點符號放大；Reader 項目標示與全站字級提升；
   各區域加入同色系深淺層次。Session Map 恢復方塊／菱形／六角／圓角與有界魚骨提示，spine 精確止於最後節點，
@@ -29,7 +32,7 @@
 - [x] **最新效能實測**：相同 50.0018 MiB／29,452 view items production preview 於 964 ms 載入；
   首次進度 66 ms，取消 379 ms 且舊文件保持。Reader closed DOM 最大 249；三層 Map 最大 477；
   open→first target 115 ms；390×844、740×1113、1280×720 無水平溢出；深層 index 28,541 無 drift。
-- 驗證：20 個測試檔、130/130 通過；typecheck、117-module production build、benchmark result pass、
+- 驗證：20 個測試檔、131/131 通過；typecheck、118-module production build、benchmark result pass、
   `git diff --check` 通過。報告：[R5_BENCHMARK_2026-07-19.md](R5_BENCHMARK_2026-07-19.md)；唯一施工合約：
   [PSM_R5_GUIDED_NAVIGATION_v1.0.md](PSM_R5_GUIDED_NAVIGATION_v1.0.md)。使用者 390／740／1280 最終視覺 UAT 尚未完成。
 

@@ -1,6 +1,6 @@
 # DIT R5 最終驗收單 (Acceptance Checklist)｜2026-07-19
 
-> 狀態：GN-01～GN-08 的自動化、build 與 production preview 預檢已通過；下列視覺／互動項目必須由使用者
+> 狀態：GN-01～GN-10 的自動化、build 與 production preview 預檢已通過；下列視覺／互動項目必須由使用者
 > 在真實環境確認。完成前 T-005 維持 `in-progress`。
 
 ## 0. 啟動與測試資料
@@ -85,13 +85,13 @@ npm.cmd run preview -- --host 127.0.0.1 --port 4173
 ## 14. 既有能力回歸
 
 - [ ] Ollama、OpenCode／Privacy Review、annotation cache、load cancel 與 R4 subagent ordering／linkage 正常。
-- [x] `npm.cmd test`：20 files、130/130 passed。
+- [x] `npm.cmd test`：20 files、131/131 passed。
 - [x] `npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`：exit 0。
 
 ## 15. GN-09 視覺 UAT
 
 - [ ] 390／740／1280：Structure 中 Minimap 可見的重要節點都有類型標籤，且精簡圖例可讀。
-- [ ] Structure 一般節點符號約為舊版兩倍並大於文字；重要節點另以方框、菱形、六角、圓角等形狀辨識，不像雜訊。
+- [ ] GN-09 當時的 Sidebar 白底幾何符號已依使用者回饋由 GN-10 取代；Session Map 的方塊／菱形／六角／圓角仍保留。
 - [ ] Reader 的「回覆／思考／操作」等項目標示外框放大，字級至少與同列標題相同；其他選項標示也明顯大於一般內容。
 - [ ] Header、Structure、Reader、Map、footer 使用同色系但可辨識的深淺底色，且類型不只靠顏色表達。
 - [ ] 全站 list、panel、title、content、Minimap 等字級相較舊版約放大 1.25 倍，選項類約 1.5 倍；無文字互相覆蓋。
@@ -99,6 +99,15 @@ npm.cmd run preview -- --host 127.0.0.1 --port 4173
 - [ ] 四節點 Session Map 的主線只從第一節點連到第四節點，第四節點後沒有無意義尾線。
 - [ ] Session Map 恢復不同節點的方塊／菱形／六角／圓角語彙，魚骨支線提示可直觀看出分支與種類。
 - [ ] 關閉、Global／Section／Detail、cluster 與 Jump 行為維持 GN-01～GN-08 已接受語意。
+
+## 16. GN-10 Section 與視覺平衡 UAT
+
+- [ ] Section 點選 2.1、3.1 或其他地標時，原本同畫面的節點都不消失；只改變右側／下方預覽選取，尚未按「跳到這一步」前 Reader 不跳轉。
+- [ ] Structure 節點回到原有的簡單符號語彙，符號約 20 px、略大於文字但不形成白底圖塊；重要節點仍有「目標／決策／里程碑／結果」文字標籤。
+- [ ] Structure 圖例每一橫列最多四種，390 drawer 與 740／1280 Sidebar 都完整可讀，不占掉約一半內容高度。
+- [ ] Map、Minimap 與其他圖形沒有突兀白底；節點內部接近所在區域底色，紅色 current／Close 與文字仍清楚可辨。
+- [ ] 390／740／1280 沒有文件級水平溢位；Map dialog 在 viewport 置中，390 為全畫面，740／1280 左右留白對稱。
+- [ ] Global／Section／Detail、cluster zoom、真實 Jump、Reader／Structure 同步、M 與 load／cancel 行為沒有回歸。
 
 ## 回報格式
 
