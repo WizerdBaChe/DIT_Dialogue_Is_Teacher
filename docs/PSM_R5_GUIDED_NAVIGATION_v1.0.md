@@ -12,7 +12,7 @@
 
 ## 0. 使用這份合約的方法
 
-1. 施工順序固定為 GN-01 → GN-08；每張卡是一個可展示、可測試、可單獨提交的垂直切片。
+1. 施工順序固定為 GN-01 → GN-09；每張卡是一個可展示、可測試、可單獨提交的垂直切片。
 2. 每張卡開始前只讀本文件對應卡、其 Objects 與直接相依程式碼；不得回頭從舊 UX 文件挑選不同互動。
 3. 每張卡完成後先跑該卡 Acceptance，再提交該卡指定 Commit；測試失敗不得進下一卡。
 4. 規格未涵蓋但會改變預設、點擊、鍵盤、焦點、資料語意或視覺層級時，停止施工並新增決策；不得自行補一個「合理」行為。
@@ -66,7 +66,7 @@
 | 介面物件 | 唯一職責 | 不得承擔 |
 |---|---|---|
 | 總覽 | 說明用途、Session 摘要、三步流程與開始 CTA | 長卡片閱讀、設定全集 |
-| 結構側欄 | 目前位置、文字層級、精確跳轉 | 全部 metadata、圖例、完整內容 |
+| 結構側欄 | 目前位置、文字層級、重要節點、精確跳轉、GN-09 精簡圖例 | 全部 metadata、完整內容 |
 | Reader | 完整節點、群組、why、結果與重播定位 | 全局地圖或重複子代理摘要 |
 | 子代理視角 | 分支摘要與入口 | 完整分支詳情 |
 | 微縮導航 | 全局輪廓、地標、目前位置、開啟地圖 | 密集精確點擊、文字詳情 |
@@ -95,7 +95,7 @@
 - **INV-3**：Overview、Structure、Session Map 或子代理的手動導航都先停止重播；只有播放計時器能在 `playing` 中自行前進。
 - **INV-4**：上一項、下一項、重播與任何真實節點跳轉都切回 Reader，並同步 `activeId／playingId`。
 - **INV-5**：寬度 ≥720 px 時 Structure Sidebar 預設開啟，可收合；寬度 <720 px 時改為左側 modal drawer，主內容保持全寬。
-- **INV-6**：側欄只顯示 Session 短標題、目前位置、收合控制與虛擬樹；完整 metadata／圖例移至 Overview。
+- **INV-6**：側欄只顯示 Session 短標題、目前位置、收合控制、虛擬樹，以及 GN-09 使用單一 DOM 文字列恢復的精簡圖例；完整 metadata 與說明型圖例仍留在 Overview。
 - **INV-7**：Minimap 只在 Reader 且寬度 ≥720 px、功能啟用時顯示；其他視角、窄螢幕或停用時顯示同位置的可見「地圖」按鈕。
 - **INV-8**：Minimap 整體是一個開圖控制，不提供密集小點跳轉；精確跳轉在 Session Map 或 Structure 完成。
 - **INV-9**：Session Map 開啟時以目前位置為焦點；真實地標才可跳轉，Map Cluster 只能改變焦點／縮放層級。
@@ -548,6 +548,16 @@ MAX_MOUNTED_DETAIL_RIBS = 120;
 - Acceptance: `rg -n "reader \| fishbone \| subagents \| structure|四.*工作區|Structure-as-tab|結構.*分頁" docs/architecture.md docs/PSM_DIT_v1.0.md docs/PROGRESS.md docs/USER_GUIDE.md`只能命中明確標記superseded的歷史句；`rg -n "載入.*總覽.*閱讀.*地圖.*子代理" docs/USER_GUIDE.md`至少一命中；`npm.cmd test` exit 0；`npm.cmd run typecheck` exit 0；`npm.cmd run build` exit 0；`git diff --check` exit 0。人工依§10完整UAT，使用者明確確認後才把T-005改done。
 - Commit: `docs(r5): align guide and navigation evidence`
 
+### GN-09 — 視覺 UAT 恢復圖例、魚骨語彙與可讀尺度
+- Severity/Confidence: blocker / high；2026-07-19 使用者實機 UAT 明確指出重要節點、圖例、節點類型與分支語彙不足，且全域字級與地圖定位不易辨識。
+- Objects: `src/components/Sidebar.tsx`, `src/components/SessionMapGraphic.tsx`, `src/components/SessionMapDialog.tsx`, `src/core/view/sessionMap.ts`, `src/core/view/sessionMap.test.ts`, `src/styles/index.css`, 雙語 copy 與本卡驗證證據；不得修改 load pipeline、worker、annotation、jump target 或快捷鍵語意。
+- Why: GN-01～GN-08 的功能與效能門檻已通過，但目前視覺層級把重要節點降成雜訊、移除已接受的圖例與方塊魚骨語彙，放大地圖還有尾端空線與非置中問題，尚未達成人工驗收。
+- Change: (1) Sidebar 標出 Minimap 可見的重要節點；(2) Sidebar 與 Session Map 恢復精簡圖例，明確取代 GN-02／INV-6 的「側欄無圖例」限制，但不得恢復完整 metadata；(3) Sidebar 節點符號放大為目前約兩倍且大於文字；(4) 節點／項目類型標示至少與標題同級並放大外框；(5) Header、Structure、Reader、Map、footer 以同色系些微深淺區分，類型仍須同時由文字與形狀表達；(6) Map dialog 在 viewport 置中，開啟時將目前／選定節點置中，Close 使用高辨識紅色；(7) 所有既有字級約放大 1.25 倍，選項類標示約放大 1.5 倍；(8) Map spine 只從第一個目標延伸至最後一個目標，四節點圖不得有尾端無意義線段；(9) Map 恢復依節點類型區分的方塊／幾何形狀與有界魚骨分支提示。Overview 啟動／載入／重設入口、desktop/narrow Structure、Minimap 只開 Map、Global/Section/Detail cluster 不可 Jump、真實 Jump 同步 Reader/Structure 並停止播放、安全 M guard、50 MiB 載入／取消、R4 linkage、雙語與有界渲染語意均不得改變。
+- Blast radius: 僅限視覺呈現、純 layout helper、aria/copy 與相關測試；Reader closed DOM≤250、Map DOM≤500 與既有 projection caps 不得因圖例或魚骨提示失守。
+- Rollback: 可單獨 revert GN-09 實作 commit，回到 GN-08 已驗證狀態；不得連帶回退 GN-01～GN-08 或修改已核准互動語意。
+- Acceptance: 純 layout 測試證明四節點 spine 起訖等於第一／最後節點且整體中點置中，單節點與空集合無多餘尾線；Sidebar 重要節點與雙處精簡圖例存在；類型使用文字加幾何形狀而非只靠顏色；production 於 390、740、1280 寬檢查字級、選項層級、區域底色、dialog／目前節點置中、紅色 Close 與無水平 overflow；`npm.cmd run benchmark:r5 -- <new-metrics.json>` result pass；`npm.cmd test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 全部 exit 0。視覺正確性仍由使用者依更新後人工清單確認。
+- Commit: `fix(workspace): restore map hierarchy and readability`
+
 ## 9. 施工依賴與提交邊界
 
 ```text
@@ -561,9 +571,10 @@ GN-01
 GN-03 + GN-06
   └─ GN-07 performance evidence
        └─ GN-08 docs/final UAT
+            └─ GN-09 visual UAT remediation
 ```
 
-GN-02/03 與 GN-04/05 在語意上可並行，但目前同一 worktree 且會同時改 store、Header、styles；為避免衝突，本合約要求依編號順序施工。不得把八張卡壓成一個 commit，也不得把一張卡拆成只有 store 或只有 CSS 的水平 commit。
+GN-02/03 與 GN-04/05 在語意上可並行，但目前同一 worktree 且會同時改 store、Header、styles；為避免衝突，本合約要求依編號順序施工。不得把九張卡壓成一個 commit，也不得把一張卡拆成只有 store 或只有 CSS 的水平 commit。
 
 ## 10. 最終人工驗收清單
 
