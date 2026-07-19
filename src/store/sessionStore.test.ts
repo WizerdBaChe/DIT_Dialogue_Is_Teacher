@@ -18,6 +18,8 @@ afterEach(() => {
     mapZoomLevel: "global",
     mapFocusId: null,
     mapError: null,
+    minimapEnabled: true,
+    mapShortcutEnabled: true,
   });
 });
 
@@ -257,5 +259,18 @@ describe("workspace navigation", () => {
     expect(useSessionStore.getState().activeId).toBe(activeId);
     expect(useSessionStore.getState().mapOpen).toBe(true);
     expect(useSessionStore.getState().mapError).toContain("cluster:global:0:4");
+  });
+
+  it("toggles navigation preferences and preserves them across session replacement", () => {
+    useSessionStore.getState().setMinimapEnabled(false);
+    useSessionStore.getState().setMapShortcutEnabled(false);
+    expect(useSessionStore.getState().minimapEnabled).toBe(false);
+    expect(useSessionStore.getState().mapShortcutEnabled).toBe(false);
+
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    useSessionStore.getState().resetToSample();
+
+    expect(useSessionStore.getState().minimapEnabled).toBe(false);
+    expect(useSessionStore.getState().mapShortcutEnabled).toBe(false);
   });
 });

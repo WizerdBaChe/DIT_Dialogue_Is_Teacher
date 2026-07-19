@@ -30,6 +30,8 @@ export function Header(): ReactNode {
   const playingId = useSessionStore((state) => state.playingId);
   const structureDrawerOpen = useSessionStore((state) => state.structureDrawerOpen);
   const privacyReviewOpen = useSessionStore((state) => Boolean(state.privacyReview));
+  const minimapEnabled = useSessionStore((state) => state.minimapEnabled);
+  const mapShortcutEnabled = useSessionStore((state) => state.mapShortcutEnabled);
 
   const setProvider = useSessionStore((state) => state.setProvider);
   const toggleAnnotations = useSessionStore((state) => state.toggleAnnotations);
@@ -41,6 +43,8 @@ export function Header(): ReactNode {
   const clearAnnotations = useSessionStore((state) => state.clearAnnotations);
   const resetToSample = useSessionStore((state) => state.resetToSample);
   const openStructureDrawer = useSessionStore((state) => state.openStructureDrawer);
+  const setMinimapEnabled = useSessionStore((state) => state.setMinimapEnabled);
+  const setMapShortcutEnabled = useSessionStore((state) => state.setMapShortcutEnabled);
 
   const position = selectCurrentPosition({ viewItems, activeId, playingId });
 
@@ -159,6 +163,28 @@ export function Header(): ReactNode {
                 <select id="hdr-locale" value={locale} onChange={(event) => setLocale(event.target.value as typeof locale)}>
                   {LOCALE_ORDER.map((language) => <option key={language} value={language}>{LOCALE_NATIVE_NAME[language]}</option>)}
                 </select>
+              </div>
+            </fieldset>
+
+            <fieldset className="settings-group">
+              <legend>{t.settings.navigationGroup}</legend>
+              <div className="settings-actions">
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={minimapEnabled}
+                    onChange={(event) => setMinimapEnabled(event.target.checked)}
+                  />
+                  {t.settings.showMinimap}
+                </label>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={mapShortcutEnabled}
+                    onChange={(event) => setMapShortcutEnabled(event.target.checked)}
+                  />
+                  {t.settings.enableMapShortcut}
+                </label>
               </div>
             </fieldset>
           </div>
