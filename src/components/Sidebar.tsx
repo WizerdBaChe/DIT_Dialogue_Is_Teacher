@@ -5,6 +5,7 @@ import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
 import { buildFishbone } from "@/core/view/fishbone";
 import { SPAN_DOT, GROUP_DOT } from "./labels";
+import { StructureLegend } from "./StructureLegend";
 
 interface SidebarProps {
   variant?: "desktop" | "drawer";
@@ -41,7 +42,7 @@ export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }
   const virtualizer = useVirtualizer({
     count: viewItems.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 49,
+    estimateSize: () => 45,
     overscan: 8,
     getItemKey: (index) => viewItems[index]?.id ?? index,
   });
@@ -84,9 +85,7 @@ export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }
           </button>
         </div>
         <p className="structure-position">{t.structure.position(position.current ?? "—", position.total)}</p>
-        <p className="tree-legend">
-          {`${t.sidebar.legendLabel}: □ ${t.skeletonNode.objective} · ◇ ${t.skeletonNode.decision} · ⬡ ${t.skeletonNode.milestone} · ▰ ${t.skeletonNode.outcome} · ├ ${t.skeletonRib.investigation} · △ ${t.skeletonRib.error} · ○ ${t.skeletonRib.retry} · ◆ ${t.skeletonRib["edit-loop"]} · ◆ ${t.workspace.tabs.subagents}`}
-        </p>
+        <StructureLegend />
       </div>
 
       <div ref={scrollRef} className="tree-scroll" data-testid="sidebar-virtual-scroll">

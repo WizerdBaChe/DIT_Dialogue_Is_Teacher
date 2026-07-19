@@ -11,6 +11,7 @@ import {
   buildSessionMapGraphicLayout,
   buildSessionMapProjection,
   canJumpToMapTarget,
+  resolveSessionMapSelection,
   type MapCluster,
 } from "./sessionMap";
 
@@ -85,6 +86,20 @@ describe("global session map projection", () => {
     expect(empty.spineStart).toBe(empty.spineEnd);
     expect(single.xPositions).toEqual([single.width / 2]);
     expect(single.spineStart).toBe(single.spineEnd);
+  });
+
+  it("keeps section membership stable while previewing a different target", () => {
+    const { doc, viewItems } = createLargeMapFixture(6);
+    const focusId = viewItems[1].id;
+    const before = buildSessionMapProjection(doc, viewItems, "section", focusId);
+    const previewTarget = before.targets.find((target) => (
+      target.type === "landmark" && target.viewItemId !== focusId
+    ));
+
+    expect(previewTarget).toBeTruthy();
+    expect(resolveSessionMapSelection(before, previewTarget?.id ?? null)?.id).toBe(previewTarget?.id);
+    expect(buildSessionMapProjection(doc, viewItems, "section", focusId).targets.map((target) => target.id))
+      .toEqual(before.targets.map((target) => target.id));
   });
 
   it("maps every landmark to a real ViewItem id", () => {

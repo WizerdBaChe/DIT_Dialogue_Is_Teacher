@@ -336,6 +336,21 @@ export function buildGlobalSessionMapProjection(
   return buildSessionMapProjection(doc, viewItems, "global", currentViewItemId);
 }
 
+export function resolveSessionMapSelection(
+  projection: SessionMapProjection,
+  selectionId: string | null,
+): SessionMapTarget | null {
+  if (selectionId) {
+    const selected = projection.targets.find((target) => (
+      target.id === selectionId || (target.type === "landmark" && target.viewItemId === selectionId)
+    ));
+    if (selected) return selected;
+  }
+  return projection.targets.find((target) => (
+    target.type === "landmark" && target.stationIndex === projection.focusStationIndex
+  )) ?? null;
+}
+
 export function canJumpToMapTarget(target: SessionMapTarget | null, viewItems: ViewItem[]): target is MapLandmark {
   if (!target || target.type !== "landmark") return false;
   return viewItems.some((item) => item.id === target.viewItemId);

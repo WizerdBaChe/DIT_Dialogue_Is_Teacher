@@ -12,7 +12,7 @@
 
 ## 0. 使用這份合約的方法
 
-1. 施工順序固定為 GN-01 → GN-09；每張卡是一個可展示、可測試、可單獨提交的垂直切片。
+1. 施工順序固定為 GN-01 → GN-10；每張卡是一個可展示、可測試、可單獨提交的垂直切片。
 2. 每張卡開始前只讀本文件對應卡、其 Objects 與直接相依程式碼；不得回頭從舊 UX 文件挑選不同互動。
 3. 每張卡完成後先跑該卡 Acceptance，再提交該卡指定 Commit；測試失敗不得進下一卡。
 4. 規格未涵蓋但會改變預設、點擊、鍵盤、焦點、資料語意或視覺層級時，停止施工並新增決策；不得自行補一個「合理」行為。
@@ -558,6 +558,16 @@ MAX_MOUNTED_DETAIL_RIBS = 120;
 - Acceptance: 純 layout 測試證明四節點 spine 起訖等於第一／最後節點且整體中點置中，單節點與空集合無多餘尾線；Sidebar 重要節點與雙處精簡圖例存在；類型使用文字加幾何形狀而非只靠顏色；production 於 390、740、1280 寬檢查字級、選項層級、區域底色、dialog／目前節點置中、紅色 Close 與無水平 overflow；`npm.cmd run benchmark:r5 -- <new-metrics.json>` result pass；`npm.cmd test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 全部 exit 0。視覺正確性仍由使用者依更新後人工清單確認。
 - Commit: `fix(workspace): restore map hierarchy and readability`
 
+### GN-10 — 穩定 Section 預覽並恢復低噪音符號與配色
+- Severity/Confidence: blocker / high；2026-07-19 使用者實機 UAT 發現 Section 選取 3.1 會讓 2.1 從投影消失，且 GN-09 的 Sidebar 白底幾何符號過大、圖例過度占高、白底節點破壞既有色彩協調。
+- Objects: `src/components/SessionMapDialog.tsx`, `src/components/SessionMapGraphic.tsx`, `src/components/Sidebar.tsx`, `src/components/StructureLegend.tsx`, `src/core/view/sessionMap.ts`, `src/core/view/sessionMap.test.ts`, `src/styles/index.css`, `docs/PROGRESS.md`, `docs/ACCEPTANCE.md`, `references/DIT-tickets.md` 與本卡證據；不得修改 load pipeline、worker、annotation、Jump target、快捷鍵或 Global／Section／Detail 既有語意。
+- Why: `mapFocusId` 同時承擔 projection focus 與 preview selection；點擊真實地標會重算 Section 邊界，因此相鄰 target 被替換。Sidebar 則把原本和諧的文字 glyph 換成白底幾何圖，與使用者已接受的低噪音視覺不符。
+- Change: (1) Session Map dialog 使用本地 preview selection；只有進入其他語意縮放層級時才更新 projection focus，選取不同地標不得改變當前 projection 的 target ID、順序或數量；(2) Sidebar 恢復原有 `SPAN_DOT` 純文字 glyph，透明底、無外框，調整為 20 px 並保留重要節點文字標籤；(3) Sidebar 圖例改為結構化四欄網格，每列最多四種，窄 drawer 仍完整可讀；(4) Map／Minimap 節點填色使用所在區域底色，不得再出現額外白底圖塊；紅色 current／Close 與文字＋形狀辨識維持 GN-09；(5) 不改 Jump、cluster zoom、Map 開關與 Reader／Structure 同步語意。
+- Blast radius: 僅限 Map projection selection 邊界、Sidebar 圖例 DOM、符號比例與表面配色；Reader closed DOM≤250、Map DOM≤500、projection caps 與 GN-01～GN-09 已接受行為不得失守。
+- Rollback: 可單獨 revert GN-10，回到 GN-09 commit；不得連帶回退此前切片或重新引入 preview selection 改寫 projection focus 的耦合。
+- Acceptance: unit test 證明 Section 選取另一地標前後 target ID 與順序完全相同；production 實際點選非 current target 後 target 集合不變且只有 selected class 移動；390／740／1280 文件級水平 overflow 為 false；Sidebar glyph 為 20 px、透明底、無背景圖與外框，圖例 computed grid 為四欄；Map shape fill 等於 Map surface，文字與紅色 Close 對各自背景對比均至少 4.5:1；`npm.cmd run benchmark:r5 -- <new-metrics.json>` result pass；`npm.cmd test`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 全部 exit 0。視覺舒適度仍由使用者依更新後人工清單確認。
+- Commit: `fix(map): stabilize section preview and visual balance`
+
 ## 9. 施工依賴與提交邊界
 
 ```text
@@ -572,9 +582,10 @@ GN-03 + GN-06
   └─ GN-07 performance evidence
        └─ GN-08 docs/final UAT
             └─ GN-09 visual UAT remediation
+                 └─ GN-10 selection/visual balance remediation
 ```
 
-GN-02/03 與 GN-04/05 在語意上可並行，但目前同一 worktree 且會同時改 store、Header、styles；為避免衝突，本合約要求依編號順序施工。不得把九張卡壓成一個 commit，也不得把一張卡拆成只有 store 或只有 CSS 的水平 commit。
+GN-02/03 與 GN-04/05 在語意上可並行，但目前同一 worktree 且會同時改 store、Header、styles；為避免衝突，本合約要求依編號順序施工。不得把十張卡壓成一個 commit，也不得把一張卡拆成只有 store 或只有 CSS 的水平 commit。
 
 ## 10. 最終人工驗收清單
 
