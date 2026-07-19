@@ -13,6 +13,7 @@ afterEach(() => {
     primaryView: "overview",
     sessionOrigin: "sample",
     structureCollapsed: false,
+    structureDrawerOpen: false,
   });
 });
 
@@ -173,5 +174,38 @@ describe("workspace navigation", () => {
     expect(after.playingId).toBe(before.playingId);
     expect(after.isPlaying).toBe(before.isPlaying);
     expect(after.primaryView).toBe(before.primaryView);
+  });
+
+  it("opens and closes the narrow structure drawer without changing position", () => {
+    vi.useFakeTimers();
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    useSessionStore.getState().gotoIndex(1);
+    useSessionStore.getState().play();
+    const activeId = useSessionStore.getState().activeId;
+
+    useSessionStore.getState().openStructureDrawer();
+    expect(useSessionStore.getState().structureDrawerOpen).toBe(true);
+    expect(useSessionStore.getState().isPlaying).toBe(false);
+    expect(useSessionStore.getState().activeId).toBe(activeId);
+
+    useSessionStore.getState().closeStructureDrawer();
+    expect(useSessionStore.getState().structureDrawerOpen).toBe(false);
+    expect(useSessionStore.getState().activeId).toBe(activeId);
+  });
+
+  it("closes the drawer when selecting an item or synchronizing to desktop", () => {
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    const targetId = useSessionStore.getState().viewItems[1]?.id;
+    expect(targetId).toBeTruthy();
+
+    useSessionStore.getState().openStructureDrawer();
+    useSessionStore.getState().setActive(targetId!);
+    expect(useSessionStore.getState().structureDrawerOpen).toBe(false);
+    expect(useSessionStore.getState().primaryView).toBe("reader");
+    expect(useSessionStore.getState().activeId).toBe(targetId);
+
+    useSessionStore.getState().openStructureDrawer();
+    useSessionStore.getState().closeStructureDrawer();
+    expect(useSessionStore.getState().structureDrawerOpen).toBe(false);
   });
 });

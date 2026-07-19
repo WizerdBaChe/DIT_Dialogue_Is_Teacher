@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useSessionStore } from "@/store/sessionStore";
+import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
 import type { ProviderId } from "@/types/spanTree";
 import { useT, useLocale, LOCALE_ORDER, LOCALE_NATIVE_NAME } from "@/i18n";
 import { WorkspaceTabs } from "./WorkspaceTabs";
@@ -25,6 +25,11 @@ export function Header(): ReactNode {
   const failedCount = useSessionStore((state) => Object.keys(state.annotationErrors).length);
   const annotationRunMode = useSessionStore((state) => state.annotationRunMode);
   const restoredAnnotationCount = useSessionStore((state) => state.restoredAnnotationCount);
+  const viewItems = useSessionStore((state) => state.viewItems);
+  const activeId = useSessionStore((state) => state.activeId);
+  const playingId = useSessionStore((state) => state.playingId);
+  const structureDrawerOpen = useSessionStore((state) => state.structureDrawerOpen);
+  const privacyReviewOpen = useSessionStore((state) => Boolean(state.privacyReview));
 
   const setProvider = useSessionStore((state) => state.setProvider);
   const toggleAnnotations = useSessionStore((state) => state.toggleAnnotations);
@@ -35,6 +40,9 @@ export function Header(): ReactNode {
   const setAnnotationRunMode = useSessionStore((state) => state.setAnnotationRunMode);
   const clearAnnotations = useSessionStore((state) => state.clearAnnotations);
   const resetToSample = useSessionStore((state) => state.resetToSample);
+  const openStructureDrawer = useSessionStore((state) => state.openStructureDrawer);
+
+  const position = selectCurrentPosition({ viewItems, activeId, playingId });
 
   const annotationCount = annotationRunMode === "missing"
     ? Math.max(0, viewItemCount - cachedCount)
@@ -51,6 +59,22 @@ export function Header(): ReactNode {
             <span className="brand-short">DIT</span>
           </h1>
         </div>
+
+        <button
+          id="structure-drawer-trigger"
+          type="button"
+          className="btn structure-drawer-trigger"
+          aria-haspopup="dialog"
+          aria-expanded={structureDrawerOpen}
+          aria-controls="structure-drawer"
+          disabled={!hasDoc || privacyReviewOpen}
+          onClick={openStructureDrawer}
+        >
+          <span>{t.structure.openDrawer}</span>
+          <span className="structure-trigger-position">
+            {t.structure.position(position.current ?? "—", position.total)}
+          </span>
+        </button>
 
         <WorkspaceTabs />
 

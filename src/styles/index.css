@@ -289,6 +289,16 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 }
 .structure-rail:hover { background: var(--accent-tint); }
 .structure-rail:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.structure-drawer-trigger { display: none; min-width: 0; align-items: center; gap: 6px; }
+.structure-trigger-position { min-width: 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; white-space: nowrap; }
+.structure-drawer {
+  width: min(88vw, 320px); max-width: none; height: 100dvh; max-height: none; margin: 0 auto 0 0; padding: 0;
+  border: 0; border-right: 1px solid var(--rule-strong); background: var(--bg-main); color: var(--text-main);
+}
+.structure-drawer[open] { display: flex; }
+.structure-drawer::backdrop { background: rgb(28 26 23 / 0.42); }
+.structure-drawer .workspace-structure { display: flex; width: 100%; height: 100%; border-right: 0; }
+.structure-drawer[data-modal-fallback="true"] { position: fixed; inset: 0 auto 0 0; z-index: 100; }
 
 /* ---- Guided session overview ---- */
 .overview-view { overflow-y: auto; display: flex; justify-content: center; }
@@ -631,48 +641,15 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .cog-reset:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 
 /* Narrow layout is container-driven; the media rule is the compatibility fallback. */
-@container dit-app (max-width: 720px) {
-  .header {
-    min-height: 92px; padding: 7px 10px; gap: 6px 8px; align-items: center;
-    grid-template-columns: auto 1fr auto; grid-template-rows: 34px 38px;
-  }
-  .brand-long { display: none; }
-  .brand-short { display: inline; }
-  .brand h1 { font-size: 18px; }
-  .replay-control { justify-self: center; }
-  .settings-toggle-btn { justify-self: end; padding: 5px 8px; }
-  .workspace-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; border-left: 0; border-right: 0; }
-  .workspace-tab { flex: 1 0 auto; min-height: 34px; padding: 4px 12px; }
-  .settings-tray { max-height: 45dvh; }
-  .settings-grid { grid-template-columns: 1fr; gap: 10px; padding: 12px 10px; }
-  .settings-group { padding-left: 9px; padding-right: 9px; }
-  .settings-tray .disclaimer, .settings-tray .ollama-panel, .storage-notice, .annotate-progress { padding-left: 10px; padding-right: 10px; }
-  .session-load-status { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 9px 10px; }
-  .session-load-bar { grid-column: 1 / -1; grid-row: 2; }
-  .session-load-copy span { white-space: normal; }
-  .main-content { width: 100%; padding: 16px 12px; }
-  .sidebar { padding: 16px 12px; }
-  .fishbone { max-width: 100%; overscroll-behavior-x: contain; }
-  .fb-track { min-width: max-content; }
-  .fb-rib-row { grid-template-columns: 74px minmax(0, 1fr); }
-  .subagent-list-item { grid-template-columns: 28px minmax(0, 1fr); gap: 8px; padding-left: 7px; padding-right: 7px; }
-  .subagent-list-count { grid-column: 2; }
-  .layer-title { padding-right: 0; flex-wrap: wrap; }
-  .badges { position: static; justify-content: flex-start; max-width: 100%; margin-bottom: 8px; }
-}
-
 @container dit-app (max-width: 719px) {
-  .workspace-structure, .structure-rail { display: none; }
-}
-
-@media (max-width: 720px) {
   .header {
     min-height: 92px; padding: 7px 10px; gap: 6px 8px; align-items: center;
-    grid-template-columns: auto 1fr auto; grid-template-rows: 34px 38px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: 34px 38px;
   }
   .brand-long { display: none; }
   .brand-short { display: inline; }
   .brand h1 { font-size: 18px; }
+  .structure-drawer-trigger { display: inline-flex; padding: 5px 7px; overflow: hidden; }
   .replay-control { justify-self: center; }
   .settings-toggle-btn { justify-self: end; padding: 5px 8px; }
   .workspace-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; border-left: 0; border-right: 0; }
@@ -693,8 +670,37 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .subagent-list-count { grid-column: 2; }
   .layer-title { padding-right: 0; flex-wrap: wrap; }
   .badges { position: static; justify-content: flex-start; max-width: 100%; margin-bottom: 8px; }
+  .workspace-layout > .workspace-structure, .structure-rail { display: none; }
 }
 
 @media (max-width: 719px) {
-  .workspace-structure, .structure-rail { display: none; }
+  .header {
+    min-height: 92px; padding: 7px 10px; gap: 6px 8px; align-items: center;
+    grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: 34px 38px;
+  }
+  .brand-long { display: none; }
+  .brand-short { display: inline; }
+  .brand h1 { font-size: 18px; }
+  .structure-drawer-trigger { display: inline-flex; padding: 5px 7px; overflow: hidden; }
+  .replay-control { justify-self: center; }
+  .settings-toggle-btn { justify-self: end; padding: 5px 8px; }
+  .workspace-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; border-left: 0; border-right: 0; }
+  .workspace-tab { flex: 1 0 auto; min-height: 34px; padding: 4px 12px; }
+  .settings-tray { max-height: 45dvh; }
+  .settings-grid { grid-template-columns: 1fr; gap: 10px; padding: 12px 10px; }
+  .settings-group { padding-left: 9px; padding-right: 9px; }
+  .settings-tray .disclaimer, .settings-tray .ollama-panel, .storage-notice, .annotate-progress { padding-left: 10px; padding-right: 10px; }
+  .session-load-status { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 9px 10px; }
+  .session-load-bar { grid-column: 1 / -1; grid-row: 2; }
+  .session-load-copy span { white-space: normal; }
+  .main-content { width: 100%; padding: 16px 12px; }
+  .sidebar { padding: 16px 12px; }
+  .fishbone { max-width: 100%; overscroll-behavior-x: contain; }
+  .fb-track { min-width: max-content; }
+  .fb-rib-row { grid-template-columns: 74px minmax(0, 1fr); }
+  .subagent-list-item { grid-template-columns: 28px minmax(0, 1fr); gap: 8px; padding-left: 7px; padding-right: 7px; }
+  .subagent-list-count { grid-column: 2; }
+  .layer-title { padding-right: 0; flex-wrap: wrap; }
+  .badges { position: static; justify-content: flex-start; max-width: 100%; margin-bottom: 8px; }
+  .workspace-layout > .workspace-structure, .structure-rail { display: none; }
 }
