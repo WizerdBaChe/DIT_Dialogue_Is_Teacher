@@ -58,6 +58,9 @@ const zhTW = {
     teachingGroup: "教學講解",
     providerGroup: "講解來源",
     languageGroup: "語言",
+    navigationGroup: "導航",
+    showMinimap: "顯示微縮導航",
+    enableMapShortcut: "啟用 M 地圖快捷鍵",
   },
 
   workspace: {
@@ -134,6 +137,8 @@ const zhTW = {
     empty: "此 Session 沒有可建立地圖的骨架。",
     returnReader: "回到閱讀",
     invalidTarget: (id: string) => `地圖目標已失效：${id}`,
+    minimapLabel: "開啟 Session 地圖；微縮圖顯示目前位置與 Reader 可見範圍",
+    viewport: "Reader 可見範圍",
   },
 
   sidebar: {
@@ -404,6 +409,9 @@ const en: Messages = {
     teachingGroup: "Teaching notes",
     providerGroup: "Notes source",
     languageGroup: "Language",
+    navigationGroup: "Navigation",
+    showMinimap: "Show minimap",
+    enableMapShortcut: "Enable M map shortcut",
   },
 
   workspace: {
@@ -480,6 +488,8 @@ const en: Messages = {
     empty: "This session has no mappable skeleton.",
     returnReader: "Return to Reader",
     invalidTarget: (id: string) => `The map target is no longer available: ${id}`,
+    minimapLabel: "Open the session map; the minimap shows the current position and visible Reader range",
+    viewport: "Visible Reader range",
   },
 
   sidebar: {

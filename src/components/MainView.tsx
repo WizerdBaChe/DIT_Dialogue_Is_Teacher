@@ -5,6 +5,7 @@ import { useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
 import { SpanCard } from "./SpanCard";
 import { GroupCard } from "./GroupCard";
+import { ReaderMinimap } from "./ReaderMinimap";
 
 export function MainView(): ReactNode {
   const t = useT();
@@ -14,6 +15,7 @@ export function MainView(): ReactNode {
   const warnings = useSessionStore((s) => s.warnings);
   const activeId = useSessionStore((s) => s.activeId);
   const playingId = useSessionStore((s) => s.playingId);
+  const minimapEnabled = useSessionStore((s) => s.minimapEnabled);
   const scrollRef = useRef<HTMLDivElement>(null);
   const indexById = useMemo(() => new Map(viewItems.map((item, index) => [item.id, index])), [viewItems]);
   const virtualizer = useVirtualizer({
@@ -24,6 +26,9 @@ export function MainView(): ReactNode {
     getItemKey: (index) => viewItems[index]?.id ?? index,
   });
   const selectedId = playingId ?? activeId;
+  const virtualItems = virtualizer.getVirtualItems();
+  const visibleStart = virtualItems[0]?.index ?? 0;
+  const visibleEnd = virtualItems[virtualItems.length - 1]?.index ?? visibleStart;
 
   useEffect(() => {
     if (!selectedId) return;
@@ -52,9 +57,9 @@ export function MainView(): ReactNode {
       {error && <div className="error-banner">{error}</div>}
       {warnings.length > 0 && <div className="error-banner warn">{t.main.warnings(warnings)}</div>}
 
-      <div ref={scrollRef} className="dense-scroll" data-testid="dense-virtual-scroll">
+      <div ref={scrollRef} className={`dense-scroll ${minimapEnabled ? "reader-with-minimap" : ""}`} data-testid="dense-virtual-scroll">
         <div className="virtual-list-space" style={{ height: virtualizer.getTotalSize() }}>
-          {virtualizer.getVirtualItems().map((virtualItem) => {
+          {virtualItems.map((virtualItem) => {
             const item = viewItems[virtualItem.index];
             return (
               <div
@@ -80,6 +85,7 @@ export function MainView(): ReactNode {
           <div className="flow">{t.main.flow}</div>
         </div>
       </div>
+      <ReaderMinimap visibleStart={visibleStart} visibleEnd={visibleEnd} />
     </main>
   );
 }

@@ -281,6 +281,8 @@ interface SessionState {
   mapZoomLevel: MapZoomLevel;
   mapFocusId: string | null;
   mapError: string | null;
+  minimapEnabled: boolean;
+  mapShortcutEnabled: boolean;
   /** UI 語言；也決定講解層 prompt 的輸出語言 (R7)。 */
   locale: Locale;
 
@@ -350,6 +352,8 @@ interface SessionState {
   setMapZoom: (level: MapZoomLevel, focusId?: string) => void;
   setMapFocus: (id: string) => void;
   jumpToMapItem: (id: string) => void;
+  setMinimapEnabled: (enabled: boolean) => void;
+  setMapShortcutEnabled: (enabled: boolean) => void;
   setActive: (id: string) => void;
 
   play: () => void;
@@ -382,6 +386,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   mapZoomLevel: "global",
   mapFocusId: null,
   mapError: null,
+  minimapEnabled: true,
+  mapShortcutEnabled: true,
   locale: "zh-TW",
 
   ollamaConfig: {
@@ -676,6 +682,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       mapError: null,
     });
   },
+
+  setMinimapEnabled: (minimapEnabled) => set({ minimapEnabled }),
+
+  setMapShortcutEnabled: (mapShortcutEnabled) => set({ mapShortcutEnabled }),
 
   setActive: (id) => {
     get().pause();
