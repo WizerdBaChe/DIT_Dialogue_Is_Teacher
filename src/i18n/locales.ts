@@ -108,6 +108,8 @@ const zhTW = {
   structure: {
     label: "Session 結構",
     position: (current: number | string, total: number) => `位置 ${current} / ${total}`,
+    openDrawer: "結構",
+    closeDrawer: "關閉 Session 結構",
     collapse: "收合 Session 結構",
     expand: "展開 Session 結構",
   },
@@ -430,6 +432,8 @@ const en: Messages = {
   structure: {
     label: "Session structure",
     position: (current: number | string, total: number) => `Position ${current} / ${total}`,
+    openDrawer: "Structure",
+    closeDrawer: "Close session structure",
     collapse: "Collapse session structure",
     expand: "Expand session structure",
   },

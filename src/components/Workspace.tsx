@@ -4,6 +4,7 @@ import { MainView } from "./MainView";
 import { SubagentView } from "./SubagentView";
 import { OverviewView } from "./OverviewView";
 import { Sidebar } from "./Sidebar";
+import { StructureDrawer } from "./StructureDrawer";
 import { useT } from "@/i18n";
 
 export function Workspace(): ReactNode {
@@ -15,6 +16,7 @@ export function Workspace(): ReactNode {
 
   return (
     <div className={`workspace-layout ${structureCollapsed ? "structure-collapsed" : ""}`}>
+      <StructureDrawer />
       {hasDoc && !structureCollapsed && <Sidebar />}
       {hasDoc && structureCollapsed && (
         <button

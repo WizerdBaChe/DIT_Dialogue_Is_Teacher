@@ -207,6 +207,7 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     error: null,
     primaryView: "overview",
     sessionOrigin,
+    structureDrawerOpen: false,
     activeId: viewItems[0]?.id ?? null,
     playingId: null,
     annotations: {},
@@ -270,6 +271,7 @@ interface SessionState {
   primaryView: PrimaryView;
   sessionOrigin: SessionOrigin;
   structureCollapsed: boolean;
+  structureDrawerOpen: boolean;
   /** UI 語言；也決定講解層 prompt 的輸出語言 (R7)。 */
   locale: Locale;
 
@@ -332,6 +334,8 @@ interface SessionState {
   setPrimaryView: (view: PrimaryView) => void;
   startReading: () => void;
   toggleStructureCollapsed: () => void;
+  openStructureDrawer: () => void;
+  closeStructureDrawer: () => void;
   setActive: (id: string) => void;
 
   play: () => void;
@@ -359,6 +363,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   primaryView: "overview",
   sessionOrigin: "sample",
   structureCollapsed: false,
+  structureDrawerOpen: false,
   locale: "zh-TW",
 
   ollamaConfig: {
@@ -457,6 +462,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       sessionLoadProgress: null,
       sessionLoadError: null,
       primaryView: "overview",
+      structureDrawerOpen: false,
       activeId: null,
       playingId: null,
       privacyReview: null,
@@ -600,9 +606,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   toggleStructureCollapsed: () => set((state) => ({ structureCollapsed: !state.structureCollapsed })),
 
+  openStructureDrawer: () => {
+    const state = get();
+    if (!state.doc || state.privacyReview) return;
+    state.pause();
+    set({ structureDrawerOpen: true });
+  },
+
+  closeStructureDrawer: () => set({ structureDrawerOpen: false }),
+
   setActive: (id) => {
     get().pause();
-    set({ activeId: id, playingId: null, primaryView: "reader" });
+    set({ activeId: id, playingId: null, primaryView: "reader", structureDrawerOpen: false });
   },
 
   gotoIndex: (i) => {
@@ -686,7 +701,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             }
             return new Promise<PrivacyConsent | null>((resolve) => {
               pendingPrivacyReviewer = resolve;
-              set({ privacyReview: { inspection, itemId: id } });
+              set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false });
             });
           },
         });

@@ -1,11 +1,18 @@
 /** 左側 Span Tree 目錄。點擊項目高亮對應卡片。 */
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode, type Ref } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
 import { SPAN_DOT, GROUP_DOT } from "./labels";
 
-export function Sidebar(): ReactNode {
+interface SidebarProps {
+  variant?: "desktop" | "drawer";
+  titleId?: string;
+  titleRef?: Ref<HTMLHeadingElement>;
+  onItemSelect?: (id: string) => void;
+}
+
+export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }: SidebarProps): ReactNode {
   const t = useT();
   const doc = useSessionStore((s) => s.doc);
   const viewItems = useSessionStore((s) => s.viewItems);
@@ -13,6 +20,7 @@ export function Sidebar(): ReactNode {
   const playingId = useSessionStore((s) => s.playingId);
   const setActive = useSessionStore((s) => s.setActive);
   const toggleStructureCollapsed = useSessionStore((s) => s.toggleStructureCollapsed);
+  const closeStructureDrawer = useSessionStore((s) => s.closeStructureDrawer);
   const scrollRef = useRef<HTMLDivElement>(null);
   const indexById = useMemo(() => new Map(viewItems.map((item, index) => [item.id, index])), [viewItems]);
   const virtualizer = useVirtualizer({
@@ -41,21 +49,23 @@ export function Sidebar(): ReactNode {
   }
 
   return (
-    <aside className="sidebar workspace-structure">
+    <aside className={`sidebar workspace-structure sidebar-${variant}`}>
       <div className="sidebar-static">
         <div className="structure-heading">
           <div className="structure-title-block">
             <span className="eyebrow">{t.structure.label}</span>
-            <h2 title={doc.session.title}>{doc.session.title}</h2>
+            <h2 id={titleId} ref={titleRef} tabIndex={variant === "drawer" ? -1 : undefined} title={doc.session.title}>
+              {doc.session.title}
+            </h2>
           </div>
           <button
             type="button"
             className="structure-collapse"
-            onClick={toggleStructureCollapsed}
-            aria-label={t.structure.collapse}
-            title={t.structure.collapse}
+            onClick={variant === "drawer" ? closeStructureDrawer : toggleStructureCollapsed}
+            aria-label={variant === "drawer" ? t.structure.closeDrawer : t.structure.collapse}
+            title={variant === "drawer" ? t.structure.closeDrawer : t.structure.collapse}
           >
-            <span aria-hidden="true">«</span>
+            <span aria-hidden="true">{variant === "drawer" ? "×" : "«"}</span>
           </button>
         </div>
         <p className="structure-position">{t.structure.position(position.current ?? "—", position.total)}</p>
@@ -74,7 +84,10 @@ export function Sidebar(): ReactNode {
                 key={item.id}
                 type="button"
                 className={`tree-item ${cls}`}
-                onClick={() => setActive(item.id)}
+                onClick={() => {
+                  onItemSelect?.(item.id);
+                  setActive(item.id);
+                }}
                 title={label}
                 data-index={virtualItem.index}
                 style={{ transform: `translateY(${virtualItem.start}px)` }}
