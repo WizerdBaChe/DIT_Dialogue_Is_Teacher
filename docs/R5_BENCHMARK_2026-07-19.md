@@ -51,3 +51,34 @@ npm run benchmark:r5 -- <metrics.json>
 ```
 
 輸出固定包含 fixture、載入、進度／取消、掛載 DOM、捲動、記憶體支援狀態與 pass/fail 結果。
+
+## GN-07 Guided Navigation 實跑｜production preview
+
+本節保留前述基線，另記錄 GN-07 完成後在同一台機器、Vite production build／preview 的真實瀏覽器實跑。
+輸入仍為相同的 52,430,643-byte deterministic fixture；瀏覽器未提供可採信的 peak heap 數字，因此記憶體維持
+「未提供」，不以推估值代替。
+
+| 指標 | GN-07 實測 | 合約上限 | 結果 |
+|---|---:|---:|---:|
+| 50 MiB 完整載入 | 964 ms | 1,736.25 ms（1,389 ms × 1.25） | pass |
+| 首次進度 | 66 ms，早於 ready | 必須早於 ready | pass |
+| 取消與舊文件保留 | 379 ms；示範文件保持 | 完成前回應且不發布 partial doc | pass |
+| Reader closed total DOM | 最大 249 | 250 | pass |
+| Sidebar／Reader mounted rows | 38／9 | 各 250 | pass |
+| Global map total DOM／targets | 474／42 | 500／80 | pass |
+| Section map total DOM／targets | 477／43 | 500／200 | pass |
+| Detail map total DOM／mounted rows | 354／25 | 500／120 | pass |
+| Map open → first target | 115 ms | 200 ms | pass |
+| 390／740／1280 水平溢出 | 全部 false | 全部 false | pass |
+
+Reader DOM 量測使用合約指定的 390×844、740×1113、1280×720；結果分別為 158、249、243 個元素。
+Map 的 global／section／detail 在三個寬度共九次量測皆低於 500，最高為 740 px section 的 477。為使
+Reader 回到上限內，Minimap 將非互動 glyph 合併為一個編碼 SVG 背景；按鈕、方位、viewport、目前位置與
+「只開啟地圖」互動語意均不變。
+
+深層跳轉選取 `子代理分支 39` 後，Sidebar 與 Reader 都定位在 view item index 28,541；掛載 Reader indices
+連續，沒有觀察到空白區或 selection drift。可重現的 machine-readable metrics 位於 Git 忽略的
+`.tmp/r5-guided-navigation-metrics.json`，並以 `npm.cmd run benchmark:r5 -- .tmp/r5-guided-navigation-metrics.json`
+得到 `Result: pass`。
+
+以上是 production preview 自動化／開發者預檢，不取代 390、740、1280 寬度的使用者人工視覺驗收。
