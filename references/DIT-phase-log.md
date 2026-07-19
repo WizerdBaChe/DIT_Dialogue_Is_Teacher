@@ -163,3 +163,35 @@
 ## Open Questions / TODO
 - R5 remains optional and should begin only when large-session performance or narrow-screen usability becomes a demonstrated need.
 - A packaged desktop runtime controller remains deferred; current web users start Ollama or OpenCode with the fixed inspectable commands.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 7 – R5 Large-Session Foundation and Guided Navigation Contract
+- Status: completed
+- Date: 2026-07-19
+- Detail: docs/PSM_R5_GUIDED_NAVIGATION_v1.0.md
+
+## Goals
+- Make 50 MiB sessions load responsively with bounded rendering, preserve exact R4 ordering and linkage, and correct the workspace navigation model before further UI implementation.
+- Consolidate the approved orientation, persistent Structure, Minimap, and Session Map semantics into one build-ready source of truth.
+
+## Decisions
+- Preserve the accepted streaming import, worker cancellation, virtualized Sidebar/MainView, deep selection, replay precedence, bilingual behavior, Privacy Gateway, and annotation contracts.
+- Supersede the rejected four-tab Reader/Fishbone/Subagents/Structure design; Primary View is limited to Overview, Reader, and Subagents.
+- Keep Structure persistent and collapsible at widths at or above 720 px, and expose the same virtualized tree through an accessible left drawer below 720 px.
+- Enter every built-in, loaded, or reset session through Overview; use an optional Reader Minimap and a modal Session Map for global orientation and explicit jumps.
+- Keep the visible Map launcher as the non-keyboard path; `M` is enabled by default but disabled in editable targets and blocking modals, and users can turn the shortcut off.
+- Reuse the current React/SVG stack with deterministic semantic zoom and strict mount caps; add no map or tab library.
+- Treat `docs/PSM_R5_GUIDED_NAVIGATION_v1.0.md` as the sole normative contract and execute GN-01 through GN-08 sequentially as separate vertical commits.
+
+## Changes
+- docs/PSM_R5_GUIDED_NAVIGATION_v1.0.md: added the user-approved sole-source contract with 8 business rules, 18 invariants, exact responsive layouts, state transitions, component boundaries, performance caps, 8 complete work cards, and final UAT.
+- references/DIT-context.md: added canonical definitions for Primary View, Overview, Session Origin, Structure Sidebar, Current Position, Minimap, Session Map, Map Landmark, Map Cluster, and Semantic Zoom.
+- references/DIT-tickets.md: kept T-005 in progress and recorded contract approval without claiming product implementation.
+- docs/PSM_R5_GUIDED_WORKSPACE_REMEDIATION_v0.2.md and docs/CONCEPT_R5_GAMEFUL_NAVIGATION_v0.1.md: retained as non-normative design provenance superseded by the v1.0 contract.
+
+## Open Questions / TODO
+- Start the next session by reading this phase log and `references/DIT-context.md`, then load the v1.0 contract and T-005 only; do not reconstruct requirements from superseded UX documents.
+- Implement GN-01 only, run its stated automated and manual acceptance, and stop at its commit boundary before GN-02.
+- Preserve the current dirty worktree and unrelated user changes; do not modify `.claude/settings.local.json`.
+- Independent author-versus-verifier document sign-off remains unavailable; the user approved the contract on 2026-07-19 and final visual acceptance still requires user UAT after GN-08.
