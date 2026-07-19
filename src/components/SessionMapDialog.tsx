@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { buildGlobalSessionMapProjection, canJumpToMapTarget, type MapLandmark, type SessionMapTarget } from "@/core/view/sessionMap";
+import {
+  MAX_MOUNTED_DETAIL_RIBS,
+  buildSessionMapProjection,
+  canJumpToMapTarget,
+  type MapLandmark,
+  type MapZoomLevel,
+  type SessionMapTarget,
+} from "@/core/view/sessionMap";
 import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
 import { useT, type Messages } from "@/i18n";
 import { SessionMapGraphic } from "./SessionMapGraphic";
@@ -13,6 +20,18 @@ function landmarkKindLabel(t: Messages, landmark: MapLandmark): string {
   return t.skeletonRib[landmark.kind];
 }
 
+function focusIdForTarget(target: SessionMapTarget | null, currentId: string | null, viewItemIds: string[]): string | null {
+  if (!target) return currentId;
+  if (target.type === "landmark") return target.viewItemId;
+  const currentIndex = currentId ? viewItemIds.indexOf(currentId) : -1;
+  if (currentIndex < 0) return target.sourceViewItemIds[0] ?? null;
+  return target.sourceViewItemIds.reduce((nearest, id) => {
+    const nearestDistance = Math.abs(viewItemIds.indexOf(nearest) - currentIndex);
+    const distance = Math.abs(viewItemIds.indexOf(id) - currentIndex);
+    return distance < nearestDistance ? id : nearest;
+  }, target.sourceViewItemIds[0] ?? currentId);
+}
+
 export function SessionMapDialog(): ReactNode {
   const t = useT();
   const doc = useSessionStore((state) => state.doc);
@@ -20,10 +39,12 @@ export function SessionMapDialog(): ReactNode {
   const activeId = useSessionStore((state) => state.activeId);
   const playingId = useSessionStore((state) => state.playingId);
   const mapOpen = useSessionStore((state) => state.mapOpen);
+  const mapZoomLevel = useSessionStore((state) => state.mapZoomLevel);
   const mapFocusId = useSessionStore((state) => state.mapFocusId);
   const mapError = useSessionStore((state) => state.mapError);
   const annotations = useSessionStore((state) => state.annotations);
   const closeMap = useSessionStore((state) => state.closeMap);
+  const setMapZoom = useSessionStore((state) => state.setMapZoom);
   const setMapFocus = useSessionStore((state) => state.setMapFocus);
   const jumpToMapItem = useSessionStore((state) => state.jumpToMapItem);
   const startReading = useSessionStore((state) => state.startReading);
@@ -32,12 +53,13 @@ export function SessionMapDialog(): ReactNode {
   const listRef = useRef<HTMLDivElement>(null);
   const focusReaderAfterClose = useRef(false);
   const currentViewItemId = playingId ?? activeId;
+  const viewItemIds = useMemo(() => viewItems.map((item) => item.id), [viewItems]);
   const position = selectCurrentPosition({ viewItems, activeId, playingId });
   const projection = useMemo(
     () => doc && mapOpen
-      ? buildGlobalSessionMapProjection(doc, viewItems, currentViewItemId)
+      ? buildSessionMapProjection(doc, viewItems, mapZoomLevel, mapFocusId ?? currentViewItemId)
       : { level: "global" as const, focusStationIndex: 0, targets: [], totalStations: 0, totalRibs: 0 },
-    [currentViewItemId, doc, mapOpen, viewItems],
+    [currentViewItemId, doc, mapFocusId, mapOpen, mapZoomLevel, viewItems],
   );
   const selectedTarget = projection.targets.find((target) => (
     target.id === mapFocusId || (target.type === "landmark" && target.viewItemId === mapFocusId)
@@ -76,6 +98,11 @@ export function SessionMapDialog(): ReactNode {
   };
 
   const selectTarget = (target: SessionMapTarget) => setMapFocus(target.type === "landmark" ? target.viewItemId : target.id);
+  const changeZoom = (level: MapZoomLevel, target: SessionMapTarget | null = selectedTarget) => {
+    const focusId = focusIdForTarget(target, currentViewItemId, viewItemIds);
+    setMapZoom(level, focusId ?? undefined);
+  };
+  const mountedRows = virtualizer.getVirtualItems().slice(0, MAX_MOUNTED_DETAIL_RIBS);
 
   return (
     <dialog
@@ -99,9 +126,17 @@ export function SessionMapDialog(): ReactNode {
             <p>{t.map.currentPosition(position.current ?? "—", position.total)}</p>
           </div>
           <div className="map-levels" role="group" aria-label={t.map.title}>
-            <button type="button" className="btn" aria-pressed="true">{t.map.levels.global}</button>
-            <button type="button" className="btn" aria-pressed="false" disabled>{t.map.levels.section}</button>
-            <button type="button" className="btn" aria-pressed="false" disabled>{t.map.levels.detail}</button>
+            {(["global", "section", "detail"] as MapZoomLevel[]).map((level) => (
+              <button
+                key={level}
+                type="button"
+                className="btn"
+                aria-pressed={mapZoomLevel === level}
+                onClick={() => changeZoom(level)}
+              >
+                {t.map.levels[level]}
+              </button>
+            ))}
           </div>
           <button type="button" className="btn map-close" onClick={closeMap} aria-label={t.map.close}>{t.map.close}</button>
         </header>
@@ -125,7 +160,7 @@ export function SessionMapDialog(): ReactNode {
             <section className="map-landmarks" aria-label={t.map.landmarkList}>
               <div ref={listRef} className="map-landmark-scroll">
                 <div className="virtual-list-space" style={{ height: virtualizer.getTotalSize() }}>
-                  {virtualizer.getVirtualItems().map((virtualItem) => {
+                  {mountedRows.map((virtualItem) => {
                     const target = projection.targets[virtualItem.index];
                     const selected = target.id === selectedTarget?.id;
                     return (
@@ -137,7 +172,11 @@ export function SessionMapDialog(): ReactNode {
                         data-index={virtualItem.index}
                         onClick={() => selectTarget(target)}
                       >
-                        <span>{target.type === "landmark" ? landmarkKindLabel(t, target) : t.map.openCluster}</span>
+                        <span>
+                          {target.type === "landmark"
+                            ? landmarkKindLabel(t, target)
+                            : t.map.clusterLabel(target.count, target.firstStationIndex + 1, target.lastStationIndex + 1)}
+                        </span>
                         <strong>{target.label}</strong>
                       </button>
                     );
@@ -162,7 +201,13 @@ export function SessionMapDialog(): ReactNode {
             {mapError && <p className="map-error" role="alert">{mapError}</p>}
           </div>
           {selectedTarget?.type === "cluster" ? (
-            <button type="button" className="btn primary" onClick={() => setMapFocus(selectedTarget.id)}>{t.map.openCluster}</button>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => changeZoom(mapZoomLevel === "global" ? "section" : "detail", selectedTarget)}
+            >
+              {t.map.openCluster}
+            </button>
           ) : (
             <button
               type="button"

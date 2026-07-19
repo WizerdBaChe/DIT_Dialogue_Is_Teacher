@@ -15,13 +15,16 @@ export function SessionMapGraphic({
   onSelect,
 }: SessionMapGraphicProps): ReactNode {
   if (projection.targets.length === 0) return null;
-  const width = Math.max(640, projection.targets.length * 88 + 80);
+  const graphicTargets = projection.level === "detail"
+    ? projection.targets.filter((target) => target.type === "cluster" || target.parentStationId === null)
+    : projection.targets;
+  const width = Math.max(640, graphicTargets.length * 88 + 80);
   const y = 110;
 
   return (
     <svg className="session-map-graphic" viewBox={`0 0 ${width} 220`} aria-hidden="true">
       <path className="map-spine" d={`M 40 ${y} H ${width - 40}`} />
-      {projection.targets.map((target, index) => {
+      {graphicTargets.map((target, index) => {
         const x = 60 + index * 88;
         const current = target.type === "landmark" && (
           target.viewItemId === currentViewItemId
