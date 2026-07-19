@@ -2,7 +2,7 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
-## R5 — 大型 Session 效能 + 窄螢幕可用性｜2026-07-19｜🟡 修正版實作與預檢完成，待最終視覺驗收
+## R5 — 大型 Session 效能 + Guided Navigation｜2026-07-19｜🟡 GN-01～GN-08 已實作，待最終視覺驗收
 
 - [x] **可重現大型 fixture**：`npm run fixture:r5` 固定產生 main + `subagents/*.jsonl`，包含有效 UUID、
   parentUuid、isSidechain、timestamp、tool use/result；50 MiB 產生物進 `.tmp/`，由 Git 忽略。
@@ -13,19 +13,18 @@
   保留前一份有效文件。取消直接終止 Worker，不發布部分文件；warning 帶來源路徑＋行號，沒有 transcript log。
 - [x] **受限 DOM**：採 `@tanstack/react-virtual@3.14.6`（MIT）；Sidebar／MainView 獨立虛擬化，
   ViewItem ID 作 key，ID→index + `scrollToIndex` 接通側欄選取與重播，MainView 動態高度交由 remeasurement。
-- [x] **視覺驗收修正**：使用者通過原始 1–7 後指出設定列、常駐側欄、魚骨、全部子代理與詳情仍同時擠壓內容；
-  D1–D3 拍板後改為預設收合設定匣，以及閱讀／魚骨／子代理／結構四個互斥工作區。任一時間只掛載一個
-  `tabpanel`；手動導覽會停止播放、清除舊 `playingId`，再回閱讀定位同一 ViewItem。
-- [x] **魚骨／子代理有界渲染**：魚骨只常駐主線，選定 station 的 ribs 與子代理摘要清單各自虛擬化；
-  50 MiB fixture 在 390×844 的閱讀／魚骨／子代理／結構總 DOM 分別為 129／116／137／128。
-- [x] **窄螢幕語意**：390×844 精簡列高 92.7 px；740×1113 與 2048×966 為 56 px。三種尺寸皆無
-  文件級水平溢出；設定匣最高 45dvh，魚骨仍保留區域內水平捲動，中英文與鍵盤方向鍵分頁可用。
-- [x] **效能實測**：固定 50.0018 MiB／29,452 view items 的 production preview 於 1,389 ms 載入；
-  進度 322 ms 可見、取消 319 ms 完成；高密度頁面只掛載 15 sidebar + 9 main rows，總 DOM 240。
-  第 8,058 項直接選取與第 8,059 項下一步均正確，未觀察到空白缺口／選取漂移。瀏覽器未提供 heap 指標。
-- 驗證：18 個測試檔、95/95 通過；typecheck、110-module production build、`git diff --check` 通過。
-  報告：[R5_BENCHMARK_2026-07-19.md](R5_BENCHMARK_2026-07-19.md)；修正合約：
-  [PSM_R5_VISUAL_WORKSPACE_REMEDIATION_v0.1.md](PSM_R5_VISUAL_WORKSPACE_REMEDIATION_v0.1.md)。最新修正版仍待使用者人工確認。
+- [x] **Guided workspace**：Store 明確表示 `PrimaryView`／`SessionOrigin`；啟動、成功載入與重置進 Overview。
+  ≥720 Structure 常駐且可收合，<720 使用 Header 位置按鈕與 native left drawer；選取統一回 Reader。
+- [x] **Session Map**：Reader Minimap 只提供方位與開圖；native modal 以 deterministic global／section／detail
+  projection 呈現，caps 為 80／200／120。cluster 不能 Jump；真實地標 Jump 後 Sidebar／Reader 同步。
+- [x] **安全快捷鍵與雙語**：`M` 排除 editable、modifier、repeat、停用與 blocking modal；設定可停用且可見
+  Map 按鈕保留。Overview、Structure、Map、Navigation 設定均有 zh-TW／English copy。
+- [x] **最新效能實測**：相同 50.0018 MiB／29,452 view items production preview 於 964 ms 載入；
+  首次進度 66 ms，取消 379 ms 且舊文件保持。Reader closed DOM 最大 249；三層 Map 最大 477；
+  open→first target 115 ms；390×844、740×1113、1280×720 無水平溢出；深層 index 28,541 無 drift。
+- 驗證：20 個測試檔、128/128 通過；typecheck、117-module production build、benchmark result pass、
+  `git diff --check` 通過。報告：[R5_BENCHMARK_2026-07-19.md](R5_BENCHMARK_2026-07-19.md)；唯一施工合約：
+  [PSM_R5_GUIDED_NAVIGATION_v1.0.md](PSM_R5_GUIDED_NAVIGATION_v1.0.md)。使用者 390／740／1280 最終視覺 UAT 尚未完成。
 
 ## R4 — Subagent 跨檔串接 + 局部分支圖｜2026-07-19｜✅ 已完成並驗證
 
