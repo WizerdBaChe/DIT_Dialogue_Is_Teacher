@@ -114,6 +114,27 @@ const zhTW = {
     expand: "展開 Session 結構",
   },
 
+  map: {
+    open: "地圖",
+    title: "Session 地圖",
+    close: "關閉 Session 地圖",
+    youAreHere: "你在這裡",
+    currentPosition: (current: number | string, total: number) => `位置 ${current} / ${total}`,
+    levels: {
+      global: "全局",
+      section: "區段",
+      detail: "細節",
+    },
+    landmarkList: "地圖地標",
+    selected: "已選取地標",
+    noSelection: "選擇一個地標以預覽。",
+    jump: "跳到這一步",
+    openCluster: "查看這個區段",
+    empty: "此 Session 沒有可建立地圖的骨架。",
+    returnReader: "回到閱讀",
+    invalidTarget: (id: string) => `地圖目標已失效：${id}`,
+  },
+
   sidebar: {
     heading: "Session 結構",
     headingWithTree: "Session 結構（Span Tree）",
@@ -436,6 +457,27 @@ const en: Messages = {
     closeDrawer: "Close session structure",
     collapse: "Collapse session structure",
     expand: "Expand session structure",
+  },
+
+  map: {
+    open: "Map",
+    title: "Session map",
+    close: "Close session map",
+    youAreHere: "You are here",
+    currentPosition: (current: number | string, total: number) => `Position ${current} / ${total}`,
+    levels: {
+      global: "Overview",
+      section: "Section",
+      detail: "Detail",
+    },
+    landmarkList: "Map landmarks",
+    selected: "Selected landmark",
+    noSelection: "Select a landmark to preview it.",
+    jump: "Go to this step",
+    openCluster: "Explore this section",
+    empty: "This session has no mappable skeleton.",
+    returnReader: "Return to Reader",
+    invalidTarget: (id: string) => `The map target is no longer available: ${id}`,
   },
 
   sidebar: {

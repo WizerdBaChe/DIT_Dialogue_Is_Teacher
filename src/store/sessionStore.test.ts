@@ -14,6 +14,10 @@ afterEach(() => {
     sessionOrigin: "sample",
     structureCollapsed: false,
     structureDrawerOpen: false,
+    mapOpen: false,
+    mapZoomLevel: "global",
+    mapFocusId: null,
+    mapError: null,
   });
 });
 
@@ -207,5 +211,46 @@ describe("workspace navigation", () => {
     useSessionStore.getState().openStructureDrawer();
     useSessionStore.getState().closeStructureDrawer();
     expect(useSessionStore.getState().structureDrawerOpen).toBe(false);
+  });
+
+  it("opens the map at the current position and pauses replay", () => {
+    vi.useFakeTimers();
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    useSessionStore.getState().play();
+    const currentId = useSessionStore.getState().playingId ?? useSessionStore.getState().activeId;
+
+    useSessionStore.getState().openMap();
+
+    expect(useSessionStore.getState().mapOpen).toBe(true);
+    expect(useSessionStore.getState().mapZoomLevel).toBe("global");
+    expect(useSessionStore.getState().mapFocusId).toBe(currentId);
+    expect(useSessionStore.getState().isPlaying).toBe(false);
+  });
+
+  it("jumps from a real map landmark to the reader and closes overlays", () => {
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    const targetId = useSessionStore.getState().viewItems[1]?.id;
+    expect(targetId).toBeTruthy();
+    useSessionStore.getState().setPrimaryView("subagents");
+    useSessionStore.getState().openMap();
+
+    useSessionStore.getState().jumpToMapItem(targetId!);
+
+    expect(useSessionStore.getState().mapOpen).toBe(false);
+    expect(useSessionStore.getState().primaryView).toBe("reader");
+    expect(useSessionStore.getState().activeId).toBe(targetId);
+    expect(useSessionStore.getState().playingId).toBeNull();
+  });
+
+  it("rejects clusters and invalid map ids without changing position", () => {
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    const activeId = useSessionStore.getState().activeId;
+    useSessionStore.getState().openMap();
+
+    useSessionStore.getState().jumpToMapItem("cluster:global:0:4");
+
+    expect(useSessionStore.getState().activeId).toBe(activeId);
+    expect(useSessionStore.getState().mapOpen).toBe(true);
+    expect(useSessionStore.getState().mapError).toContain("cluster:global:0:4");
   });
 });
