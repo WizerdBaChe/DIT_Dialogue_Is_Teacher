@@ -4,6 +4,7 @@
 import { create } from "zustand";
 import type { Annotation, ProviderId, SessionDocument, Span } from "@/types/spanTree";
 import type { PrimaryView, SessionOrigin } from "@/core/view/workspace";
+import type { MapZoomLevel } from "@/core/view/sessionMap";
 import {
   buildSessionDocument,
   buildSessionDocumentFromFiles,
@@ -208,6 +209,10 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     primaryView: "overview",
     sessionOrigin,
     structureDrawerOpen: false,
+    mapOpen: false,
+    mapZoomLevel: "global",
+    mapFocusId: null,
+    mapError: null,
     activeId: viewItems[0]?.id ?? null,
     playingId: null,
     annotations: {},
@@ -272,6 +277,10 @@ interface SessionState {
   sessionOrigin: SessionOrigin;
   structureCollapsed: boolean;
   structureDrawerOpen: boolean;
+  mapOpen: boolean;
+  mapZoomLevel: MapZoomLevel;
+  mapFocusId: string | null;
+  mapError: string | null;
   /** UI 語言；也決定講解層 prompt 的輸出語言 (R7)。 */
   locale: Locale;
 
@@ -336,6 +345,10 @@ interface SessionState {
   toggleStructureCollapsed: () => void;
   openStructureDrawer: () => void;
   closeStructureDrawer: () => void;
+  openMap: () => void;
+  closeMap: () => void;
+  setMapFocus: (id: string) => void;
+  jumpToMapItem: (id: string) => void;
   setActive: (id: string) => void;
 
   play: () => void;
@@ -364,6 +377,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   sessionOrigin: "sample",
   structureCollapsed: false,
   structureDrawerOpen: false,
+  mapOpen: false,
+  mapZoomLevel: "global",
+  mapFocusId: null,
+  mapError: null,
   locale: "zh-TW",
 
   ollamaConfig: {
@@ -463,6 +480,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       sessionLoadError: null,
       primaryView: "overview",
       structureDrawerOpen: false,
+      mapOpen: false,
+      mapZoomLevel: "global",
+      mapFocusId: null,
+      mapError: null,
       activeId: null,
       playingId: null,
       privacyReview: null,
@@ -596,12 +617,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   setPrimaryView: (primaryView) => {
     get().pause();
-    set({ primaryView });
+    set({ primaryView, mapOpen: false, mapError: null });
   },
 
   startReading: () => {
     get().pause();
-    set({ primaryView: "reader" });
+    set({ primaryView: "reader", mapOpen: false, mapError: null });
   },
 
   toggleStructureCollapsed: () => set((state) => ({ structureCollapsed: !state.structureCollapsed })),
@@ -610,21 +631,55 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const state = get();
     if (!state.doc || state.privacyReview) return;
     state.pause();
-    set({ structureDrawerOpen: true });
+    set({ structureDrawerOpen: true, mapOpen: false, mapError: null });
   },
 
   closeStructureDrawer: () => set({ structureDrawerOpen: false }),
 
+  openMap: () => {
+    const state = get();
+    if (!state.doc || state.privacyReview || state.structureDrawerOpen) return;
+    state.pause();
+    set({
+      mapOpen: true,
+      mapZoomLevel: "global",
+      mapFocusId: state.playingId ?? state.activeId ?? state.viewItems[0]?.id ?? null,
+      mapError: null,
+    });
+  },
+
+  closeMap: () => set({ mapOpen: false, mapError: null }),
+
+  setMapFocus: (mapFocusId) => set({ mapFocusId, mapError: null }),
+
+  jumpToMapItem: (id) => {
+    const state = get();
+    if (!state.viewItems.some((item) => item.id === id)) {
+      set({ mapError: MESSAGES[state.locale].map.invalidTarget(id) });
+      return;
+    }
+    state.pause();
+    set({
+      activeId: id,
+      playingId: null,
+      primaryView: "reader",
+      structureDrawerOpen: false,
+      mapOpen: false,
+      mapFocusId: id,
+      mapError: null,
+    });
+  },
+
   setActive: (id) => {
     get().pause();
-    set({ activeId: id, playingId: null, primaryView: "reader", structureDrawerOpen: false });
+    set({ activeId: id, playingId: null, primaryView: "reader", structureDrawerOpen: false, mapOpen: false, mapError: null });
   },
 
   gotoIndex: (i) => {
     const { viewItems } = get();
     if (viewItems.length === 0) return;
     const idx = Math.max(0, Math.min(viewItems.length - 1, i));
-    set({ playingId: viewItems[idx].id, activeId: viewItems[idx].id, primaryView: "reader" });
+    set({ playingId: viewItems[idx].id, activeId: viewItems[idx].id, primaryView: "reader", mapOpen: false, mapError: null });
   },
 
   play: () => {
@@ -701,7 +756,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             }
             return new Promise<PrivacyConsent | null>((resolve) => {
               pendingPrivacyReviewer = resolve;
-              set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false });
+              set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false, mapOpen: false, mapError: null });
             });
           },
         });

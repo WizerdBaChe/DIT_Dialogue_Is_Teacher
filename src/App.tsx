@@ -8,6 +8,8 @@ import { PrivacyReview } from "@/components/PrivacyReview";
 import { AnnotateProgress } from "@/components/AnnotateProgress";
 import { SessionLoadStatus } from "@/components/SessionLoadStatus";
 import { Workspace } from "@/components/Workspace";
+import { MapLauncher } from "@/components/MapLauncher";
+import { SessionMapDialog } from "@/components/SessionMapDialog";
 
 export default function App(): ReactNode {
   const loadFromText = useSessionStore((s) => s.loadFromText);
@@ -27,6 +29,8 @@ export default function App(): ReactNode {
       <PrivacyReview />
       <AnnotateProgress />
       <Workspace />
+      <MapLauncher />
+      <SessionMapDialog />
     </div>
   );
 }
