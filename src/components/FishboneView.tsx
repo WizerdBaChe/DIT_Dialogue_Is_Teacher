@@ -1,40 +1,33 @@
 /**
  * 認知學習模式：魚骨橫向蒸餾視圖。
  * 主線 (spine) 橫向延伸；支線 (rib) 掛在節點下；有講解時於節點上方顯示「可帶走的觀念」。
- * 點任一節點/支線 → 下方詳情面板展開該節點的完整卡片 (重用 SpanCard/GroupCard) = drill-down。
+ * 點任一主線節點或支線 → 切回閱讀工作區並定位同一 ViewItem。
  * 種類差異靠文字標籤 + 邊框配色辨識 (ADR-016：不用 emoji)。
  */
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSessionStore } from "@/store/sessionStore";
 import { useT, type Messages } from "@/i18n";
 import { buildFishbone, type FishboneStation } from "@/core/view/fishbone";
-import type { ViewItem } from "@/core/view/viewModel";
 import { SKELETON_NODE_CLS, SKELETON_RIB_CLS } from "./labels";
-import { SpanCard } from "./SpanCard";
-import { GroupCard } from "./GroupCard";
-import { SubagentBranchButton } from "./SubagentBranch";
-
-function DetailCard({ item }: { item: ViewItem }): ReactNode {
-  return item.type === "group" ? (
-    <GroupCard itemId={item.id} group={item.group} nodes={item.nodes} />
-  ) : (
-    <SpanCard itemId={item.id} node={item.node} />
-  );
-}
 
 function Station({
   station,
   activeId,
   playingId,
   lesson,
-  onSelect,
+  ribsSelected,
+  onOpen,
+  onShowRibs,
   t,
 }: {
   station: FishboneStation;
   activeId: string | null;
   playingId: string | null;
   lesson?: string;
-  onSelect: (id: string) => void;
+  ribsSelected: boolean;
+  onOpen: (id: string) => void;
+  onShowRibs: () => void;
   t: Messages;
 }): ReactNode {
   const kindLabel = t.skeletonNode[station.kind];
@@ -42,7 +35,7 @@ function Station({
   const isPlaying = playingId === station.viewItemId;
 
   return (
-    <div className="fb-station" role="listitem">
+    <div className={`fb-station ${ribsSelected ? "ribs-selected" : ""}`} role="listitem">
       <div className="fb-concept">
         {lesson && (
           <div className="fb-lesson" title={lesson}>
@@ -55,7 +48,7 @@ function Station({
       <button
         type="button"
         className={`fb-node ${SKELETON_NODE_CLS[station.kind]} ${isPlaying ? "playing" : isActive ? "active" : ""}`}
-        onClick={() => onSelect(station.viewItemId)}
+        onClick={() => onOpen(station.viewItemId)}
         aria-pressed={isActive}
         aria-label={t.fishbone.nodeAria(kindLabel, station.label)}
       >
@@ -65,20 +58,17 @@ function Station({
         <span className="fb-label">{station.label}</span>
       </button>
 
-      <div className="fb-ribs">
-        {station.ribs.map((rib, i) => (
-          <button
-            key={`${rib.viewItemId}-${i}`}
-            type="button"
-            className={`fb-rib ${SKELETON_RIB_CLS[rib.kind]} ${activeId === rib.viewItemId ? "active" : ""}`}
-            onClick={() => onSelect(rib.viewItemId)}
-            aria-label={t.fishbone.nodeAria(t.skeletonRib[rib.kind], rib.label)}
-          >
-            <span className="fb-rib-kind">{t.skeletonRib[rib.kind]}</span>
-            <span className="fb-rib-label">{rib.label}</span>
-          </button>
-        ))}
-      </div>
+      {station.ribs.length > 0 && (
+        <button
+          type="button"
+          className="fb-rib-trigger"
+          aria-pressed={ribsSelected}
+          aria-label={t.fishbone.showRibs(station.label, station.ribs.length)}
+          onClick={onShowRibs}
+        >
+          {t.fishbone.ribCount(station.ribs.length)}
+        </button>
+      )}
     </div>
   );
 }
@@ -90,15 +80,31 @@ export function FishboneView(): ReactNode {
   const activeId = useSessionStore((s) => s.activeId);
   const playingId = useSessionStore((s) => s.playingId);
   const setActive = useSessionStore((s) => s.setActive);
-  const clearSelection = useSessionStore((s) => s.clearSelection);
   const annotations = useSessionStore((s) => s.annotations);
+  const ribScrollRef = useRef<HTMLDivElement>(null);
 
   const stations = useMemo(() => (doc ? buildFishbone(doc, viewItems) : []), [doc, viewItems]);
-  const activeItem = useMemo(() => viewItems.find((v) => v.id === activeId), [viewItems, activeId]);
-  const subagentItems = useMemo(
-    () => viewItems.filter((item): item is Extract<ViewItem, { type: "group" }> => item.type === "group" && item.group.kind === "subagent"),
-    [viewItems],
-  );
+  const initialStationIndex = useMemo(() => {
+    const index = stations.findIndex((station) => station.viewItemId === activeId || station.ribs.some((rib) => rib.viewItemId === activeId));
+    return index >= 0 ? index : Math.max(0, stations.findIndex((station) => station.ribs.length > 0));
+  }, [activeId, stations]);
+  const [selectedStationIndex, setSelectedStationIndex] = useState(initialStationIndex);
+  const selectedStation = stations[selectedStationIndex] ?? stations[0];
+  const ribVirtualizer = useVirtualizer({
+    count: selectedStation?.ribs.length ?? 0,
+    getScrollElement: () => ribScrollRef.current,
+    estimateSize: () => 38,
+    overscan: 8,
+    getItemKey: (index) => `${selectedStation?.ribs[index]?.viewItemId ?? "rib"}-${index}`,
+  });
+
+  useEffect(() => {
+    if (selectedStationIndex >= stations.length) setSelectedStationIndex(0);
+  }, [selectedStationIndex, stations.length]);
+
+  useEffect(() => {
+    ribScrollRef.current?.scrollTo({ top: 0 });
+  }, [selectedStationIndex]);
 
   if (!doc) return null;
 
@@ -139,47 +145,50 @@ export function FishboneView(): ReactNode {
               activeId={activeId}
               playingId={playingId}
               lesson={annotations[st.viewItemId]?.generalLesson}
-              onSelect={setActive}
+              ribsSelected={selectedStationIndex === stations.indexOf(st)}
+              onOpen={setActive}
+              onShowRibs={() => setSelectedStationIndex(stations.indexOf(st))}
               t={t}
             />
           ))}
         </div>
       </div>
 
-      {subagentItems.length > 0 && (
-        <section className="subagent-branches" aria-label={t.subagent.sectionLabel}>
-          <h3>{t.subagent.sectionLabel}</h3>
-          <div className="subagent-branch-list">
-            {subagentItems.map((item) => (
-              <SubagentBranchButton
-                key={item.id}
-                group={item.group}
-                nodes={item.nodes}
-                active={activeId === item.id}
-                onSelect={() => setActive(item.id)}
-              />
-            ))}
+      {selectedStation && (
+        <section className="fb-rib-panel" aria-label={t.fishbone.ribsFor(selectedStation.label)}>
+          <div className="fb-rib-panel-head">
+            <div>
+              <span className="eyebrow">{t.fishbone.selectedStation}</span>
+              <h3>{selectedStation.label}</h3>
+            </div>
+            <span>{t.fishbone.ribCount(selectedStation.ribs.length)}</span>
           </div>
+          {selectedStation.ribs.length > 0 ? (
+            <div ref={ribScrollRef} className="fb-rib-scroll" data-testid="fishbone-rib-virtual-scroll">
+              <div className="virtual-list-space" style={{ height: ribVirtualizer.getTotalSize() }}>
+                {ribVirtualizer.getVirtualItems().map((virtualItem) => {
+                  const rib = selectedStation.ribs[virtualItem.index];
+                  return (
+                    <button
+                      key={`${rib.viewItemId}-${virtualItem.index}`}
+                      type="button"
+                      className={`fb-rib-row ${SKELETON_RIB_CLS[rib.kind]} ${activeId === rib.viewItemId ? "active" : ""}`}
+                      data-index={virtualItem.index}
+                      style={{ transform: `translateY(${virtualItem.start}px)` }}
+                      onClick={() => setActive(rib.viewItemId)}
+                    >
+                      <span className="fb-rib-kind">{t.skeletonRib[rib.kind]}</span>
+                      <span className="fb-rib-label">{rib.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state compact-empty"><p>{t.fishbone.noRibs}</p></div>
+          )}
         </section>
       )}
-
-      <div className="cog-detail">
-        <div className="cog-detail-head">
-          <span>{t.fishbone.detailHead}</span>
-          {activeItem && (
-            <button type="button" className="cog-reset" onClick={clearSelection}>
-              {t.fishbone.clearSelection}
-            </button>
-          )}
-        </div>
-        {activeItem ? (
-          <DetailCard item={activeItem} />
-        ) : (
-          <div className="empty-state" style={{ height: "auto", padding: "30px 0" }}>
-            <p>{t.fishbone.detailPlaceholder}</p>
-          </div>
-        )}
-      </div>
     </main>
   );
 }

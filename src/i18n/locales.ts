@@ -41,12 +41,73 @@ const zhTW = {
     clearAnnotationsTitle: "只清除畫面上的講解；已儲存內容仍保留，下次可自動還原",
     prevTitle: "上一步",
     nextTitle: "下一步",
+    replayControlsLabel: "逐步重播控制",
     replay: "重播",
     pause: "暫停",
     providerLabel: "講解來源",
     languageLabel: "語言",
     readFileFailed: (name: string) => `讀取檔案失敗：${name}`,
     loadFailed: (msg: string) => `載入失敗：${msg}`,
+  },
+
+  settings: {
+    label: "設定區",
+    open: "設定",
+    close: "關閉設定",
+    sessionGroup: "Session",
+    teachingGroup: "教學講解",
+    providerGroup: "講解來源",
+    languageGroup: "語言",
+  },
+
+  workspace: {
+    tablistLabel: "主要工作區",
+    tabs: {
+      overview: "總覽",
+      reader: "閱讀",
+      subagents: "子代理",
+    },
+  },
+
+  overview: {
+    startTitle: "從這裡開始",
+    sampleBadge: "內建示範 Session",
+    loadedBadge: "已載入 Session",
+    purpose: "DIT 把代理執行紀錄整理成可學習的步驟。先確認任務，再沿左側結構逐步閱讀。",
+    sessionSummary: (title: string, source: string, itemCount: number, warningCount: number) =>
+      `${title} · ${source} · ${itemCount} 個步驟 · ${warningCount} 則解析提示`,
+    steps: {
+      confirmTitle: "確認 Session",
+      readTitle: "沿主線閱讀",
+      readBody: "左側顯示目前位置；可逐項跳轉或按重播。",
+      extendTitle: "延伸理解",
+      extendBody: "展開 why；需要全局或分支時再開地圖或子代理。",
+    },
+    startSample: "開始示範",
+    startReading: "開始閱讀",
+    continueReading: "繼續閱讀",
+    loadFile: "載入 .jsonl",
+    loadFolder: "載入 Session 資料夾",
+  },
+
+  sessionLoad: {
+    phases: {
+      reading: "讀取檔案",
+      parsing: "解析記錄",
+      organizing: "整理結構",
+      validating: "驗證文件",
+      ready: "載入完成",
+    } as Record<string, string>,
+    progress: (phase: string, percent: number, loadedMiB: string, lines: number) =>
+      `${phase} · ${percent}% · ${loadedMiB} MiB · ${lines} 行`,
+    cancel: "取消載入",
+    dismiss: "關閉狀態",
+    previousPreserved: "載入期間保留目前文件；只有完整驗證通過後才會替換。",
+  },
+
+  structure: {
+    show: "展開 Session 結構",
+    hide: "收合 Session 結構",
   },
 
   sidebar: {
@@ -102,6 +163,11 @@ const zhTW = {
     detailHead: "節點詳情（點上方節點或支線展開）",
     clearSelection: "清除選取",
     detailPlaceholder: "點上方任一節點，這裡會展開它「原本發生的內容」（已整理成卡片）。",
+    ribCount: (count: number) => `${count} 條支線`,
+    showRibs: (label: string, count: number) => `顯示「${label}」的 ${count} 條支線`,
+    ribsFor: (label: string) => `${label} 的支線`,
+    selectedStation: "目前主線節點",
+    noRibs: "這個主線節點沒有支線。",
   },
 
   ollama: {
@@ -205,6 +271,10 @@ const zhTW = {
     sectionLabel: "子代理局部分支",
     graphAria: (count: number) => `子代理分支，共 ${count} 個節點`,
     branch: (label: string, count: number) => `${label}（${count} 節點）`,
+    workspaceHint: "選擇一個分支後，DIT 會切回閱讀工作區並定位完整內容。",
+    empty: "此 Session 沒有子代理分支。",
+    openBranch: (label: string, count: number) => `閱讀 ${label}，共 ${count} 個節點`,
+    nodeCount: (count: number) => `${count} 節點`,
   },
 
   progress: {
@@ -291,12 +361,73 @@ const en: Messages = {
     clearAnnotationsTitle: "Clear notes from this view only; saved notes remain available for automatic restore",
     prevTitle: "Previous step",
     nextTitle: "Next step",
+    replayControlsLabel: "Step replay controls",
     replay: "Replay",
     pause: "Pause",
     providerLabel: "Notes source",
     languageLabel: "Language",
     readFileFailed: (name: string) => `Failed to read file: ${name}`,
     loadFailed: (msg: string) => `Load failed: ${msg}`,
+  },
+
+  settings: {
+    label: "Settings",
+    open: "Settings",
+    close: "Close settings",
+    sessionGroup: "Session",
+    teachingGroup: "Teaching notes",
+    providerGroup: "Notes source",
+    languageGroup: "Language",
+  },
+
+  workspace: {
+    tablistLabel: "Primary workspace",
+    tabs: {
+      overview: "Overview",
+      reader: "Reader",
+      subagents: "Subagents",
+    },
+  },
+
+  overview: {
+    startTitle: "Start here",
+    sampleBadge: "Built-in sample session",
+    loadedBadge: "Loaded session",
+    purpose: "DIT turns an agent execution trace into learnable steps. Confirm the task first, then read through the structure on the left.",
+    sessionSummary: (title: string, source: string, itemCount: number, warningCount: number) =>
+      `${title} · ${source} · ${itemCount} steps · ${warningCount} parsing warnings`,
+    steps: {
+      confirmTitle: "Confirm the session",
+      readTitle: "Read the main path",
+      readBody: "The structure on the left shows your current position; jump to any step or start replay.",
+      extendTitle: "Build understanding",
+      extendBody: "Expand why; open the map or subagents when you need the global shape or a branch.",
+    },
+    startSample: "Start sample",
+    startReading: "Start reading",
+    continueReading: "Continue reading",
+    loadFile: "Load .jsonl",
+    loadFolder: "Load session folder",
+  },
+
+  sessionLoad: {
+    phases: {
+      reading: "Reading files",
+      parsing: "Parsing records",
+      organizing: "Organizing structure",
+      validating: "Validating document",
+      ready: "Ready",
+    } as Record<string, string>,
+    progress: (phase: string, percent: number, loadedMiB: string, lines: number) =>
+      `${phase} · ${percent}% · ${loadedMiB} MiB · ${lines} lines`,
+    cancel: "Cancel load",
+    dismiss: "Dismiss status",
+    previousPreserved: "The current document stays available until the replacement passes full validation.",
+  },
+
+  structure: {
+    show: "Show session structure",
+    hide: "Hide session structure",
   },
 
   sidebar: {
@@ -352,6 +483,11 @@ const en: Messages = {
     detailHead: "Node detail (click a node or rib above to expand)",
     clearSelection: "Clear selection",
     detailPlaceholder: 'Click any node above and its "original content" (organized into a card) expands here.',
+    ribCount: (count: number) => `${count} ribs`,
+    showRibs: (label: string, count: number) => `Show ${count} ribs for ${label}`,
+    ribsFor: (label: string) => `Ribs for ${label}`,
+    selectedStation: "Selected spine node",
+    noRibs: "This spine node has no ribs.",
   },
 
   ollama: {
@@ -455,6 +591,10 @@ const en: Messages = {
     sectionLabel: "Subagent branches",
     graphAria: (count: number) => `Subagent branch with ${count} nodes`,
     branch: (label: string, count: number) => `${label} (${count} nodes)`,
+    workspaceHint: "Choose a branch to return to the Reader and open its complete content.",
+    empty: "This session has no subagent branches.",
+    openBranch: (label: string, count: number) => `Read ${label}, ${count} nodes`,
+    nodeCount: (count: number) => `${count} nodes`,
   },
 
   progress: {

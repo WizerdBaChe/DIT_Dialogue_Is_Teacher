@@ -3,9 +3,7 @@
  */
 import { create } from "zustand";
 import type { Annotation, ProviderId, SessionDocument, Span } from "@/types/spanTree";
-
-/** 視圖模式：cognitive=認知/魚骨蒸餾；dense=高密度卡片時間軸。 */
-export type ViewMode = "cognitive" | "dense";
+import type { PrimaryView, SessionOrigin } from "@/core/view/workspace";
 import {
   buildSessionDocument,
   buildSessionDocumentFromFiles,
@@ -41,6 +39,13 @@ import {
 } from "@/core/annotation";
 import { sampleSession } from "@/fixtures";
 import { MESSAGES, type Locale } from "@/i18n/locales";
+import {
+  SessionLoadCancelledError,
+  startSessionLoad,
+  type SessionBlobInput,
+  type SessionLoadProgress,
+  type SessionLoadTask,
+} from "@/core/ingest";
 
 /** Ollama 在 store 內的可調設定。 */
 interface OllamaConfigState {
@@ -86,6 +91,7 @@ let replayTimer: ReturnType<typeof setInterval> | null = null;
 let pendingPrivacyReviewer: ((consent: PrivacyConsent | null) => void) | null = null;
 let cloudConsent: { scope: string; consentId: string } | null = null;
 let cacheLoadGeneration = 0;
+let activeSessionLoad: SessionLoadTask | null = null;
 const annotationJobController = new AnnotationJobController();
 const annotationRepository = createAnnotationRepository((error) => {
   useSessionStore.setState({ storageNotice: `Annotation storage degraded to memory: ${error.message}` });
@@ -164,13 +170,28 @@ function cancelPendingPrivacyReview(): void {
   pendingPrivacyReviewer = null;
 }
 
-function loadPipeline(build: () => PipelineResult): void {
+function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin: SessionOrigin): void {
   const current = useSessionStore.getState();
   current.pause();
   cancelPendingPrivacyReview();
   cloudConsent = null;
   const generation = ++cacheLoadGeneration;
+  const viewItems = buildViewModel(doc);
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    (window as unknown as { __DIT?: unknown }).__DIT = { doc, viewItems };
+  }
   useSessionStore.setState({
+    doc,
+    viewItems,
+    warnings,
+    error: null,
+    primaryView: "overview",
+    sessionOrigin,
+    activeId: viewItems[0]?.id ?? null,
+    playingId: null,
+    annotations: {},
+    annotatingIds: {},
+    annotationErrors: {},
     annotateProgress: null,
     privacyReview: null,
     sessionFingerprint: null,
@@ -179,52 +200,40 @@ function loadPipeline(build: () => PipelineResult): void {
     cacheReady: false,
     restoredAnnotationCount: 0,
   });
-  try {
-    const { doc, warnings } = build();
-    const viewItems = buildViewModel(doc);
-    if (import.meta.env.DEV && typeof window !== "undefined") {
-      (window as unknown as { __DIT?: unknown }).__DIT = { doc, viewItems };
+  void (async () => {
+    const itemFingerprints = await buildItemFingerprintMap(viewItems);
+    const sessionFingerprint = await fingerprintSession(doc);
+    const records = await annotationRepository.getBySession(sessionFingerprint);
+    if (generation !== cacheLoadGeneration) return;
+    const currentItemIds = new Set(viewItems.map((item) => item.id));
+    const latest = new Map<string, AnnotationRecord>();
+    for (const record of records) {
+      if (!currentItemIds.has(record.itemId) || itemFingerprints[record.itemId] !== record.itemFingerprint) continue;
+      const existing = latest.get(record.itemId);
+      if (!existing || existing.provenance.createdAt < record.provenance.createdAt) latest.set(record.itemId, record);
     }
-    useSessionStore.setState({
-      doc,
-      viewItems,
-      warnings,
-      error: null,
-      activeId: viewItems[0]?.id ?? null,
-      playingId: null,
-      annotations: {},
-      annotatingIds: {},
-      annotationErrors: {},
-    });
-    void (async () => {
-      const itemFingerprints = await buildItemFingerprintMap(viewItems);
-      const sessionFingerprint = await fingerprintSession(doc);
-      const records = await annotationRepository.getBySession(sessionFingerprint);
-      if (generation !== cacheLoadGeneration) return;
-      const currentItemIds = new Set(viewItems.map((item) => item.id));
-      const latest = new Map<string, AnnotationRecord>();
-      for (const record of records) {
-        if (!currentItemIds.has(record.itemId) || itemFingerprints[record.itemId] !== record.itemFingerprint) continue;
-        const existing = latest.get(record.itemId);
-        if (!existing || existing.provenance.createdAt < record.provenance.createdAt) latest.set(record.itemId, record);
-      }
-      const restored = Object.fromEntries([...latest].map(([itemId, record]) => [itemId, record.annotation]));
-      useSessionStore.setState((state) => ({
-        sessionFingerprint,
-        itemFingerprints,
-        cacheReady: true,
-        restoredAnnotationCount: latest.size,
-        annotations: { ...state.annotations, ...restored },
-      }));
-      await refreshCurrentCacheMatches();
-    })().catch((error) => {
-      if (generation !== cacheLoadGeneration) return;
-      useSessionStore.setState({ cacheReady: true, storageNotice: `Annotation restore failed: ${(error as Error).message}` });
-    });
+    const restored = Object.fromEntries([...latest].map(([itemId, record]) => [itemId, record.annotation]));
+    useSessionStore.setState((state) => ({
+      sessionFingerprint,
+      itemFingerprints,
+      cacheReady: true,
+      restoredAnnotationCount: latest.size,
+      annotations: { ...state.annotations, ...restored },
+    }));
+    await refreshCurrentCacheMatches();
+  })().catch((error) => {
+    if (generation !== cacheLoadGeneration) return;
+    useSessionStore.setState({ cacheReady: true, storageNotice: `Annotation restore failed: ${(error as Error).message}` });
+  });
+}
+
+function loadPipeline(build: () => PipelineResult, origin: SessionOrigin): void {
+  try {
+    publishPipelineResult(build(), origin);
   } catch (error) {
     const locale = useSessionStore.getState().locale;
     const message = error instanceof PipelineError ? error.message : MESSAGES[locale].header.loadFailed((error as Error).message);
-    useSessionStore.setState({ doc: null, viewItems: [], warnings: [], error: message, activeId: null, cacheReady: true });
+    useSessionStore.setState({ error: message, cacheReady: true });
   }
 }
 
@@ -233,10 +242,13 @@ interface SessionState {
   viewItems: ViewItem[];
   warnings: string[];
   error: string | null;
+  sessionLoadProgress: SessionLoadProgress | null;
+  sessionLoadError: string | null;
 
   providerId: ProviderId;
   showAnnotations: boolean;
-  viewMode: ViewMode;
+  primaryView: PrimaryView;
+  sessionOrigin: SessionOrigin;
   /** UI 語言；也決定講解層 prompt 的輸出語言 (R7)。 */
   locale: Locale;
 
@@ -270,8 +282,11 @@ interface SessionState {
   annotationErrors: Record<string, string>;
 
   // ---- actions ----
-  loadFromText: (raw: string) => void;
-  loadFromFiles: (files: TranscriptFileInput[]) => void;
+  loadFromText: (raw: string, origin?: SessionOrigin) => void;
+  loadFromFiles: (files: TranscriptFileInput[], origin?: SessionOrigin) => void;
+  loadFromBlobs: (files: SessionBlobInput[], origin?: SessionOrigin) => Promise<void>;
+  cancelSessionLoad: () => void;
+  dismissSessionLoadStatus: () => void;
   reset: () => void;
   setProvider: (id: ProviderId) => void;
   setLocale: (locale: Locale) => void;
@@ -293,7 +308,8 @@ interface SessionState {
   clearAnnotations: () => void;
   /** 局域重置：取消選取並停止重播 (不動已載入的 session)。 */
   clearSelection: () => void;
-  setViewMode: (mode: ViewMode) => void;
+  setPrimaryView: (view: PrimaryView) => void;
+  startReading: () => void;
   setActive: (id: string) => void;
 
   play: () => void;
@@ -313,10 +329,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   viewItems: [],
   warnings: [],
   error: null,
+  sessionLoadProgress: null,
+  sessionLoadError: null,
 
   providerId: "none",
   showAnnotations: true,
-  viewMode: "cognitive",
+  primaryView: "overview",
+  sessionOrigin: "sample",
   locale: "zh-TW",
 
   ollamaConfig: {
@@ -350,11 +369,59 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   annotatingIds: {},
   annotationErrors: {},
 
-  loadFromText: (raw) => loadPipeline(() => buildSessionDocument(raw)),
+  loadFromText: (raw, origin = "user") => loadPipeline(() => buildSessionDocument(raw), origin),
 
-  loadFromFiles: (files) => loadPipeline(() => buildSessionDocumentFromFiles(files)),
+  loadFromFiles: (files, origin = "user") => loadPipeline(() => buildSessionDocumentFromFiles(files), origin),
+
+  loadFromBlobs: async (files, origin = "user") => {
+    activeSessionLoad?.cancel();
+    const totalBytes = files.reduce((sum, file) => sum + file.blob.size, 0);
+    set({
+      sessionLoadProgress: { phase: "reading", loadedBytes: 0, totalBytes, lineCount: 0, sourcePath: null },
+      sessionLoadError: null,
+    });
+    const task = startSessionLoad(files, (progress) => {
+      if (activeSessionLoad === task) set({ sessionLoadProgress: progress });
+    });
+    activeSessionLoad = task;
+    try {
+      const result = await task.promise;
+      if (activeSessionLoad !== task) return;
+      publishPipelineResult(result, origin);
+      set({
+        sessionLoadProgress: {
+          phase: "ready",
+          loadedBytes: totalBytes,
+          totalBytes,
+          lineCount: get().sessionLoadProgress?.lineCount ?? 0,
+          sourcePath: null,
+        },
+        sessionLoadError: null,
+      });
+    } catch (error) {
+      if (activeSessionLoad !== task) return;
+      if (error instanceof SessionLoadCancelledError) {
+        set({ sessionLoadProgress: null, sessionLoadError: null });
+      } else {
+        const locale = get().locale;
+        set({
+          sessionLoadProgress: null,
+          sessionLoadError: MESSAGES[locale].header.loadFailed((error as Error).message),
+        });
+      }
+    } finally {
+      if (activeSessionLoad === task) activeSessionLoad = null;
+    }
+  },
+
+  cancelSessionLoad: () => {
+    activeSessionLoad?.cancel();
+  },
+
+  dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, sessionLoadError: null }),
 
   reset: () => {
+    activeSessionLoad?.cancel();
     get().pause();
     cancelPendingPrivacyReview();
     cloudConsent = null;
@@ -364,6 +431,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       viewItems: [],
       warnings: [],
       error: null,
+      sessionLoadProgress: null,
+      sessionLoadError: null,
+      primaryView: "overview",
       activeId: null,
       playingId: null,
       privacyReview: null,
@@ -476,11 +546,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   toggleAnnotations: () => set((s) => ({ showAnnotations: !s.showAnnotations })),
 
   resetToSample: () => {
+    activeSessionLoad?.cancel();
     get().pause();
     cancelPendingPrivacyReview();
     cloudConsent = null;
-    set({ providerId: "none", showAnnotations: true, viewMode: "cognitive", ollamaStatus: null, openCodeStatus: null, annotateProgress: null, privacyReview: null });
-    get().loadFromText(sampleSession);
+    set({ providerId: "none", showAnnotations: true, ollamaStatus: null, openCodeStatus: null, annotateProgress: null, privacyReview: null, sessionLoadProgress: null, sessionLoadError: null });
+    get().loadFromText(sampleSession, "sample");
   },
 
   // 清空講解後，魚骨「可帶走的觀念」(讀 annotations) 也會自動消失。
@@ -494,14 +565,26 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ activeId: null, playingId: null });
   },
 
-  setViewMode: (mode) => set({ viewMode: mode }),
-  setActive: (id) => set({ activeId: id }),
+  setPrimaryView: (primaryView) => {
+    get().pause();
+    set({ primaryView });
+  },
+
+  startReading: () => {
+    get().pause();
+    set({ primaryView: "reader" });
+  },
+
+  setActive: (id) => {
+    get().pause();
+    set({ activeId: id, playingId: null, primaryView: "reader" });
+  },
 
   gotoIndex: (i) => {
     const { viewItems } = get();
     if (viewItems.length === 0) return;
     const idx = Math.max(0, Math.min(viewItems.length - 1, i));
-    set({ playingId: viewItems[idx].id, activeId: viewItems[idx].id });
+    set({ playingId: viewItems[idx].id, activeId: viewItems[idx].id, primaryView: "reader" });
   },
 
   play: () => {

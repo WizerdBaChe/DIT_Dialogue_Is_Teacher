@@ -9,9 +9,12 @@
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fixture:r5": "node scripts/generate-r5-fixture.mjs",
+    "benchmark:r5": "node scripts/render-r5-benchmark.mjs"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.6",
     "idb": "^8.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

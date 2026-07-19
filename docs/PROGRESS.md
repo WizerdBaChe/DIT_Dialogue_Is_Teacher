@@ -2,6 +2,31 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R5 — 大型 Session 效能 + 窄螢幕可用性｜2026-07-19｜🟡 修正版實作與預檢完成，待最終視覺驗收
+
+- [x] **可重現大型 fixture**：`npm run fixture:r5` 固定產生 main + `subagents/*.jsonl`，包含有效 UUID、
+  parentUuid、isSidechain、timestamp、tool use/result；50 MiB 產生物進 `.tmp/`，由 Git 忽略。
+- [x] **串流匯入與 Worker**：production 檔案載入改用 `Blob.stream()`、增量 UTF-8 `TextDecoder` 與
+  JSONL carry buffer；解析、跨檔排序、normalize、denoise、distill、validate 在 Vite Worker 完成。
+  同步 string pipeline 保留給 fixture／相容測試。
+- [x] **原子發布與取消**：reading/parsing/organizing/validating/ready 進度在完整結果前可見；載入期間
+  保留前一份有效文件。取消直接終止 Worker，不發布部分文件；warning 帶來源路徑＋行號，沒有 transcript log。
+- [x] **受限 DOM**：採 `@tanstack/react-virtual@3.14.6`（MIT）；Sidebar／MainView 獨立虛擬化，
+  ViewItem ID 作 key，ID→index + `scrollToIndex` 接通側欄選取與重播，MainView 動態高度交由 remeasurement。
+- [x] **視覺驗收修正**：使用者通過原始 1–7 後指出設定列、常駐側欄、魚骨、全部子代理與詳情仍同時擠壓內容；
+  D1–D3 拍板後改為預設收合設定匣，以及閱讀／魚骨／子代理／結構四個互斥工作區。任一時間只掛載一個
+  `tabpanel`；手動導覽會停止播放、清除舊 `playingId`，再回閱讀定位同一 ViewItem。
+- [x] **魚骨／子代理有界渲染**：魚骨只常駐主線，選定 station 的 ribs 與子代理摘要清單各自虛擬化；
+  50 MiB fixture 在 390×844 的閱讀／魚骨／子代理／結構總 DOM 分別為 129／116／137／128。
+- [x] **窄螢幕語意**：390×844 精簡列高 92.7 px；740×1113 與 2048×966 為 56 px。三種尺寸皆無
+  文件級水平溢出；設定匣最高 45dvh，魚骨仍保留區域內水平捲動，中英文與鍵盤方向鍵分頁可用。
+- [x] **效能實測**：固定 50.0018 MiB／29,452 view items 的 production preview 於 1,389 ms 載入；
+  進度 322 ms 可見、取消 319 ms 完成；高密度頁面只掛載 15 sidebar + 9 main rows，總 DOM 240。
+  第 8,058 項直接選取與第 8,059 項下一步均正確，未觀察到空白缺口／選取漂移。瀏覽器未提供 heap 指標。
+- 驗證：18 個測試檔、95/95 通過；typecheck、110-module production build、`git diff --check` 通過。
+  報告：[R5_BENCHMARK_2026-07-19.md](R5_BENCHMARK_2026-07-19.md)；修正合約：
+  [PSM_R5_VISUAL_WORKSPACE_REMEDIATION_v0.1.md](PSM_R5_VISUAL_WORKSPACE_REMEDIATION_v0.1.md)。最新修正版仍待使用者人工確認。
+
 ## R4 — Subagent 跨檔串接 + 局部分支圖｜2026-07-19｜✅ 已完成並驗證
 
 - [x] **多檔輸入**：Header 新增「載入 Session 資料夾」，可一次讀取主 transcript 與
