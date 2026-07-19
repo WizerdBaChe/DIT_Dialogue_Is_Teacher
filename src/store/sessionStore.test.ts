@@ -225,6 +225,11 @@ describe("workspace navigation", () => {
     expect(useSessionStore.getState().mapZoomLevel).toBe("global");
     expect(useSessionStore.getState().mapFocusId).toBe(currentId);
     expect(useSessionStore.getState().isPlaying).toBe(false);
+
+    const focusId = useSessionStore.getState().viewItems[1]?.id;
+    useSessionStore.getState().setMapZoom("section", focusId);
+    expect(useSessionStore.getState().mapZoomLevel).toBe("section");
+    expect(useSessionStore.getState().mapFocusId).toBe(focusId);
   });
 
   it("jumps from a real map landmark to the reader and closes overlays", () => {

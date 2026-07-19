@@ -347,6 +347,7 @@ interface SessionState {
   closeStructureDrawer: () => void;
   openMap: () => void;
   closeMap: () => void;
+  setMapZoom: (level: MapZoomLevel, focusId?: string) => void;
   setMapFocus: (id: string) => void;
   jumpToMapItem: (id: string) => void;
   setActive: (id: string) => void;
@@ -649,6 +650,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   closeMap: () => set({ mapOpen: false, mapError: null }),
+
+  setMapZoom: (mapZoomLevel, focusId) => set((state) => ({
+    mapZoomLevel,
+    mapFocusId: focusId ?? state.mapFocusId,
+    mapError: null,
+  })),
 
   setMapFocus: (mapFocusId) => set({ mapFocusId, mapError: null }),
 
