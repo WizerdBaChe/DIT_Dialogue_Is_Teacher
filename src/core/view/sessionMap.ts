@@ -42,6 +42,46 @@ export interface SessionMapProjection {
   totalRibs: number;
 }
 
+export interface SessionMapGraphicLayout {
+  width: number;
+  height: number;
+  nodeY: number;
+  xPositions: number[];
+  spineStart: number;
+  spineEnd: number;
+}
+
+const MAP_GRAPHIC_MIN_WIDTH = 720;
+const MAP_GRAPHIC_SIDE_PADDING = 90;
+const MAP_GRAPHIC_NODE_GAP = 180;
+
+export function buildSessionMapGraphicLayout(targetCount: number): SessionMapGraphicLayout {
+  const count = Math.max(0, Math.floor(targetCount));
+  const width = Math.max(
+    MAP_GRAPHIC_MIN_WIDTH,
+    count > 1 ? MAP_GRAPHIC_SIDE_PADDING * 2 + (count - 1) * MAP_GRAPHIC_NODE_GAP : MAP_GRAPHIC_MIN_WIDTH,
+  );
+  const nodeY = 118;
+  const xPositions = count === 0
+    ? []
+    : count === 1
+      ? [width / 2]
+      : Array.from({ length: count }, (_, index) => (
+        MAP_GRAPHIC_SIDE_PADDING + index * ((width - MAP_GRAPHIC_SIDE_PADDING * 2) / (count - 1))
+      ));
+  const first = xPositions[0] ?? width / 2;
+  const last = xPositions[xPositions.length - 1] ?? first;
+
+  return {
+    width,
+    height: 280,
+    nodeY,
+    xPositions,
+    spineStart: first,
+    spineEnd: last,
+  };
+}
+
 interface MapStation {
   stationIndex: number;
   landmark: MapLandmark;

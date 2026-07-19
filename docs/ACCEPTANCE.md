@@ -74,8 +74,8 @@ npm.cmd run preview -- --host 127.0.0.1 --port 4173
 ## 12. 大量資料
 
 - [ ] 50 MiB 在 390×844、740×1113、1280×720 無 crash、文件級水平溢出、空白捲動區或 selection drift。
-- [x] 開發者 production preview：load 964 ms；Reader DOM 最大 249；Map DOM 最大 477；首 target 115 ms。
-- [x] `npm.cmd run benchmark:r5 -- .tmp/r5-guided-navigation-metrics.json` 輸出 `Result: pass`。
+- [x] 開發者 GN-09 production preview：Reader DOM 最大 210；Map DOM 最大 397；首 target 134 ms；load／cancel 與深層捲動沿用未改資料管線的 GN-07 同機證據。
+- [x] `npm.cmd run benchmark:r5 -- .tmp/r5-gn09-metrics.json` 輸出 `18 passed / 0 failed / Result: pass`。
 
 ## 13. 雙語
 
@@ -85,8 +85,20 @@ npm.cmd run preview -- --host 127.0.0.1 --port 4173
 ## 14. 既有能力回歸
 
 - [ ] Ollama、OpenCode／Privacy Review、annotation cache、load cancel 與 R4 subagent ordering／linkage 正常。
-- [x] `npm.cmd test`：20 files、128/128 passed。
+- [x] `npm.cmd test`：20 files、130/130 passed。
 - [x] `npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check`：exit 0。
+
+## 15. GN-09 視覺 UAT
+
+- [ ] 390／740／1280：Structure 中 Minimap 可見的重要節點都有類型標籤，且精簡圖例可讀。
+- [ ] Structure 一般節點符號約為舊版兩倍並大於文字；重要節點另以方框、菱形、六角、圓角等形狀辨識，不像雜訊。
+- [ ] Reader 的「回覆／思考／操作」等項目標示外框放大，字級至少與同列標題相同；其他選項標示也明顯大於一般內容。
+- [ ] Header、Structure、Reader、Map、footer 使用同色系但可辨識的深淺底色，且類型不只靠顏色表達。
+- [ ] 全站 list、panel、title、content、Minimap 等字級相較舊版約放大 1.25 倍，選項類約 1.5 倍；無文字互相覆蓋。
+- [ ] 從 Minimap／Map 按鈕開圖時 dialog 位於 viewport 中央，目前／選定節點位於圖區中央；紅色「關閉地圖」一眼可辨且完整可見。
+- [ ] 四節點 Session Map 的主線只從第一節點連到第四節點，第四節點後沒有無意義尾線。
+- [ ] Session Map 恢復不同節點的方塊／菱形／六角／圓角語彙，魚骨支線提示可直觀看出分支與種類。
+- [ ] 關閉、Global／Section／Detail、cluster 與 Jump 行為維持 GN-01～GN-08 已接受語意。
 
 ## 回報格式
 

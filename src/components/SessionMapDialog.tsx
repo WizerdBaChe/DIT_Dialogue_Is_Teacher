@@ -51,6 +51,7 @@ export function SessionMapDialog(): ReactNode {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const graphicScrollRef = useRef<HTMLDivElement>(null);
   const focusReaderAfterClose = useRef(false);
   const currentViewItemId = playingId ?? activeId;
   const viewItemIds = useMemo(() => viewItems.map((item) => item.id), [viewItems]);
@@ -67,8 +68,8 @@ export function SessionMapDialog(): ReactNode {
   const virtualizer = useVirtualizer({
     count: projection.targets.length,
     getScrollElement: () => listRef.current,
-    estimateSize: () => 48,
-    overscan: 8,
+    estimateSize: () => 68,
+    overscan: 4,
     getItemKey: (index) => projection.targets[index]?.id ?? index,
   });
 
@@ -87,6 +88,32 @@ export function SessionMapDialog(): ReactNode {
       dialog.close();
     }
   }, [mapOpen]);
+
+  useEffect(() => {
+    if (!mapOpen || projection.targets.length === 0) return;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const scroller = graphicScrollRef.current;
+        if (!scroller) return;
+        const target = scroller.querySelector<SVGGElement>(".map-target.selected")
+          ?? scroller.querySelector<SVGGElement>(".map-target.current");
+        if (!target) {
+          scroller.scrollLeft = Math.max(0, (scroller.scrollWidth - scroller.clientWidth) / 2);
+          scroller.scrollTop = Math.max(0, (scroller.scrollHeight - scroller.clientHeight) / 2);
+          return;
+        }
+        const scrollerBounds = scroller.getBoundingClientRect();
+        const targetBounds = target.getBoundingClientRect();
+        scroller.scrollLeft += targetBounds.left + targetBounds.width / 2 - (scrollerBounds.left + scrollerBounds.width / 2);
+        scroller.scrollTop += targetBounds.top + targetBounds.height / 2 - (scrollerBounds.top + scrollerBounds.height / 2);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [mapOpen, mapZoomLevel, projection.targets, selectedTarget?.id]);
 
   const restoreFocus = () => {
     if (useSessionStore.getState().privacyReview) return;
@@ -139,6 +166,9 @@ export function SessionMapDialog(): ReactNode {
             ))}
           </div>
           <button type="button" className="btn map-close" onClick={closeMap} aria-label={t.map.close}>{t.map.close}</button>
+          <p className="map-legend">
+            {`${t.sidebar.legendLabel}: □ ${t.skeletonNode.objective} · ◇ ${t.skeletonNode.decision} · ⬡ ${t.skeletonNode.milestone} · ▰ ${t.skeletonNode.outcome} · ├ ${t.skeletonRib.investigation} · △ ${t.skeletonRib.error} · ○ ${t.skeletonRib.retry} · ◆ ${t.skeletonRib["edit-loop"]} · ◆ ${t.workspace.tabs.subagents}`}
+          </p>
         </header>
 
         {projection.targets.length === 0 ? (
@@ -148,13 +178,15 @@ export function SessionMapDialog(): ReactNode {
           </div>
         ) : (
           <div className="session-map-content">
-            <div className="map-graphic-scroll">
-              <SessionMapGraphic
-                projection={projection}
-                currentViewItemId={currentViewItemId}
-                selectedId={selectedTarget?.id ?? mapFocusId}
-                onSelect={selectTarget}
-              />
+            <div ref={graphicScrollRef} className="map-graphic-scroll">
+              <div className="map-graphic-stage">
+                <SessionMapGraphic
+                  projection={projection}
+                  currentViewItemId={currentViewItemId}
+                  selectedId={selectedTarget?.id ?? mapFocusId}
+                  onSelect={selectTarget}
+                />
+              </div>
               <span className="map-you-are-here">{t.map.youAreHere}</span>
             </div>
             <section className="map-landmarks" aria-label={t.map.landmarkList}>
