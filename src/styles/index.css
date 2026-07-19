@@ -279,10 +279,16 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .ap-current { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 /* ---- Layout ---- */
-.workspace-panel { flex: 1; display: flex; width: 100%; min-height: 0; overflow: hidden; }
+.workspace-layout { position: relative; flex: 1; display: flex; width: 100%; min-height: 0; overflow: hidden; }
+.workspace-panel { flex: 1; display: flex; min-width: 0; min-height: 0; overflow: hidden; }
 .workspace-panel:focus { outline: none; }
-.structure-workspace { flex: 1; min-width: 0; min-height: 0; display: flex; }
-.structure-workspace .sidebar { width: 100%; border-right: 0; }
+.structure-rail {
+  position: absolute; z-index: 4; top: 12px; left: 0; width: 34px; min-height: 44px; padding: 0;
+  border: 1px solid var(--rule-strong); border-left: 0; background: var(--bg-card); color: var(--accent-primary);
+  font-size: 20px; cursor: pointer;
+}
+.structure-rail:hover { background: var(--accent-tint); }
+.structure-rail:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
 /* ---- Guided session overview ---- */
 .overview-view { overflow-y: auto; display: flex; justify-content: center; }
@@ -327,11 +333,25 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 
 /* ---- Sidebar ---- */
 .sidebar {
-  width: 300px; min-height: 0; flex-shrink: 0; background: var(--bg-main);
+  width: clamp(240px, 22vw, 320px); min-height: 0; flex-shrink: 0; background: var(--bg-main);
   border-right: 1px solid var(--rule); padding: 22px 20px; overflow: hidden;
   display: flex; flex-direction: column;
 }
 .sidebar-static { flex-shrink: 0; }
+.structure-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.structure-title-block { min-width: 0; }
+.structure-title-block .eyebrow { display: block; margin-bottom: 5px; }
+.structure-title-block h2 {
+  max-width: 100%; margin: 0; color: var(--text-main); font-family: var(--font-serif); font-size: 16px;
+  font-weight: 600; letter-spacing: 0; text-transform: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.structure-collapse {
+  flex: 0 0 32px; min-height: 32px; padding: 0; border: 1px solid var(--rule); background: transparent;
+  color: var(--text-muted); font-family: var(--font-sans); cursor: pointer;
+}
+.structure-collapse:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+.structure-collapse:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.structure-position { margin: 10px 0 14px; color: var(--text-dark); font-family: var(--font-mono); font-size: 11px; }
 .tree-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .virtual-list-space { position: relative; width: 100%; }
 .sidebar h2 { margin-bottom: 10px; }
@@ -641,6 +661,10 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .badges { position: static; justify-content: flex-start; max-width: 100%; margin-bottom: 8px; }
 }
 
+@container dit-app (max-width: 719px) {
+  .workspace-structure, .structure-rail { display: none; }
+}
+
 @media (max-width: 720px) {
   .header {
     min-height: 92px; padding: 7px 10px; gap: 6px 8px; align-items: center;
@@ -669,4 +693,8 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .subagent-list-count { grid-column: 2; }
   .layer-title { padding-right: 0; flex-wrap: wrap; }
   .badges { position: static; justify-content: flex-start; max-width: 100%; margin-bottom: 8px; }
+}
+
+@media (max-width: 719px) {
+  .workspace-structure, .structure-rail { display: none; }
 }

@@ -1,7 +1,7 @@
 /** 左側 Span Tree 目錄。點擊項目高亮對應卡片。 */
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useSessionStore } from "@/store/sessionStore";
+import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
 import { SPAN_DOT, GROUP_DOT } from "./labels";
 
@@ -12,6 +12,7 @@ export function Sidebar(): ReactNode {
   const activeId = useSessionStore((s) => s.activeId);
   const playingId = useSessionStore((s) => s.playingId);
   const setActive = useSessionStore((s) => s.setActive);
+  const toggleStructureCollapsed = useSessionStore((s) => s.toggleStructureCollapsed);
   const scrollRef = useRef<HTMLDivElement>(null);
   const indexById = useMemo(() => new Map(viewItems.map((item, index) => [item.id, index])), [viewItems]);
   const virtualizer = useVirtualizer({
@@ -22,6 +23,7 @@ export function Sidebar(): ReactNode {
     getItemKey: (index) => viewItems[index]?.id ?? index,
   });
   const selectedId = playingId ?? activeId;
+  const position = selectCurrentPosition({ viewItems, activeId, playingId });
 
   useEffect(() => {
     if (!selectedId) return;
@@ -39,38 +41,24 @@ export function Sidebar(): ReactNode {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar workspace-structure">
       <div className="sidebar-static">
-        <h2>{t.sidebar.headingWithTree}</h2>
-        <div className="session-meta">
-          title: {doc.session.title}
-          <br />
-          source: {doc.session.source}
-          <br />
-          {doc.session.model && (
-            <>
-              model: {doc.session.model}
-              <br />
-            </>
-          )}
-          spans: {doc.spans.length} ｜ groups: {doc.groups.length}
-          {doc.skeleton && (
-            <>
-              <br />
-              {t.sidebar.skeleton(doc.skeleton.nodes.length, doc.skeleton.ribs.length)}
-            </>
-          )}
+        <div className="structure-heading">
+          <div className="structure-title-block">
+            <span className="eyebrow">{t.structure.label}</span>
+            <h2 title={doc.session.title}>{doc.session.title}</h2>
+          </div>
+          <button
+            type="button"
+            className="structure-collapse"
+            onClick={toggleStructureCollapsed}
+            aria-label={t.structure.collapse}
+            title={t.structure.collapse}
+          >
+            <span aria-hidden="true">«</span>
+          </button>
         </div>
-
-        <div className="tree-legend" aria-label={t.sidebar.legendLabel}>
-          <span className="tree-legend-title">{t.sidebar.legendLabel}</span>
-          {(Object.keys(SPAN_DOT) as Array<keyof typeof SPAN_DOT>).map((type) => (
-            <span className="tree-legend-item" key={type}>
-              <span className="dot" aria-hidden="true">{SPAN_DOT[type]}</span>
-              {t.spanKind[type]}
-            </span>
-          ))}
-        </div>
+        <p className="structure-position">{t.structure.position(position.current ?? "—", position.total)}</p>
       </div>
 
       <div ref={scrollRef} className="tree-scroll" data-testid="sidebar-virtual-scroll">

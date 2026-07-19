@@ -85,6 +85,26 @@ export interface PrivacyReviewState {
   itemId: string;
 }
 
+interface PositionState {
+  viewItems: ViewItem[];
+  activeId: string | null;
+  playingId: string | null;
+}
+
+export interface CurrentPosition {
+  current: number | null;
+  total: number;
+}
+
+export function selectCurrentPosition(state: PositionState): CurrentPosition {
+  const selectedId = state.playingId ?? state.activeId;
+  const index = selectedId ? state.viewItems.findIndex((item) => item.id === selectedId) : -1;
+  return {
+    current: index >= 0 ? index + 1 : null,
+    total: state.viewItems.length,
+  };
+}
+
 const REPLAY_INTERVAL_MS = 1600;
 let replayTimer: ReturnType<typeof setInterval> | null = null;
 /** 「講解全部」取消旗標 (模組層級，不入 state 以免每次勾選觸發 re-render)。 */
@@ -249,6 +269,7 @@ interface SessionState {
   showAnnotations: boolean;
   primaryView: PrimaryView;
   sessionOrigin: SessionOrigin;
+  structureCollapsed: boolean;
   /** UI 語言；也決定講解層 prompt 的輸出語言 (R7)。 */
   locale: Locale;
 
@@ -310,6 +331,7 @@ interface SessionState {
   clearSelection: () => void;
   setPrimaryView: (view: PrimaryView) => void;
   startReading: () => void;
+  toggleStructureCollapsed: () => void;
   setActive: (id: string) => void;
 
   play: () => void;
@@ -336,6 +358,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   showAnnotations: true,
   primaryView: "overview",
   sessionOrigin: "sample",
+  structureCollapsed: false,
   locale: "zh-TW",
 
   ollamaConfig: {
@@ -574,6 +597,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     get().pause();
     set({ primaryView: "reader" });
   },
+
+  toggleStructureCollapsed: () => set((state) => ({ structureCollapsed: !state.structureCollapsed })),
 
   setActive: (id) => {
     get().pause();

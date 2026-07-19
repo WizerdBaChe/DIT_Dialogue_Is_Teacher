@@ -106,8 +106,10 @@ const zhTW = {
   },
 
   structure: {
-    show: "展開 Session 結構",
-    hide: "收合 Session 結構",
+    label: "Session 結構",
+    position: (current: number | string, total: number) => `位置 ${current} / ${total}`,
+    collapse: "收合 Session 結構",
+    expand: "展開 Session 結構",
   },
 
   sidebar: {
@@ -426,8 +428,10 @@ const en: Messages = {
   },
 
   structure: {
-    show: "Show session structure",
-    hide: "Hide session structure",
+    label: "Session structure",
+    position: (current: number | string, total: number) => `Position ${current} / ${total}`,
+    collapse: "Collapse session structure",
+    expand: "Expand session structure",
   },
 
   sidebar: {
