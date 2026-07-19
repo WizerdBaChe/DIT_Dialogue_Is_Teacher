@@ -50,7 +50,7 @@ export function ReaderMinimap({ visibleStart, visibleEnd }: ReaderMinimapProps):
     `<path d="${landmarkPath.join(" ")}" fill="#4f4a41"/>`,
     `<path d="${clusterPath.join(" ")}" fill="#8a6a2f" fill-opacity=".72"/>`,
     `<rect x="${viewportX}" y="34" width="${Math.max(4, viewportEndX - viewportX)}" height="44" fill="rgba(124,33,40,.08)" stroke="#8a6a2f"/>`,
-    `<circle cx="${currentX}" cy="56" r="5" fill="#7c2128" stroke="#fffdf8" stroke-width="2"/>`,
+    `<circle cx="${currentX}" cy="56" r="5" fill="#7c2128" stroke="#eee8dd" stroke-width="2"/>`,
     "</svg>",
   ].join("");
 
