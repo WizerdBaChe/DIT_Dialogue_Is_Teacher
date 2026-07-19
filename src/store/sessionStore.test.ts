@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useSessionStore } from "./sessionStore";
+import { selectCurrentPosition, useSessionStore } from "./sessionStore";
 import { r4MainSession, r4SubagentSession, sampleSession } from "@/fixtures";
 
 afterEach(() => {
@@ -12,6 +12,7 @@ afterEach(() => {
     ollamaStatus: null,
     primaryView: "overview",
     sessionOrigin: "sample",
+    structureCollapsed: false,
   });
 });
 
@@ -140,5 +141,37 @@ describe("workspace navigation", () => {
     useSessionStore.getState().play();
     expect(useSessionStore.getState().primaryView).toBe("reader");
     expect(useSessionStore.getState().isPlaying).toBe(true);
+  });
+
+  it("reports position from playingId before activeId", () => {
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    let position = selectCurrentPosition(useSessionStore.getState());
+    expect(position).toEqual({ current: 1, total: useSessionStore.getState().viewItems.length });
+
+    useSessionStore.getState().gotoIndex(1);
+    position = selectCurrentPosition(useSessionStore.getState());
+    expect(position.current).toBe(2);
+
+    useSessionStore.setState({ playingId: "missing-id" });
+    expect(selectCurrentPosition(useSessionStore.getState())).toEqual({
+      current: null,
+      total: useSessionStore.getState().viewItems.length,
+    });
+  });
+
+  it("collapses structure without changing selection or playback", () => {
+    vi.useFakeTimers();
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    useSessionStore.getState().play();
+    const before = useSessionStore.getState();
+
+    useSessionStore.getState().toggleStructureCollapsed();
+    const after = useSessionStore.getState();
+
+    expect(after.structureCollapsed).toBe(true);
+    expect(after.activeId).toBe(before.activeId);
+    expect(after.playingId).toBe(before.playingId);
+    expect(after.isPlaying).toBe(before.isPlaying);
+    expect(after.primaryView).toBe(before.primaryView);
   });
 });
