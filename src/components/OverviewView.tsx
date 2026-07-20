@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
+import {
+  SKELETON_NODE_KIND_ORDER,
+  SKELETON_NODE_SYMBOL,
+  SKELETON_RIB_KIND_ORDER,
+  SKELETON_RIB_SYMBOL,
+} from "@/core/view/sessionMap";
+import { SPAN_DOT, SPAN_LEGEND_ORDER } from "./labels";
 import { SessionLoadActions } from "./SessionLoadActions";
 
 export function OverviewView(): ReactNode {
@@ -74,6 +81,37 @@ export function OverviewView(): ReactNode {
           </button>
           <SessionLoadActions labels="overview" />
         </div>
+
+        <details className="overview-legend">
+          <summary>{t.overview.legend.label}</summary>
+          <div className="overview-legend-body">
+            <section aria-labelledby="overview-legend-span-heading">
+              <h4 id="overview-legend-span-heading">{t.overview.legend.spanHeading}</h4>
+              <ul className="overview-legend-list">
+                {SPAN_LEGEND_ORDER.map((type) => (
+                  <li key={type}>
+                    <span aria-hidden="true">{SPAN_DOT[type]}</span> {t.spanKind[type]}
+                  </li>
+                ))}
+              </ul>
+            </section>
+            <section aria-labelledby="overview-legend-skeleton-heading">
+              <h4 id="overview-legend-skeleton-heading">{t.overview.legend.skeletonHeading}</h4>
+              <ul className="overview-legend-list">
+                {SKELETON_NODE_KIND_ORDER.map((kind) => (
+                  <li key={kind}>
+                    <span aria-hidden="true">{SKELETON_NODE_SYMBOL[kind]}</span> {t.skeletonNode[kind]}
+                  </li>
+                ))}
+                {SKELETON_RIB_KIND_ORDER.map((kind) => (
+                  <li key={kind}>
+                    <span aria-hidden="true">{SKELETON_RIB_SYMBOL[kind]}</span> {t.skeletonRib[kind]}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </details>
       </section>
     </main>
   );
