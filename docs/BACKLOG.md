@@ -14,12 +14,33 @@
 
 **新增（來自 R5.5 設計重新分析，未排程；排入任一輪前需使用者裁定）**：
 
-- [ ] Adapter 未知型別寬容收納：`system` 等合法型別摺疊為「未分類事件」、warning 聚合為「型別 ×N」，因應 Claude Code JSONL schema 無穩定保證。
-- [ ] Session 標題 fallback：無 `ai-title` 時以第一個使用者意圖生成標題（規則式，免 LLM），取代「未命名 session」。
+- [ ] Adapter 未知型別寬容收納：`system` 等合法型別摺疊為「未分類事件」、warning 聚合為「型別 ×N」，因應 Claude Code JSONL schema 無穩定保證。→ **2026-07-21 使用者裁定：改列 R7 候選**（見下方 R7 段）。
+- [ ] Session 標題 fallback：無 `ai-title` 時以第一個使用者意圖生成標題（規則式，免 LLM），取代「未命名 session」。→ **2026-07-21 使用者裁定：改列 R7 候選**（見下方 R7 段）。
 - [ ] Sidebar 連續同類操作聚合（如「取證 ×5：Read ×2, WebSearch ×3」可展開），需先拍板摺疊層級語意。
 - [ ] 底部 timeline scrubber／Minimap 語意重定位（需另立 UX 決策）。
 - [ ] 操作卡單行壓縮模式（圖示＋工具名＋一句結果摘要＋狀態燈），與編輯排印風驗收相關。
 - [ ] 跨 session 統計／agent 行為分析層（RPD D-5 解凍後另立契約）。
+
+## 📌 2026-07-21 R7 候選：多來源接入（Codex adapter）— 使用者已同意排程方向
+
+> 完整設計分析與 Codex 格式實測證據見 [DESIGN_R7_MULTI_SOURCE_v0.1.md](DESIGN_R7_MULTI_SOURCE_v0.1.md)（pre-PSM 草稿）；本段只記排程與範圍。
+
+**排程順序（使用者 2026-07-21 拍板）**：R5.5 UAT 收尾 → R6（範圍不變：匯出＋多 session 型別保鮮）→ **R7 多來源輪**。R6 期間不擴範圍；唯一順手事項是型別保鮮不得把 Claude 專屬假設寫進快照渲染器（SA-INV-5 常數同源已在擋）。
+
+**R7 範圍（同一輪打包，爆炸半徑同在 ingest／normalize 層，一次設計、一個回歸面）**：
+
+- [ ] `SourceAdapter` 介面補增量 accumulator（如 `createAccumulator()`），修正 `jsonlStream.ts` 寫死 `ClaudeCodeJsonlAccumulator` 的耦合——否則 50 MiB streaming 路徑永遠 Claude 專屬。
+- [ ] Adapter 未知型別寬容收納（自上方 2026-07-20 清單移入）。
+- [ ] Session 標題 fallback（自上方 2026-07-20 清單移入；Codex 無 `ai-title`，此為接入前置條件）。
+- [ ] Codex jsonl adapter 本體（來源樣本：`~/.codex/sessions/**/rollout-*.jsonl`，2026-07-21 已對照實際資料評估，`RawEvent` 抽象覆蓋率約八成）。
+
+**R7 開工前需使用者拍板的三個決策點**（寫進該輪 PSM 問題定義）：
+
+1. 雙層去重策略：Codex 對同一內容記 `response_item/*`（模型層）與 `event_msg/*`（UI 層）兩份；預設建議以 `response_item` 為主幹、`event_msg` 只補缺（如明文 `agent_reasoning`）。
+2. `turn_id` 對映到 DIT 的哪個結構層（群組？或新概念）；Codex 為扁平流，無 `parentUuid`／`isSidechain`。
+3. `patch_apply_end` 等高價值事件（含完整檔案變更＋成功旗標）是進寬容收納的「未分類」，還是升格為一級 kind。
+
+**已知資料源限制（非 adapter 可修，UI 需接受降級）**：Codex `response_item/reasoning` 為 `encrypted_content` 且 summary 常為空，◇ 思考 span 在 Codex 來源將稀疏、碎片化；工具參數為字串（JS 碼／JSON 字串），adapter 需 parse 或包裝。
 
 ## 🐟 認知學習模式（魚骨橫向視圖）— 前端，延後實作
 **定位**：低強度「認知學習模式」，與現有「高密度學習模式」並存、可切換。
