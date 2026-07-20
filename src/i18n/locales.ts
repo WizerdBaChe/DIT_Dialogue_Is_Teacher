@@ -91,6 +91,11 @@ const zhTW = {
     continueReading: "繼續閱讀",
     loadFile: "載入 .jsonl",
     loadFolder: "載入 Session 資料夾",
+    legend: {
+      label: "符號說明",
+      spanHeading: "Span 層 · transcript 發生了什麼",
+      skeletonHeading: "Skeleton 層 · 學習魚骨的節點／支線種類",
+    },
   },
 
   sessionLoad: {
@@ -445,6 +450,11 @@ const en: Messages = {
     continueReading: "Continue reading",
     loadFile: "Load .jsonl",
     loadFolder: "Load session folder",
+    legend: {
+      label: "Symbol guide",
+      spanHeading: "Span layer · what happened in the transcript",
+      skeletonHeading: "Skeleton layer · fishbone node/rib kinds",
+    },
   },
 
   sessionLoad: {
