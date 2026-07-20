@@ -23,7 +23,6 @@ const zhTW = {
   header: {
     brand: "DIT — Dialogue Is Teacher",
     tagline: "把 agent 執行軌跡轉成「可學習」的節點",
-    modes: { cognitive: "認知", dense: "高密度" } as Record<string, string>,
     modeGroupLabel: "檢視模式",
     loadFile: "載入 .jsonl",
     loadFolder: "載入 Session 資料夾",
@@ -41,8 +40,8 @@ const zhTW = {
     clearAnnotationsTitle: "只清除畫面上的講解；已儲存內容仍保留，下次可自動還原",
     prevTitle: "上一步",
     nextTitle: "下一步",
-    replayControlsLabel: "逐步重播控制",
-    replay: "重播",
+    replayControlsLabel: "逐步瀏覽控制",
+    replay: "逐步瀏覽",
     pause: "暫停",
     providerLabel: "講解來源",
     languageLabel: "語言",
@@ -82,7 +81,7 @@ const zhTW = {
     steps: {
       confirmTitle: "確認 Session",
       readTitle: "沿主線閱讀",
-      readBody: "左側顯示目前位置；可逐項跳轉或按重播。",
+      readBody: "左側顯示目前位置；可逐項跳轉或按逐步瀏覽。",
       extendTitle: "延伸理解",
       extendBody: "展開 why；需要全局或分支時再開地圖或子代理。",
     },
@@ -166,7 +165,7 @@ const zhTW = {
       `解析提示（${warnings.length}）：${warnings.slice(0, 3).join("；")}${warnings.length > 3 ? " …" : ""}`,
     infoTitle: "這是怎麼來的",
     infoBody:
-      "原始 transcript 經過解析、正規化成 Span Tree、確定性降噪分組後渲染為上方節點。可切換右上「講解來源」加上逐節點教學，或用重播逐步走過整段任務。",
+      "原始 transcript 經過解析、正規化成 Span Tree、確定性降噪分組後渲染為上方節點。可切換設定匣中的「講解來源」加上逐節點教學，或用逐步瀏覽走過整段任務。",
     flow: "原始 .jsonl → Adapter → Span Tree → 降噪/分組 → [講解] → 視圖",
   },
 
@@ -189,24 +188,6 @@ const zhTW = {
     what: "這步在做什麼",
     why: "為什麼這樣做",
     lesson: "通用做法",
-  },
-
-  fishbone: {
-    lessonPrefix: "帶走的觀念：",
-    noSpineTitle: "此 session 無法蒸餾出主線",
-    noSpineBody: "可能是事件太少或型別不足。切到「高密度」模式仍可逐步檢視全部內容。",
-    spineTitle: (steps: number, nodes: number) => `主線：把 ${steps} 步蒸餾成 ${nodes} 個關鍵節點`,
-    legendRibsSep: "支線：",
-    regionLabel: "任務主線魚骨圖（可橫向捲動）",
-    nodeAria: (kind: string, label: string) => `${kind}：${label}`,
-    detailHead: "節點詳情（點上方節點或支線展開）",
-    clearSelection: "清除選取",
-    detailPlaceholder: "點上方任一節點，這裡會展開它「原本發生的內容」（已整理成卡片）。",
-    ribCount: (count: number) => `${count} 條支線`,
-    showRibs: (label: string, count: number) => `顯示「${label}」的 ${count} 條支線`,
-    ribsFor: (label: string) => `${label} 的支線`,
-    selectedStation: "目前主線節點",
-    noRibs: "這個主線節點沒有支線。",
   },
 
   ollama: {
@@ -382,7 +363,6 @@ const en: Messages = {
   header: {
     brand: "DIT — Dialogue Is Teacher",
     tagline: "Turn an agent's execution trace into learnable nodes",
-    modes: { cognitive: "Cognitive", dense: "Dense" },
     modeGroupLabel: "View mode",
     loadFile: "Load .jsonl",
     loadFolder: "Load session folder",
@@ -400,8 +380,8 @@ const en: Messages = {
     clearAnnotationsTitle: "Clear notes from this view only; saved notes remain available for automatic restore",
     prevTitle: "Previous step",
     nextTitle: "Next step",
-    replayControlsLabel: "Step replay controls",
-    replay: "Replay",
+    replayControlsLabel: "Step-through controls",
+    replay: "Step through",
     pause: "Pause",
     providerLabel: "Notes source",
     languageLabel: "Language",
@@ -441,7 +421,7 @@ const en: Messages = {
     steps: {
       confirmTitle: "Confirm the session",
       readTitle: "Read the main path",
-      readBody: "The structure on the left shows your current position; jump to any step or start replay.",
+      readBody: "The structure on the left shows your current position; jump to any step or start stepping through.",
       extendTitle: "Build understanding",
       extendBody: "Expand why; open the map or subagents when you need the global shape or a branch.",
     },
@@ -525,7 +505,7 @@ const en: Messages = {
       `Parse notes (${warnings.length}): ${warnings.slice(0, 3).join("; ")}${warnings.length > 3 ? " …" : ""}`,
     infoTitle: "Where this comes from",
     infoBody:
-      'The raw transcript is parsed, normalized into a Span Tree, and deterministically denoised/grouped into the nodes above. Switch "Notes source" at the top right to add per-node teaching, or use replay to step through the whole task.',
+      'The raw transcript is parsed, normalized into a Span Tree, and deterministically denoised/grouped into the nodes above. Switch "Notes source" in the settings tray to add per-node teaching, or use step through to go through the whole task.',
     flow: "raw .jsonl → Adapter → Span Tree → denoise/group → [notes] → view",
   },
 
@@ -548,24 +528,6 @@ const en: Messages = {
     what: "What this step does",
     why: "Why it's done this way",
     lesson: "General takeaway",
-  },
-
-  fishbone: {
-    lessonPrefix: "Takeaway: ",
-    noSpineTitle: "This session has no distillable spine",
-    noSpineBody: 'Too few events or insufficient types, perhaps. Switch to "Dense" mode to step through everything.',
-    spineTitle: (steps: number, nodes: number) => `Spine: ${steps} steps distilled into ${nodes} key nodes`,
-    legendRibsSep: "Ribs:",
-    regionLabel: "Task spine fishbone (scrolls horizontally)",
-    nodeAria: (kind: string, label: string) => `${kind}: ${label}`,
-    detailHead: "Node detail (click a node or rib above to expand)",
-    clearSelection: "Clear selection",
-    detailPlaceholder: 'Click any node above and its "original content" (organized into a card) expands here.',
-    ribCount: (count: number) => `${count} ribs`,
-    showRibs: (label: string, count: number) => `Show ${count} ribs for ${label}`,
-    ribsFor: (label: string) => `Ribs for ${label}`,
-    selectedStation: "Selected spine node",
-    noRibs: "This spine node has no ribs.",
   },
 
   ollama: {
