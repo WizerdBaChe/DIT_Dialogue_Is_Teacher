@@ -340,7 +340,7 @@ interface SessionState {
   resetToSample: () => void;
   /** 局域重置：清除所有講解結果 (不動已載入的 session)。 */
   clearAnnotations: () => void;
-  /** 局域重置：取消選取並停止重播 (不動已載入的 session)。 */
+  /** 局域重置：取消選取並停止逐步瀏覽 (不動已載入的 session)。 */
   clearSelection: () => void;
   setPrimaryView: (view: PrimaryView) => void;
   startReading: () => void;
