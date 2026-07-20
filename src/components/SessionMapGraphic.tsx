@@ -5,21 +5,14 @@ import {
   type SessionMapProjection,
   type SessionMapTarget,
 } from "@/core/view/sessionMap";
-import { useT, type Messages } from "@/i18n";
+import { useT } from "@/i18n";
+import { landmarkKindLabel } from "./labels";
 
 interface SessionMapGraphicProps {
   projection: SessionMapProjection;
   currentViewItemId: string | null;
   selectedId: string | null;
   onSelect: (target: SessionMapTarget) => void;
-}
-
-function landmarkKindLabel(t: Messages, landmark: MapLandmark): string {
-  if (landmark.kind === "subagent") return t.workspace.tabs.subagents;
-  if (landmark.kind === "objective" || landmark.kind === "decision" || landmark.kind === "milestone" || landmark.kind === "outcome") {
-    return t.skeletonNode[landmark.kind];
-  }
-  return t.skeletonRib[landmark.kind];
 }
 
 function targetShape(target: SessionMapTarget): ReactNode {

@@ -34,6 +34,32 @@ export interface MapCluster {
 
 export type SessionMapTarget = MapLandmark | MapCluster;
 
+/** Skeleton 層主線節點記號 (Session Map 專屬，與 Sidebar 的 span 層記號不共用符號)。 */
+export const SKELETON_NODE_SYMBOL: Record<SkeletonNodeKind, string> = {
+  objective: "□",
+  decision: "◇",
+  milestone: "⬡",
+  outcome: "▰",
+};
+
+/** Skeleton 層支線記號。 */
+export const SKELETON_RIB_SYMBOL: Record<SkeletonRibKind, string> = {
+  investigation: "├",
+  error: "△",
+  retry: "○",
+  "edit-loop": "◆",
+};
+
+/** Session Map 地標清單顯示順序。 */
+export const SKELETON_NODE_KIND_ORDER: SkeletonNodeKind[] = ["objective", "decision", "milestone", "outcome"];
+export const SKELETON_RIB_KIND_ORDER: SkeletonRibKind[] = ["investigation", "error", "retry", "edit-loop"];
+
+/** 子代理地標記號 (與 edit-loop 支線的 ◆ 區分，避免 Map 圖例一符多義)。 */
+export const SUBAGENT_MAP_SYMBOL = "⬠";
+
+/** 聚合區段記號。 */
+export const CLUSTER_MAP_SYMBOL = "▦";
+
 export interface SessionMapProjection {
   level: MapZoomLevel;
   focusStationIndex: number;
