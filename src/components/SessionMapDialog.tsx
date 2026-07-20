@@ -1,25 +1,23 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
+  CLUSTER_MAP_SYMBOL,
   MAX_MOUNTED_DETAIL_RIBS,
+  SKELETON_NODE_KIND_ORDER,
+  SKELETON_NODE_SYMBOL,
+  SKELETON_RIB_KIND_ORDER,
+  SKELETON_RIB_SYMBOL,
+  SUBAGENT_MAP_SYMBOL,
   buildSessionMapProjection,
   canJumpToMapTarget,
   resolveSessionMapSelection,
-  type MapLandmark,
   type MapZoomLevel,
   type SessionMapTarget,
 } from "@/core/view/sessionMap";
 import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
-import { useT, type Messages } from "@/i18n";
+import { useT } from "@/i18n";
+import { landmarkKindLabel } from "./labels";
 import { SessionMapGraphic } from "./SessionMapGraphic";
-
-function landmarkKindLabel(t: Messages, landmark: MapLandmark): string {
-  if (landmark.kind === "subagent") return t.workspace.tabs.subagents;
-  if (landmark.kind === "objective" || landmark.kind === "decision" || landmark.kind === "milestone" || landmark.kind === "outcome") {
-    return t.skeletonNode[landmark.kind];
-  }
-  return t.skeletonRib[landmark.kind];
-}
 
 function focusIdForTarget(target: SessionMapTarget | null, currentId: string | null, viewItemIds: string[]): string | null {
   if (!target) return currentId;
@@ -136,6 +134,12 @@ export function SessionMapDialog(): ReactNode {
     setMapZoom(level, focusId ?? undefined);
   };
   const mountedRows = virtualizer.getVirtualItems().slice(0, MAX_MOUNTED_DETAIL_RIBS);
+  const mapLegendItems: Array<readonly [string, string]> = [
+    ...SKELETON_NODE_KIND_ORDER.map((kind) => [SKELETON_NODE_SYMBOL[kind], t.skeletonNode[kind]] as const),
+    ...SKELETON_RIB_KIND_ORDER.map((kind) => [SKELETON_RIB_SYMBOL[kind], t.skeletonRib[kind]] as const),
+    [SUBAGENT_MAP_SYMBOL, t.workspace.tabs.subagents] as const,
+    [CLUSTER_MAP_SYMBOL, t.map.clusterKind] as const,
+  ];
 
   return (
     <dialog
@@ -173,7 +177,7 @@ export function SessionMapDialog(): ReactNode {
           </div>
           <button type="button" className="btn map-close" onClick={closeMap} aria-label={t.map.close}>{t.map.close}</button>
           <p className="map-legend">
-            {`${t.sidebar.legendLabel}: □ ${t.skeletonNode.objective} · ◇ ${t.skeletonNode.decision} · ⬡ ${t.skeletonNode.milestone} · ▰ ${t.skeletonNode.outcome} · ├ ${t.skeletonRib.investigation} · △ ${t.skeletonRib.error} · ○ ${t.skeletonRib.retry} · ◆ ${t.skeletonRib["edit-loop"]} · ◆ ${t.workspace.tabs.subagents}`}
+            {`${t.sidebar.legendLabel}: ${mapLegendItems.map(([symbol, label]) => `${symbol} ${label}`).join(" · ")}`}
           </p>
         </header>
 

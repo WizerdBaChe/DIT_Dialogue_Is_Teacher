@@ -140,6 +140,7 @@ const zhTW = {
     invalidTarget: (id: string) => `地圖目標已失效：${id}`,
     minimapLabel: "開啟 Session 地圖；微縮圖顯示目前位置與 Reader 可見範圍",
     viewport: "Reader 可見範圍",
+    clusterKind: "聚合區段",
   },
 
   sidebar: {
@@ -148,6 +149,7 @@ const zhTW = {
     empty: "尚未載入 session。",
     skeleton: (nodes: number, ribs: number) => `蒸餾骨架：主線 ${nodes} · 支線 ${ribs}`,
     legendLabel: "屬性符號圖例",
+    legendNote: "重要節點另以文字標籤標示（目標／決策／里程碑／結果），詳見 Session 地圖。",
   },
 
   main: {
@@ -492,6 +494,7 @@ const en: Messages = {
     invalidTarget: (id: string) => `The map target is no longer available: ${id}`,
     minimapLabel: "Open the session map; the minimap shows the current position and visible Reader range",
     viewport: "Visible Reader range",
+    clusterKind: "Cluster",
   },
 
   sidebar: {
@@ -500,6 +503,7 @@ const en: Messages = {
     empty: "No session loaded yet.",
     skeleton: (nodes: number, ribs: number) => `Distilled skeleton: ${nodes} spine · ${ribs} ribs`,
     legendLabel: "Node symbol legend",
+    legendNote: "Important nodes are also marked with text labels (objective / decision / milestone / outcome) — see the Session Map.",
   },
 
   main: {
