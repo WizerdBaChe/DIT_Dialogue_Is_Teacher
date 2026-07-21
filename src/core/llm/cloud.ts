@@ -4,6 +4,7 @@
  */
 import type { Annotation } from "@/types/spanTree";
 import type { PrivacyEnvelope } from "@/core/privacy";
+import { reportFallback } from "@/core/diagnostics";
 import { buildSystemPrompt } from "./prompt";
 
 export interface OpenCodeConfig {
@@ -120,6 +121,8 @@ function coerceConfidence(value: unknown): number {
     if (normalized === "medium") return 0.6;
     if (normalized === "low") return 0.35;
   }
+  // 模型回了看不懂的信心值就套用預設 —— 必須留記錄，否則整批講解的信心分數會是假的。
+  reportFallback("cloud/coerceConfidence", "unrecognised-confidence", { value });
   return 0.6;
 }
 

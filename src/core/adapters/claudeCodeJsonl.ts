@@ -46,6 +46,122 @@ function flattenResultContent(content: unknown): string {
   return "";
 }
 
+/** Incremental Claude Code JSONL parser used by both string fixtures and streamed files. */
+export class ClaudeCodeJsonlAccumulator {
+  private readonly events: RawEvent[] = [];
+  private readonly warnings: string[] = [];
+  private readonly meta: ParseResult["meta"] = {
+    source: "claude-code",
+    tool: "claude-code",
+  };
+  private lineNo = 0;
+
+  pushLine(line: string): void {
+    this.lineNo += 1;
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    let record: Record<string, unknown>;
+    try {
+      record = JSON.parse(trimmed) as Record<string, unknown>;
+    } catch {
+      this.warnings.push(`第 ${this.lineNo} 行 JSON 解析失敗，已略過。`);
+      return;
+    }
+
+    const type = record.type as string | undefined;
+    const uuid = record.uuid as string | undefined;
+    const parentUuid = (record.parentUuid as string | null | undefined) ?? null;
+    const timestamp = (record.timestamp as string | undefined) ?? null;
+    const isSidechain = Boolean(record.isSidechain);
+
+    if (typeof record.sessionId === "string" && !this.meta.id) this.meta.id = record.sessionId;
+    if (typeof record.cwd === "string" && !this.meta.projectPath) this.meta.projectPath = record.cwd;
+    if (timestamp && !this.meta.startedAt) this.meta.startedAt = timestamp;
+
+    switch (type) {
+      case "ai-title": {
+        if (typeof record.aiTitle === "string") this.meta.title = record.aiTitle;
+        break;
+      }
+
+      case "assistant": {
+        const message = record.message as { content?: unknown; model?: string } | undefined;
+        if (message && typeof message.model === "string" && !this.meta.model) this.meta.model = message.model;
+        const content = message?.content;
+        if (Array.isArray(content)) {
+          for (const block of content as ContentBlock[]) {
+            if (!block || typeof block !== "object") continue;
+            if (block.type === "text" && block.text?.trim()) {
+              this.events.push({ kind: "assistant_text", uuid, parentUuid, timestamp, isSidechain, text: block.text, raw: block });
+            } else if (block.type === "thinking" && block.thinking?.trim()) {
+              this.events.push({ kind: "thinking", uuid, parentUuid, timestamp, isSidechain, text: block.thinking, raw: block });
+            } else if (block.type === "tool_use") {
+              this.events.push({
+                kind: "tool_use",
+                uuid,
+                parentUuid,
+                timestamp,
+                isSidechain,
+                toolName: block.name ?? "unknown",
+                toolInput: block.input ?? {},
+                toolUseId: block.id,
+                raw: block,
+              });
+            }
+          }
+        } else if (typeof content === "string" && content.trim()) {
+          this.events.push({ kind: "assistant_text", uuid, parentUuid, timestamp, isSidechain, text: content, raw: record });
+        }
+        break;
+      }
+
+      case "user": {
+        const message = record.message as { content?: unknown } | undefined;
+        const content = message?.content;
+        if (typeof content === "string") {
+          if (content.trim()) this.events.push({ kind: "user_text", uuid, parentUuid, timestamp, isSidechain, text: content, raw: record });
+        } else if (Array.isArray(content)) {
+          for (const block of content as ContentBlock[]) {
+            if (!block || typeof block !== "object") continue;
+            if (block.type === "text" && block.text?.trim()) {
+              this.events.push({ kind: "user_text", uuid, parentUuid, timestamp, isSidechain, text: block.text, raw: block });
+            } else if (block.type === "tool_result") {
+              this.events.push({
+                kind: "tool_result",
+                uuid,
+                parentUuid,
+                timestamp,
+                isSidechain,
+                text: flattenResultContent(block.content),
+                toolUseId: block.tool_use_id,
+                isError: Boolean(block.is_error),
+                raw: block,
+              });
+            }
+          }
+        }
+        break;
+      }
+
+      case "attachment":
+      case "file-history-snapshot":
+      case "mode":
+      case "last-prompt":
+      case "queue-operation":
+        break;
+
+      default:
+        if (type) this.warnings.push(`第 ${this.lineNo} 行未知型別 "${type}"，已略過。`);
+    }
+  }
+
+  finish(): ParseResult {
+    if (this.events.length === 0) this.warnings.push("未從輸入中解析出任何可呈現的事件。");
+    return { meta: this.meta, events: this.events, warnings: this.warnings };
+  }
+}
+
 export const claudeCodeJsonlAdapter: SourceAdapter = {
   id: "claude-code",
 
@@ -62,112 +178,8 @@ export const claudeCodeJsonlAdapter: SourceAdapter = {
   },
 
   parse(raw: string): ParseResult {
-    const events: RawEvent[] = [];
-    const warnings: string[] = [];
-    const meta: ParseResult["meta"] = {
-      source: "claude-code",
-      tool: "claude-code",
-    };
-
-    const lines = raw.split(/\r?\n/);
-    let lineNo = 0;
-
-    for (const line of lines) {
-      lineNo++;
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-
-      let o: Record<string, unknown>;
-      try {
-        o = JSON.parse(trimmed) as Record<string, unknown>;
-      } catch {
-        warnings.push(`第 ${lineNo} 行 JSON 解析失敗，已略過。`);
-        continue;
-      }
-
-      const type = o.type as string | undefined;
-      const uuid = o.uuid as string | undefined;
-      const parentUuid = (o.parentUuid as string | null | undefined) ?? null;
-      const timestamp = (o.timestamp as string | undefined) ?? null;
-      const isSidechain = Boolean(o.isSidechain);
-
-      // ---- session 後設資料蒐集 ----
-      if (typeof o.sessionId === "string" && !meta.id) meta.id = o.sessionId;
-      if (typeof o.cwd === "string" && !meta.projectPath) meta.projectPath = o.cwd;
-      if (timestamp && !meta.startedAt) meta.startedAt = timestamp;
-
-      switch (type) {
-        case "ai-title": {
-          if (typeof o.aiTitle === "string") meta.title = o.aiTitle;
-          break;
-        }
-
-        case "assistant": {
-          const message = o.message as { content?: unknown; model?: string } | undefined;
-          if (message && typeof message.model === "string" && !meta.model) meta.model = message.model;
-          const content = message?.content;
-          if (Array.isArray(content)) {
-            for (const block of content as ContentBlock[]) {
-              if (!block || typeof block !== "object") continue;
-              if (block.type === "text" && block.text?.trim()) {
-                events.push({ kind: "assistant_text", uuid, parentUuid, timestamp, isSidechain, text: block.text, raw: block });
-              } else if (block.type === "thinking" && block.thinking?.trim()) {
-                events.push({ kind: "thinking", uuid, parentUuid, timestamp, isSidechain, text: block.thinking, raw: block });
-              } else if (block.type === "tool_use") {
-                events.push({
-                  kind: "tool_use", uuid, parentUuid, timestamp, isSidechain,
-                  toolName: block.name ?? "unknown",
-                  toolInput: block.input ?? {},
-                  toolUseId: block.id,
-                  raw: block,
-                });
-              }
-            }
-          } else if (typeof content === "string" && content.trim()) {
-            events.push({ kind: "assistant_text", uuid, parentUuid, timestamp, isSidechain, text: content, raw: o });
-          }
-          break;
-        }
-
-        case "user": {
-          const message = o.message as { content?: unknown } | undefined;
-          const content = message?.content;
-          if (typeof content === "string") {
-            if (content.trim()) events.push({ kind: "user_text", uuid, parentUuid, timestamp, isSidechain, text: content, raw: o });
-          } else if (Array.isArray(content)) {
-            for (const block of content as ContentBlock[]) {
-              if (!block || typeof block !== "object") continue;
-              if (block.type === "text" && block.text?.trim()) {
-                events.push({ kind: "user_text", uuid, parentUuid, timestamp, isSidechain, text: block.text, raw: block });
-              } else if (block.type === "tool_result") {
-                events.push({
-                  kind: "tool_result", uuid, parentUuid, timestamp, isSidechain,
-                  text: flattenResultContent(block.content),
-                  toolUseId: block.tool_use_id,
-                  isError: Boolean(block.is_error),
-                  raw: block,
-                });
-              }
-            }
-          }
-          break;
-        }
-
-        // 已知噪音型別：靜默略過。
-        case "attachment":
-        case "file-history-snapshot":
-        case "mode":
-        case "last-prompt":
-        case "queue-operation":
-          break;
-
-        default:
-          if (type) warnings.push(`第 ${lineNo} 行未知型別 "${type}"，已略過。`);
-          break;
-      }
-    }
-
-    if (events.length === 0) warnings.push("未從輸入中解析出任何可呈現的事件。");
-    return { meta, events, warnings };
+    const accumulator = new ClaudeCodeJsonlAccumulator();
+    for (const line of raw.split(/\r?\n/)) accumulator.pushLine(line);
+    return accumulator.finish();
   },
 };

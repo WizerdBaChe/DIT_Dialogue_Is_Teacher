@@ -21,6 +21,15 @@ export interface TranscriptFileInput {
   content: string;
 }
 
+export interface ParsedTranscriptFileInput {
+  path: string;
+  parsed: ParseResult;
+  inputBytes: number;
+}
+
+export type PipelineBuildPhase = "organizing" | "validating";
+export type PipelinePhaseListener = (phase: PipelineBuildPhase) => void;
+
 export class PipelineError extends Error {}
 
 /**
@@ -28,7 +37,7 @@ export class PipelineError extends Error {}
  * @param raw   原始輸入文字 (.jsonl 內容)。
  * @param sourceId 指定來源；省略則自動偵測。
  */
-function buildFromParsed(parsed: ParseResult, inputBytes: number): PipelineResult {
+function buildFromParsed(parsed: ParseResult, inputBytes: number, onPhase?: PipelinePhaseListener): PipelineResult {
   const warnings = [...parsed.warnings];
 
   // 輸入過大保護：仍處理，但提示使用者效能可能受影響 (backend checklist 5.1 / 6.2)。
@@ -37,10 +46,12 @@ function buildFromParsed(parsed: ParseResult, inputBytes: number): PipelineResul
     warnings.unshift(`輸入較大 (${(inputBytes / 1024 / 1024).toFixed(1)} MB)，渲染可能變慢。`);
   }
 
+  onPhase?.("organizing");
   let doc = normalize(parsed);
   doc = denoise(doc);
   doc = distill(doc); // 後端「整理」：產出精簡因果骨架 (preset v1)。
 
+  onPhase?.("validating");
   const validation = validateSessionDocument(doc);
   if (!validation.ok) warnings.push(...validation.issues.map((i) => `自檢：${i}`));
 
@@ -73,19 +84,30 @@ export function buildSessionDocumentFromFiles(files: TranscriptFileInput[], sour
   const nonEmpty = files.filter((file) => file.content.trim());
   if (nonEmpty.length === 0) throw new PipelineError("輸入為空，請提供至少一個 .jsonl transcript。");
 
-  const main = nonEmpty.find((file) => !isSubagentPath(file.path)) ?? nonEmpty[0];
-  const ordered = [main, ...nonEmpty.filter((file) => file !== main)];
-  const parsedFiles = ordered.map((file) => {
+  const parsedFiles = nonEmpty.map((file) => {
     const adapter = sourceId ? getAdapter(sourceId) : detectAdapter(file.content);
     if (!adapter) throw new PipelineError(`無法辨識輸入格式：${file.path}`);
-    return { file, parsed: adapter.parse(file.content) };
+    return { path: file.path, parsed: adapter.parse(file.content), inputBytes: file.content.length };
   });
+
+  return buildSessionDocumentFromParsedFiles(parsedFiles);
+}
+
+/** Build one session from per-file parse results produced by either strings or a Web Worker stream. */
+export function buildSessionDocumentFromParsedFiles(
+  files: ParsedTranscriptFileInput[],
+  onPhase?: PipelinePhaseListener,
+): PipelineResult {
+  if (files.length === 0) throw new PipelineError("輸入為空，請提供至少一個 .jsonl transcript。");
+
+  const main = files.find((file) => !isSubagentPath(file.path)) ?? files[0];
+  const ordered = [main, ...files.filter((file) => file !== main)];
 
   const sequenced: Array<{ event: RawEvent; sequence: number }> = [];
   let sequence = 0;
-  for (const { file, parsed } of parsedFiles) {
+  for (const { path, parsed } of ordered) {
     for (const event of parsed.events) {
-      sequenced.push({ event: { ...event, sourcePath: file.path }, sequence: sequence++ });
+      sequenced.push({ event: { ...event, sourcePath: path }, sequence: sequence++ });
     }
   }
   sequenced.sort((left, right) => {
@@ -96,9 +118,9 @@ export function buildSessionDocumentFromFiles(files: TranscriptFileInput[], sour
   });
 
   const parsed: ParseResult = {
-    meta: parsedFiles[0].parsed.meta,
+    meta: ordered[0].parsed.meta,
     events: sequenced.map(({ event }) => event),
-    warnings: parsedFiles.flatMap(({ file, parsed: result }) => result.warnings.map((warning) => `${file.path}: ${warning}`)),
+    warnings: ordered.flatMap(({ path, parsed: result }) => result.warnings.map((warning) => `${path}: ${warning}`)),
   };
-  return buildFromParsed(parsed, nonEmpty.reduce((total, file) => total + file.content.length, 0));
+  return buildFromParsed(parsed, ordered.reduce((total, file) => total + file.inputBytes, 0), onPhase);
 }

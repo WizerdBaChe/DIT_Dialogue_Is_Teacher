@@ -2,6 +2,107 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R5.5+ — UAT 後修正輪｜2026-07-21｜✅ 使用者已驗收，R5＋R5.5 一併合併回 `main`
+
+SA-01～SA-06 交付後，使用者在真實環境進行 R5＋R5.5 合併視覺 UAT，回報了一批定位與可用性偏差。
+修正在同一分支上以四個垂直切片提交，全部包含在使用者最終驗收的版本內。
+
+- [x] **降級記錄機制** (`b3691f5`)：新增 `src/core/diagnostics.ts`，凡是「查不到就用替代值」的路徑
+  （normalizer 的 session id／sidechain uuid／tool_result 掛載／tool 名稱、cloud 信心值、annotation
+  repository 降級）都改為以穩定短代碼 `reportFallback()` 留下記錄；Worker 端記錄隨 `complete` 訊息併回
+  主執行緒，否則會隨 `terminate()` 消失。開發時可由 `window.__DIT_FALLBACKS` 讀取。
+- [x] **修正魚骨站點定位** (`d017b0f`)：`buildFishbone` 原本在骨架 span 本身不是 top-level viewItem 時
+  退回 `viewItems[0]`，導致站點位置、子代理掛載與「跳到這一步」全部指向錯誤卡片。改為建立
+  span → 承載 viewItem 的 owner map（涵蓋巢狀 tool_result 與群組成員），真的對應不到就整筆捨棄並記錄，
+  不再以猜測填補。這是 R5 Session Map 定位問題的根因。
+- [x] **地圖站序與取景語意** (`32b13f0`)：三個縮放層級共用同一套全域主線站序（`3` / `3.2` / `3–7`）；
+  支線與子代理改以站的子項（縮排 + 引線）呈現，不再是額外的主線節點，因此主線圖形在三層之間不再忽長忽短；
+  區段層改為範圍內「每一站」各給支線／子代理摘要列，而非只有焦點站。投影新增 `focusResolved` 與
+  `currentStationIndex`，把「取景中心」與「閱讀位置」徹底分離——定位失敗時明說「無法定位取景中心」，
+  不再假裝錨在第 1 站。Minimap 密度改以真實 viewItem 索引分桶，修正它與同一條軌道上位置圓點座標互相
+  矛盾的問題；找不到選取項目時不畫圓點，而不是畫在起點宣稱假位置。
+- [x] **工作區控制與可關閉提示** (`4ad846a`)：Provider、講解開關與批次講解由設定匣移回 header
+  （空間不足時自行換行撐高 header，不裁切）；error／解析提示／儲存降級三種橫幅新增關閉鈕，提示內容仍留在
+  store，總覽的則數不受影響；使用者自行載入的 session 直接進 Reader，Overview 僅作為內建範例的著陸頁
+  （ACCEPTANCE §1「初載先看到 Overview」指的是內建示範，語意不變）。
+- 驗證：四卡各自在「僅含該卡變更」的工作區狀態下驗過 `npm.cmd test`（147／150／158／158）、
+  `npm.cmd run typecheck`、`git diff --check` 全數 exit 0；最終狀態 `npm.cmd run build` 120 modules 成功。
+  測試數由 R5.5 收尾的 143 增至 158（新增 diagnostics、fishbone owner map、地圖站序與取景解析等案例）。
+
+## R5.5 — 符號語意對齊與文案修正｜2026-07-21｜✅ 已完成並經使用者視覺 UAT（含上方修正輪）
+
+依 [PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md](PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md) 施工，於 feature branch
+`codex/r5.5-semantic-alignment`（自 `codex/r5-large-session-responsive`）。修正 R5 交付內容中 Sidebar 圖例
+誤植 skeleton 層符號、Overview 缺圖例、「重播」命名與陳舊文案、收合結果無證據摘要、Minimap 用 data-URL 字串拼 SVG
+等五項偏離。
+
+- [x] **SA-01 圖例對齊所在表面** (`6784329`)：`StructureLegend` 改為描述 span 層（`SPAN_DOT` 七種），
+  Session Map 的 map-legend 改為描述 skeleton 層（新增子代理／聚合區段專屬符號，消除原本 ◆ 一符兩義）；
+  兩份圖例與 `landmarkKindLabel` helper 皆改為從 `labels.ts`／`core/view/sessionMap.ts` 單一來源常數渲染。
+  新增 `labels.test.ts` 直接 import 常數斷言子集關係與表面內無重複符號。
+- [x] **SA-02 Overview 說明型圖例** (`3b62dd1`)：CTA 區塊之後新增預設收合的 `<details>` 符號說明，
+  span／skeleton 兩層分節列出符號與一句話語意；新增 `OverviewView.test.ts` 以 `?raw` 匯入原始碼斷言
+  badge→標題→用途→三步→CTA→圖例的既有順序未變、`<details>` 預設收合。
+- [x] **SA-03「重播」改名「逐步瀏覽」＋清死鍵** (`fde8452`)：`header.replay`／`replayControlsLabel`／
+  `overview.steps.readBody`／`main.infoBody` 改語彙（`main.infoBody` 同時把「右上」改為「設定匣」，
+  Provider 已搬入設定匣）；刪除無引用的 `fishbone`（`fb.*`）整節與 `header.modes` 死鍵；`play()`/`pause()`
+  行為、間隔、狀態機未動。
+- [x] **SA-04 收合結果證據摘要** (`132aa32`)：`IOBlock` 收合時標題文字改為「標題 · N 行 · 首行前 60 字」，
+  由 render 時對既有 `text` 計算，不新增管線欄位；改為零額外 DOM 元素設計（標題與摘要合併成同一文字節點），
+  對 GN-07/GN-10 的 Reader 封閉 DOM ≤250 上限沒有結構性風險。新增 `parts.test.ts` 涵蓋空字串/單行/多行/
+  超長首行截斷四種案例。
+- [x] **SA-05 Minimap 改 React SVG** (`b91c9f0`)：`ReaderMinimap` 由 `background-image` data-URL 字串拼接
+  改為 inline `<svg aria-hidden preserveAspectRatio="none">` 子元素，幾何計算、色票、按鈕語意（開圖／aria）
+  不變，對齊 INV-17「只渲染 React 文字節點／SVG 屬性」字面。
+- [x] **SA-06 文件與帳本對齊**（本段落）：USER_GUIDE 改用「逐步瀏覽」語彙並依 SA-01/02 更新圖例描述；
+  PROGRESS 新增本段落；ACCEPTANCE 附加 §4 增量清單；`references/DIT-tickets.md` T-006 記錄六卡 commit。
+- **證據限制（誠實揭露）**：SA-04 的 Reader DOM 上限查核在本輪沙盒環境內無法穩定重現——透過合成
+  `DataTransfer` 檔案輸入載入 50.0018 MiB fixture 後，同一 1280 寬度、清除過 storage 的乾淨重載重複量測
+  三次得到穩定的 249（≤250）結果，但另外幾次未清 storage 的重載出現 200～276 的雜訊（可歸因於持久化的
+  Structure 側欄虛擬清單掛載列數在本環境對 resize/navigate 時序敏感，與本卡程式改動無關）。因此本卡改採
+  「零 DOM 增量」設計（收合狀態下 `.io-head` 仍只有一個子元素 `.chev`，與改動前結構完全相同，只有文字
+  節點內容不同）從結構上保證上限不受影響，而非依賴單次量測數字；`.tmp/r5.5-sa04-metrics.json`（Git 忽略）
+  記錄此推理與沿用的 GN-10 未變管線數據，`node scripts/render-r5-benchmark.mjs .tmp/r5.5-sa04-metrics.json`
+  18/18 checks pass。建議使用者在真實瀏覽器環境重跑一次以取得可信賴的絕對數字，作為最終視覺 UAT 的一部分。
+- 驗證：每卡各自 `npm.cmd test`（143/143，含新增 12 個測試案例）、`npm.cmd run typecheck`、
+  `npm.cmd run build`（118 modules）、`git diff --check` 全數 exit 0；`rg -n "重播" src` 與
+  `rg -n '"fb"|modes' src/i18n/locales.ts` 均無輸出。使用者 390／740／1280 最終視覺 UAT 尚未完成，
+  與 R5（T-005）合併於同一輪收尾。
+
+## R5 — 大型 Session 效能 + Guided Navigation｜2026-07-19｜✅ 已完成，2026-07-21 與 R5.5 合併驗收通過
+
+- [x] **GN-10 Section 與視覺平衡修復**：Map preview selection 與 projection focus 已拆開；production 實際選取另一個 Section 地標前後，5 個 target ID 與順序完全相同，只有 selected 狀態移動。Sidebar 恢復 20 px 透明底純文字 glyph，重要節點文字標籤保留；圖例改為每列四種；Map 節點填色改回所在區域底色，不再出現額外白底圖塊。
+- [x] **GN-10 production 證據**：390×844、740×1113、1280×720 文件級水平溢位皆為 false；Sidebar glyph 對底色為 8.03:1，Map 文字為 7.21:1，紅色 Close 為 7.92:1。50.0018 MiB fixture 的 Reader DOM 最大 247、Map DOM 最大 434；`r5-gn10-metrics.json` benchmark 18/18 checks pass。load／cancel、134 ms open latency 與 deep index 28,541 沿用未改管線的 GN-09 同機證據。
+
+- [x] **GN-09 視覺 UAT 修復**：Structure 恢復精簡圖例與重要節點類型，節點符號放大；Reader 項目標示與全站字級提升；
+  各區域加入同色系深淺層次。Session Map 恢復方塊／菱形／六角／圓角與有界魚骨提示，spine 精確止於最後節點，
+  dialog／目前節點置中，Close 改為高辨識紅色；既有導航、Jump、M 與 load 語意未改。
+- [x] **GN-09 production 證據**：390×844、740×1113、1280×720 的目前節點中心對齊圖區中心，Close 完整可見且為
+  `rgb(155, 34, 38)`，文件級水平溢位為 false；50.0018 MiB fixture 的 Reader DOM 最大 210、Map DOM 最大 397，
+  open→target 134 ms，benchmark 18/18 checks pass。load／cancel 與 deep index 28,541 沿用未改資料／跳轉管線的 GN-07 同機證據。
+
+- [x] **可重現大型 fixture**：`npm run fixture:r5` 固定產生 main + `subagents/*.jsonl`，包含有效 UUID、
+  parentUuid、isSidechain、timestamp、tool use/result；50 MiB 產生物進 `.tmp/`，由 Git 忽略。
+- [x] **串流匯入與 Worker**：production 檔案載入改用 `Blob.stream()`、增量 UTF-8 `TextDecoder` 與
+  JSONL carry buffer；解析、跨檔排序、normalize、denoise、distill、validate 在 Vite Worker 完成。
+  同步 string pipeline 保留給 fixture／相容測試。
+- [x] **原子發布與取消**：reading/parsing/organizing/validating/ready 進度在完整結果前可見；載入期間
+  保留前一份有效文件。取消直接終止 Worker，不發布部分文件；warning 帶來源路徑＋行號，沒有 transcript log。
+- [x] **受限 DOM**：採 `@tanstack/react-virtual@3.14.6`（MIT）；Sidebar／MainView 獨立虛擬化，
+  ViewItem ID 作 key，ID→index + `scrollToIndex` 接通側欄選取與重播，MainView 動態高度交由 remeasurement。
+- [x] **Guided workspace**：Store 明確表示 `PrimaryView`／`SessionOrigin`；啟動、成功載入與重置進 Overview。
+  ≥720 Structure 常駐且可收合，<720 使用 Header 位置按鈕與 native left drawer；選取統一回 Reader。
+- [x] **Session Map**：Reader Minimap 只提供方位與開圖；native modal 以 deterministic global／section／detail
+  projection 呈現，caps 為 80／200／120。cluster 不能 Jump；真實地標 Jump 後 Sidebar／Reader 同步。
+- [x] **安全快捷鍵與雙語**：`M` 排除 editable、modifier、repeat、停用與 blocking modal；設定可停用且可見
+  Map 按鈕保留。Overview、Structure、Map、Navigation 設定均有 zh-TW／English copy。
+- [x] **最新效能實測**：相同 50.0018 MiB／29,452 view items production preview 於 964 ms 載入；
+  首次進度 66 ms，取消 379 ms 且舊文件保持。Reader closed DOM 最大 249；三層 Map 最大 477；
+  open→first target 115 ms；390×844、740×1113、1280×720 無水平溢出；深層 index 28,541 無 drift。
+- 驗證：20 個測試檔、131/131 通過；typecheck、118-module production build、benchmark result pass、
+  `git diff --check` 通過。報告：[R5_BENCHMARK_2026-07-19.md](R5_BENCHMARK_2026-07-19.md)；唯一施工合約：
+  [PSM_R5_GUIDED_NAVIGATION_v1.0.md](PSM_R5_GUIDED_NAVIGATION_v1.0.md)。使用者 390／740／1280 最終視覺 UAT 尚未完成。
+
 ## R4 — Subagent 跨檔串接 + 局部分支圖｜2026-07-19｜✅ 已完成並驗證
 
 - [x] **多檔輸入**：Header 新增「載入 Session 資料夾」，可一次讀取主 transcript 與
