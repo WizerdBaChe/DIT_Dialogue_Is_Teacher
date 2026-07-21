@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildSessionDocument, buildSessionDocumentFromFiles } from "@/core/pipeline";
 import { buildViewModel } from "./viewModel";
 import { r4MainSession, r4SubagentSession, sampleSession } from "@/fixtures";
@@ -11,9 +11,13 @@ import {
   buildSessionMapGraphicLayout,
   buildSessionMapProjection,
   canJumpToMapTarget,
+  isSpineTarget,
+  resolveCurrentSpineTargetId,
   resolveSessionMapSelection,
   type MapCluster,
 } from "./sessionMap";
+import { mapTargetOrdinal } from "@/components/labels";
+import { getFallbackReport, resetFallbackReport } from "@/core/diagnostics";
 
 function createLargeMapFixture(stationCount: number, ribCount = 0): { doc: SessionDocument; viewItems: ReturnType<typeof buildViewModel> } {
   const stationSpans: Span[] = Array.from({ length: stationCount }, (_, index) => ({
@@ -124,15 +128,30 @@ describe("global session map projection", () => {
     const viewItems = buildViewModel(doc);
     const subagentItem = viewItems.find((item) => item.type === "group" && item.group.kind === "subagent");
     expect(subagentItem).toBeTruthy();
-    const projection = buildGlobalSessionMapProjection(doc, viewItems, subagentItem?.id ?? null);
-    const subagent = projection.targets.find((target) => target.type === "landmark" && target.kind === "subagent");
+    const focusId = subagentItem?.id ?? null;
+
+    // 全局層：子代理收在站上只留計數，主線不會被子代理撐長。
+    const global = buildGlobalSessionMapProjection(doc, viewItems, focusId);
+    expect(global.targets.some((target) => target.type === "landmark" && target.kind === "subagent")).toBe(false);
+    expect(global.targets.some((target) => (
+      target.type === "landmark" && target.parentStationId === null && target.subagentCount > 0
+    ))).toBe(true);
+
+    // 細節層：子代理逐個列出，且仍能追回真實的 ViewItem。
+    const detail = buildSessionMapProjection(doc, viewItems, "detail", focusId, focusId);
+    const subagent = detail.targets.find((target) => target.type === "landmark" && target.kind === "subagent");
 
     expect(subagent?.type).toBe("landmark");
     if (subagent?.type === "landmark") {
       expect(viewItems.some((item) => item.id === subagent.viewItemId)).toBe(true);
       expect(subagent.parentStationId).toBeTruthy();
-      expect(projection.focusStationIndex).toBe(subagent.stationIndex);
+      expect(isSpineTarget(subagent)).toBe(false);
+      expect(detail.focusStationIndex).toBe(subagent.stationIndex);
     }
+
+    // 區段層：每站一列子代理摘要。
+    const section = buildSessionMapProjection(doc, viewItems, "section", focusId, focusId);
+    expect(section.targets.some((target) => target.type === "cluster" && target.groupKind === "subagents")).toBe(true);
   });
 
   it("returns a readable empty projection without a skeleton", () => {
@@ -159,6 +178,8 @@ describe("global session map projection", () => {
       count: 5,
       kindCounts: {},
       label: "Five steps",
+      parentStationId: null,
+      groupKind: "range",
     };
 
     expect(canJumpToMapTarget(landmark, viewItems)).toBe(true);
@@ -233,5 +254,131 @@ describe("global session map projection", () => {
     expect(section.targets.length).toBeLessThanOrEqual(MAX_SECTION_TARGETS);
     expect(ribCluster?.type).toBe("cluster");
     expect(canJumpToMapTarget(ribCluster ?? null, viewItems)).toBe(false);
+  });
+});
+
+describe("session map position semantics", () => {
+  beforeEach(() => {
+    resetFallbackReport();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  it("keeps you-are-here on the reading position when the focus station differs", () => {
+    const { doc, viewItems } = createLargeMapFixture(6);
+    const currentId = viewItems[0].id;
+    const focusId = viewItems[4].id;
+    const projection = buildSessionMapProjection(doc, viewItems, "section", focusId, currentId);
+    const currentTargetId = resolveCurrentSpineTargetId(projection, currentId);
+    const currentTarget = projection.targets.find((target) => target.id === currentTargetId);
+
+    expect(projection.focusStationIndex).toBe(4);
+    expect(projection.currentStationIndex).toBe(0);
+    expect(currentTarget?.type).toBe("landmark");
+    if (currentTarget?.type === "landmark") expect(currentTarget.viewItemId).toBe(currentId);
+    // 全圖唯一：只有一個節點能是「你在這裡」。
+    expect(projection.targets.filter((target) => target.id === currentTargetId)).toHaveLength(1);
+  });
+
+  it("falls back to the parent station when the reading position is a rib", () => {
+    const { doc, viewItems } = createLargeMapFixture(3, 4);
+    const ribItemId = viewItems.find((item) => item.id.includes("rib-0"))?.id ?? viewItems[3].id;
+    const projection = buildSessionMapProjection(doc, viewItems, "detail", ribItemId, ribItemId);
+    const currentTargetId = resolveCurrentSpineTargetId(projection, ribItemId);
+    const currentTarget = projection.targets.find((target) => target.id === currentTargetId);
+
+    expect(currentTarget?.type).toBe("landmark");
+    if (currentTarget?.type === "landmark") expect(currentTarget.parentStationId).toBeNull();
+    expect(isSpineTarget(currentTarget!)).toBe(true);
+  });
+
+  it("reports no you-are-here when the reading position is outside the skeleton", () => {
+    const { doc, viewItems } = createLargeMapFixture(4);
+    const projection = buildSessionMapProjection(doc, viewItems, "global", viewItems[0].id, "not-a-view-item");
+
+    expect(projection.currentStationIndex).toBeNull();
+    expect(resolveCurrentSpineTargetId(projection, "not-a-view-item")).toBeNull();
+  });
+
+  it("never draws ribs or rib groups on the spine at any zoom level", () => {
+    const { doc, viewItems } = createLargeMapFixture(3, 5);
+    const focusId = viewItems[0].id;
+
+    for (const level of ["global", "section", "detail"] as const) {
+      const projection = buildSessionMapProjection(doc, viewItems, level, focusId, focusId);
+      for (const target of projection.targets.filter(isSpineTarget)) {
+        if (target.type === "cluster") expect(target.parentStationId).toBeNull();
+        else expect(target.parentStationId === null || target.kind === "subagent").toBe(true);
+      }
+    }
+  });
+
+  it("expands ribs for every station in range, not only the focused one", () => {
+    const { doc } = buildSessionDocument(sampleSession);
+    const viewItems = buildViewModel(doc);
+    const global = buildGlobalSessionMapProjection(doc, viewItems, null);
+    const stationsWithRibs = global.targets.filter((target) => (
+      target.type === "landmark" && target.parentStationId === null && target.ribCount > 0
+    ));
+    expect(stationsWithRibs.length).toBeGreaterThan(1);
+    // 刻意把焦點放在一個沒有支線的站，舊行為會得到 0 列支線。
+    const ribless = global.targets.find((target) => (
+      target.type === "landmark" && target.parentStationId === null && target.ribCount === 0
+    ));
+    expect(ribless?.type).toBe("landmark");
+    const focusId = ribless?.type === "landmark" ? ribless.viewItemId : null;
+
+    const section = buildSessionMapProjection(doc, viewItems, "section", focusId, focusId);
+    const ribGroups = section.targets.filter((target) => target.type === "cluster" && target.parentStationId !== null);
+    expect(ribGroups).toHaveLength(stationsWithRibs.length);
+
+    const detail = buildSessionMapProjection(doc, viewItems, "detail", focusId, focusId);
+    const ribRows = detail.targets.filter((target) => (
+      target.type === "landmark" && target.parentStationId !== null && target.kind !== "subagent"
+    ));
+    const totalRibs = stationsWithRibs.reduce((sum, target) => (
+      sum + (target.type === "landmark" ? target.ribCount : 0)
+    ), 0);
+    expect(ribRows).toHaveLength(totalRibs);
+  });
+
+  it("never emits a rib group for a station that was collapsed into a cluster", () => {
+    const { doc, viewItems } = createLargeMapFixture(1_000, 300);
+    const section = buildSessionMapProjection(doc, viewItems, "section", viewItems[999].id, viewItems[999].id);
+    const stationIds = new Set(section.targets
+      .filter((target) => target.type === "landmark" && target.parentStationId === null)
+      .map((target) => target.id));
+
+    expect(section.targets.length).toBeLessThanOrEqual(MAX_SECTION_TARGETS);
+    for (const group of section.targets.filter((target) => target.type === "cluster" && target.parentStationId !== null)) {
+      expect(stationIds.has(group.parentStationId!)).toBe(true);
+    }
+  });
+
+  it("flags an unresolved focus instead of silently anchoring on the first station", () => {
+    const { doc, viewItems } = createLargeMapFixture(6);
+
+    const resolved = buildSessionMapProjection(doc, viewItems, "section", viewItems[3].id, viewItems[3].id);
+    expect(resolved.focusResolved).toBe(true);
+    expect(resolved.focusStationIndex).toBe(3);
+
+    const unresolved = buildSessionMapProjection(doc, viewItems, "section", "not-a-view-item", viewItems[0].id);
+    expect(unresolved.focusResolved).toBe(false);
+    // 仍需要一個基準站才能裁切，但呼叫端必須看得出來這是預設值而不是真實定位。
+    expect(unresolved.focusStationIndex).toBe(0);
+    expect(getFallbackReport().some((record) => record.reason === "focus-id-not-in-skeleton")).toBe(true);
+  });
+
+  it("gives a station the same ordinal at every zoom level", () => {
+    const { doc, viewItems } = createLargeMapFixture(9);
+    const focusId = viewItems[5].id;
+    const ordinals = (["global", "section", "detail"] as const).map((level) => {
+      const projection = buildSessionMapProjection(doc, viewItems, level, focusId, focusId);
+      const station = projection.targets.find((target) => (
+        target.type === "landmark" && target.viewItemId === focusId
+      ));
+      return station ? mapTargetOrdinal(station) : null;
+    });
+
+    expect(ordinals).toEqual(["6", "6", "6"]);
   });
 });

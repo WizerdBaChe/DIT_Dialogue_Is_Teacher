@@ -53,16 +53,16 @@ describe("SA-01 legend symbol alignment", () => {
 
   it("landmarkKindLabel resolves node, rib, and subagent kinds from the shared dictionaries", () => {
     expect(landmarkKindLabel(t, {
-      type: "landmark", id: "a", viewItemId: "a", stationIndex: 0, kind: "decision",
-      label: "", parentStationId: null, ribCount: 0, ribKindCounts: {},
+      type: "landmark", id: "a", viewItemId: "a", stationIndex: 0, subIndex: null, kind: "decision",
+      label: "", parentStationId: null, ribCount: 0, ribKindCounts: {}, subagentCount: 0,
     })).toBe(t.skeletonNode.decision);
     expect(landmarkKindLabel(t, {
-      type: "landmark", id: "b", viewItemId: "b", stationIndex: 0, kind: "retry",
-      label: "", parentStationId: null, ribCount: 0, ribKindCounts: {},
+      type: "landmark", id: "b", viewItemId: "b", stationIndex: 0, subIndex: 1, kind: "retry",
+      label: "", parentStationId: null, ribCount: 0, ribKindCounts: {}, subagentCount: 0,
     })).toBe(t.skeletonRib.retry);
     expect(landmarkKindLabel(t, {
-      type: "landmark", id: "c", viewItemId: "c", stationIndex: 0, kind: "subagent",
-      label: "", parentStationId: null, ribCount: 0, ribKindCounts: {},
+      type: "landmark", id: "c", viewItemId: "c", stationIndex: 0, subIndex: 1, kind: "subagent",
+      label: "", parentStationId: null, ribCount: 0, ribKindCounts: {}, subagentCount: 0,
     })).toBe(t.workspace.tabs.subagents);
   });
 });

@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import {
   buildSessionMapGraphicLayout,
+  isSpineTarget,
+  resolveCurrentSpineTargetId,
   type MapLandmark,
   type SessionMapProjection,
   type SessionMapTarget,
 } from "@/core/view/sessionMap";
 import { useT } from "@/i18n";
-import { landmarkKindLabel } from "./labels";
+import { landmarkKindLabel, mapTargetOrdinal } from "./labels";
 
 interface SessionMapGraphicProps {
   projection: SessionMapProjection;
@@ -32,9 +34,9 @@ export function SessionMapGraphic({
 }: SessionMapGraphicProps): ReactNode {
   const t = useT();
   if (projection.targets.length === 0) return null;
-  const graphicTargets = projection.level === "detail"
-    ? projection.targets.filter((target) => target.type === "cluster" || target.parentStationId === null)
-    : projection.targets;
+  // 三個層級一致：圖形只畫主線 (站 + 子代理)，支線與支線群組只出現在地標清單。
+  const graphicTargets = projection.targets.filter(isSpineTarget);
+  const currentTargetId = resolveCurrentSpineTargetId(projection, currentViewItemId);
   const layout = buildSessionMapGraphicLayout(graphicTargets.length);
   const ribKinds = ["investigation", "error", "retry", "edit-loop"] as const;
   const stationTargets = graphicTargets.map((target, index) => ({ target, x: layout.xPositions[index] }))
@@ -70,26 +72,38 @@ export function SessionMapGraphic({
       {branchCues}
       {graphicTargets.map((target, index) => {
         const x = layout.xPositions[index];
-        const current = target.type === "landmark" && (
-          target.viewItemId === currentViewItemId
-          || (target.parentStationId === null && target.stationIndex === projection.focusStationIndex)
-        );
+        // 閱讀位置：全圖唯一，只跟隨 playingId/activeId。
+        const current = target.id === currentTargetId;
+        // 取景中心：投影裁切的基準站。全局層沒有裁切，畫它只會多一種讓人誤讀的框。
+        const focus = projection.level !== "global"
+          && projection.focusResolved
+          && !current
+          && target.type === "landmark"
+          && target.parentStationId === null
+          && target.stationIndex === projection.focusStationIndex;
         const selected = target.id === selectedId || (target.type === "landmark" && target.viewItemId === selectedId);
         return (
           <g
             key={target.id}
             data-target-id={target.id}
-            className={`map-target map-${target.type} ${target.type === "landmark" ? `map-kind-${target.kind}` : ""} ${current ? "current" : ""} ${selected ? "selected" : ""}`}
+            className={`map-target map-${target.type} ${target.type === "landmark" ? `map-kind-${target.kind}` : ""} ${current ? "current" : ""} ${focus ? "focus" : ""} ${selected ? "selected" : ""}`}
             transform={`translate(${x} ${layout.nodeY})`}
             onClick={() => onSelect(target)}
           >
             {targetShape(target)}
             <text y="52" textAnchor="middle">
               {target.type === "cluster"
-                ? `${index + 1} · ${target.count}`
-                : `${index + 1} · ${landmarkKindLabel(t, target)}${target.ribCount > 0 ? ` · ${t.map.branchCount(target.ribCount)}` : ""}`}
+                ? `${mapTargetOrdinal(target)} · ${target.count}`
+                : [
+                  `${mapTargetOrdinal(target)} · ${landmarkKindLabel(t, target)}`,
+                  ...(target.ribCount > 0 ? [t.map.branchCount(target.ribCount)] : []),
+                  ...(target.subagentCount > 0 ? [t.map.subagentCount(target.subagentCount)] : []),
+                ].join(" · ")}
             </text>
+            {focus && <rect className="map-focus-ring" x="-60" y="-34" width="120" height="68" rx="6" />}
             {current && <rect className="map-current-ring" x="-60" y="-34" width="120" height="68" rx="6" />}
+            {/* 標籤放節點下方：上方 nodeY-42 起是支線記號區，擺上去會互相蓋住。 */}
+            {current && <text className="map-you-are-here-tag" y="72" textAnchor="middle">{t.map.youAreHere}</text>}
           </g>
         );
       })}
