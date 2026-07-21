@@ -21,6 +21,16 @@
 - [ ] 操作卡單行壓縮模式（圖示＋工具名＋一句結果摘要＋狀態燈），與編輯排印風驗收相關。
 - [ ] 跨 session 統計／agent 行為分析層（RPD D-5 解凍後另立契約）。
 
+## 📌 2026-07-21 R5.5 施工期間新增觀察（未排程；均為低風險，非本輪範圍）
+
+- [ ] `header.modeGroupLabel`（`src/i18n/locales.ts`）為無引用死鍵——SA-03 只依合約明確列出的 `fb.*`／
+  `header.modes` 兩項清除，此鍵未被列入卡片 Change list，故本輪未動；若下一輪做 i18n 死鍵清掃可一併處理。
+- [ ] R5.5 SA-04 的「Reader 封閉 DOM ≤250」自動化查核在此開發沙盒（無法操作 OS 檔案選取對話框，改以合成
+  `DataTransfer` 觸發 50 MiB fixture 載入）下量測不穩定，重複重載出現 200～276 的雜訊，可歸因於 Structure
+  側欄虛擬清單掛載列數對 resize／navigate 時序敏感。SA-04 已改用零 DOM 增量設計規避風險，但這代表未來任何
+  觸碰 Reader／Sidebar DOM 數量的卡片都應在真實瀏覽器（而非本沙盒的合成檔案載入）重新量測，不能沿用此輪
+  沙盒內數字作為唯一證據。
+
 ## 📌 2026-07-21 R7 候選：多來源接入（Codex adapter）— 使用者已同意排程方向
 
 > 完整設計分析與 Codex 格式實測證據見 [DESIGN_R7_MULTI_SOURCE_v0.1.md](DESIGN_R7_MULTI_SOURCE_v0.1.md)（pre-PSM 草稿）；本段只記排程與範圍。
