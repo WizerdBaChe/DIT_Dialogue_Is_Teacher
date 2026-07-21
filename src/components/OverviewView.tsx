@@ -9,6 +9,7 @@ import {
 } from "@/core/view/sessionMap";
 import { SPAN_DOT, SPAN_LEGEND_ORDER } from "./labels";
 import { SessionLoadActions } from "./SessionLoadActions";
+import { NoticeBanner } from "./NoticeBanner";
 
 export function OverviewView(): ReactNode {
   const t = useT();
@@ -20,11 +21,12 @@ export function OverviewView(): ReactNode {
   const activeId = useSessionStore((state) => state.activeId);
   const playingId = useSessionStore((state) => state.playingId);
   const startReading = useSessionStore((state) => state.startReading);
+  const dismissError = useSessionStore((state) => state.dismissError);
 
   if (!doc) {
     return (
       <main className="main-content overview-view">
-        {error && <div className="error-banner" role="alert">{error}</div>}
+        {error && <NoticeBanner tone="error" onDismiss={dismissError}>{error}</NoticeBanner>}
         <div className="empty-state overview-empty">
           <h2>{t.main.emptyTitle}</h2>
           <SessionLoadActions labels="overview" />
@@ -43,7 +45,7 @@ export function OverviewView(): ReactNode {
 
   return (
     <main className="main-content overview-view">
-      {error && <div className="error-banner" role="alert">{error}</div>}
+      {error && <NoticeBanner tone="error" onDismiss={dismissError}>{error}</NoticeBanner>}
       <section className="overview-card" aria-labelledby="overview-title">
         <span className="overview-badge">
           {sessionOrigin === "sample" ? t.overview.sampleBadge : t.overview.loadedBadge}

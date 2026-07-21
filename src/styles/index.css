@@ -86,9 +86,9 @@ body {
   min-height: 56px;
   padding: 8px 18px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   z-index: 10;
 }
 .brand { min-width: 0; }
@@ -107,6 +107,16 @@ body {
 .workspace-tab:hover { color: var(--text-main); background: var(--bg-hover); }
 .workspace-tab.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); font-weight: 600; }
 .workspace-tab:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+/* 教學講解 / 講解來源：常用控制留在 header，空間不足時自行換行把 header 撐高，不裁切。 */
+.teaching-control {
+  min-width: 0; flex-wrap: wrap; gap: 6px 8px;
+  padding-inline: 10px; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
+}
+.teaching-control > label.teaching-label {
+  color: var(--text-dark); font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.teaching-control select { max-width: 140px; }
+.teaching-control .toggle { white-space: nowrap; }
 .replay-control { gap: 4px; }
 .compact-action { width: 30px; padding-left: 0; padding-right: 0; }
 .compact-replay { min-width: 54px; }
@@ -596,6 +606,16 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   padding: 12px 18px; margin-bottom: 20px; font-family: var(--font-sans); font-size: 13px; line-height: 1.6;
 }
 .error-banner.warn { border-left-color: var(--accent-secondary); color: var(--accent-secondary); background: rgba(138, 106, 47, 0.07); }
+/* 可關閉提示：本文佔滿剩餘寬度，叉叉固定靠右且不參與換行。 */
+.error-banner, .storage-notice { display: flex; align-items: flex-start; gap: 12px; }
+.notice-body { flex: 1; min-width: 0; }
+.notice-dismiss {
+  flex: none; align-self: flex-start; padding: 0 4px; border: 0; border-radius: 2px;
+  background: transparent; color: inherit; font-family: var(--font-sans); font-size: 15px;
+  line-height: 1.2; cursor: pointer; opacity: 0.7;
+}
+.notice-dismiss:hover { opacity: 1; background: rgba(0, 0, 0, 0.06); }
+.notice-dismiss:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
 
 /* ---- Span card：無框，靠留白 + 底部細線分區，無陰影 ---- */
 .layer-card {
@@ -795,7 +815,7 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 @container dit-app (max-width: 719px) {
   .header {
     min-height: 92px; padding: 7px 10px; gap: 6px 8px; align-items: center;
-    grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: 34px 38px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: auto auto auto;
   }
   .brand-long { display: none; }
   .brand-short { display: inline; }
@@ -804,6 +824,10 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .replay-control { justify-self: center; }
   .settings-toggle-btn { justify-self: end; padding: 5px 8px; }
   .workspace-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; border-left: 0; border-right: 0; }
+  .teaching-control {
+    grid-column: 1 / -1; grid-row: 3; justify-content: flex-start;
+    padding-inline: 0; border-left: 0; border-right: 0;
+  }
   .workspace-tab { flex: 1 0 auto; min-height: 34px; padding: 4px 12px; }
   .settings-tray { max-height: 45dvh; }
   .settings-grid { grid-template-columns: 1fr; gap: 10px; padding: 12px 10px; }
@@ -838,7 +862,7 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 @media (max-width: 719px) {
   .header {
     min-height: 92px; padding: 7px 10px; gap: 6px 8px; align-items: center;
-    grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: 34px 38px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: auto auto auto;
   }
   .brand-long { display: none; }
   .brand-short { display: inline; }
@@ -847,6 +871,10 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .replay-control { justify-self: center; }
   .settings-toggle-btn { justify-self: end; padding: 5px 8px; }
   .workspace-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; border-left: 0; border-right: 0; }
+  .teaching-control {
+    grid-column: 1 / -1; grid-row: 3; justify-content: flex-start;
+    padding-inline: 0; border-left: 0; border-right: 0;
+  }
   .workspace-tab { flex: 1 0 auto; min-height: 34px; padding: 4px 12px; }
   .settings-tray { max-height: 45dvh; }
   .settings-grid { grid-template-columns: 1fr; gap: 10px; padding: 12px 10px; }
@@ -880,6 +908,13 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 
 @media (min-width: 720px) and (max-width: 899px) {
   .session-map-dialog { width: 92vw; height: 88dvh; }
+  .header {
+    grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: auto auto;
+  }
+  .teaching-control {
+    grid-column: 1 / -1; grid-row: 2; justify-content: flex-start;
+    padding-inline: 0; border-left: 0; border-right: 0;
+  }
   .session-map-header { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
   .map-levels { grid-column: 1 / -1; grid-row: 2; }
   .map-close { grid-column: 2; grid-row: 1; }
@@ -891,6 +926,13 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 }
 
 @container dit-app (min-width: 720px) and (max-width: 899px) {
+  .header {
+    grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-rows: auto auto;
+  }
+  .teaching-control {
+    grid-column: 1 / -1; grid-row: 2; justify-content: flex-start;
+    padding-inline: 0; border-left: 0; border-right: 0;
+  }
   .session-map-header { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
   .map-levels { grid-column: 1 / -1; grid-row: 2; }
   .map-close { grid-column: 2; grid-row: 1; }
@@ -953,14 +995,14 @@ select, .btn, .ollama-panel, .annotate-progress, .layer-desc code,
 .annotate-progress, .ollama-panel { background: var(--bg-footer); }
 
 @container dit-app (max-width: 719px) {
-  .header { min-height: 112px; grid-template-rows: 42px 50px; }
+  .header { min-height: 112px; grid-template-rows: auto auto auto; }
   .workspace-tab { min-height: 46px; padding-inline: 14px; }
   .session-map-header { align-items: start; }
   .map-legend { grid-row: 3; }
 }
 
 @media (max-width: 719px) {
-  .header { min-height: 112px; grid-template-rows: 42px 50px; }
+  .header { min-height: 112px; grid-template-rows: auto auto auto; }
   .workspace-tab { min-height: 46px; padding-inline: 14px; }
   .session-map-header { align-items: start; }
   .map-legend { grid-row: 3; }

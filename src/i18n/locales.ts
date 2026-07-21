@@ -294,6 +294,10 @@ const zhTW = {
     degraded: (reason: string) => `講解儲存已降級為暫存記憶體；關閉頁面後不會保留。原因：${reason}`,
   },
 
+  notice: {
+    dismiss: "關閉提示",
+  },
+
   subagent: {
     sectionLabel: "子代理局部分支",
     graphAria: (count: number) => `子代理分支，共 ${count} 個節點`,
@@ -639,6 +643,10 @@ const en: Messages = {
 
   storage: {
     degraded: (reason: string) => `Annotation storage fell back to memory and will not survive closing the page. Reason: ${reason}`,
+  },
+
+  notice: {
+    dismiss: "Dismiss notice",
   },
 
   subagent: {

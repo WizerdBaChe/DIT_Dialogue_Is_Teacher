@@ -6,6 +6,7 @@ import { useT } from "@/i18n";
 import { SpanCard } from "./SpanCard";
 import { GroupCard } from "./GroupCard";
 import { ReaderMinimap } from "./ReaderMinimap";
+import { NoticeBanner } from "./NoticeBanner";
 
 export function MainView(): ReactNode {
   const t = useT();
@@ -13,6 +14,9 @@ export function MainView(): ReactNode {
   const viewItems = useSessionStore((s) => s.viewItems);
   const error = useSessionStore((s) => s.error);
   const warnings = useSessionStore((s) => s.warnings);
+  const warningsDismissed = useSessionStore((s) => s.warningsDismissed);
+  const dismissWarnings = useSessionStore((s) => s.dismissWarnings);
+  const dismissError = useSessionStore((s) => s.dismissError);
   const activeId = useSessionStore((s) => s.activeId);
   const playingId = useSessionStore((s) => s.playingId);
   const minimapEnabled = useSessionStore((s) => s.minimapEnabled);
@@ -39,7 +43,7 @@ export function MainView(): ReactNode {
   if (!doc) {
     return (
       <main className="main-content">
-        {error && <div className="error-banner">{error}</div>}
+        {error && <NoticeBanner tone="error" onDismiss={dismissError}>{error}</NoticeBanner>}
         <div className="empty-state">
           <h2>{t.main.emptyTitle}</h2>
           <p>
@@ -54,8 +58,10 @@ export function MainView(): ReactNode {
 
   return (
     <main className="main-content dense-main">
-      {error && <div className="error-banner">{error}</div>}
-      {warnings.length > 0 && <div className="error-banner warn">{t.main.warnings(warnings)}</div>}
+      {error && <NoticeBanner tone="error" onDismiss={dismissError}>{error}</NoticeBanner>}
+      {warnings.length > 0 && !warningsDismissed && (
+        <NoticeBanner tone="warn" onDismiss={dismissWarnings}>{t.main.warnings(warnings)}</NoticeBanner>
+      )}
 
       <div ref={scrollRef} className={`dense-scroll ${minimapEnabled ? "reader-with-minimap" : ""}`} data-testid="dense-virtual-scroll">
         <div className="virtual-list-space" style={{ height: virtualizer.getTotalSize() }}>
