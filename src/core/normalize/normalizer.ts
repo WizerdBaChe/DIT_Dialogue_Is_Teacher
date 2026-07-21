@@ -5,6 +5,7 @@
  */
 import type { ParseResult } from "@/core/adapters/types";
 import type { RawEvent } from "@/core/adapters/types";
+import { reportFallback } from "@/core/diagnostics";
 import {
   SCHEMA_VERSION,
   type SessionDocument,
@@ -58,6 +59,10 @@ function summarize(ev: RawEvent): string {
 
 /** 合理化 session meta，補上 fallback。 */
 function finalizeMeta(meta: Partial<SessionMeta>): SessionMeta {
+  if (!meta.id) {
+    // 合成 id 每次載入都不同，會讓講解快取的 session 指紋對不上。
+    reportFallback("normalizer/finalizeMeta", "missing-session-id");
+  }
   return {
     id: meta.id ?? `session-${Date.now()}`,
     source: meta.source ?? "claude-code",
@@ -79,6 +84,10 @@ export function normalize(parsed: ParseResult): SessionDocument {
 
   const sidechainRoot = (event: RawEvent, fallback: string): string => {
     let cursor = event;
+    if (!event.uuid) {
+      // 沒有 uuid 就自成一個 root，子代理群組會因此被拆碎。
+      reportFallback("normalizer/sidechainRoot", "sidechain-event-without-uuid", { fallback });
+    }
     let root = event.uuid ?? fallback;
     const visited = new Set<string>();
     while (cursor.parentUuid && !visited.has(cursor.parentUuid)) {
@@ -98,8 +107,11 @@ export function normalize(parsed: ParseResult): SessionDocument {
     let parentId: string | null = null;
     if (ev.kind === "tool_result" && ev.toolUseId) {
       parentId = toolUseSpanByUseId.get(ev.toolUseId) ?? null;
+      // 找不到對應的 tool_use，這筆 tool_result 會變成獨立卡片而不是巢狀在工具呼叫底下。
+      if (!parentId) reportFallback("normalizer/parentId", "tool-result-without-tool-use", { toolUseId: ev.toolUseId });
     } else if (ev.isSidechain && ev.parentUuid) {
       parentId = latestSpanByEventUuid.get(ev.parentUuid) ?? null;
+      if (!parentId) reportFallback("normalizer/parentId", "sidechain-parent-not-seen", { parentUuid: ev.parentUuid });
     }
 
     const span: Span = {
@@ -116,6 +128,7 @@ export function normalize(parsed: ParseResult): SessionDocument {
     };
 
     if (ev.kind === "tool_use") {
+      if (!ev.toolName) reportFallback("normalizer/toolName", "tool-use-without-name", { spanId: id });
       span.tool = { name: ev.toolName ?? "unknown", params: ev.toolInput ?? {} };
       if (ev.toolUseId) toolUseSpanByUseId.set(ev.toolUseId, id);
     }

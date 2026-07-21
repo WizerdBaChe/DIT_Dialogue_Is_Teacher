@@ -3,7 +3,7 @@
  * - tool_result 巢狀在其 tool_use 卡片內。
  * - edit-loop 群組成員收成單一 group 卡片。
  * - 其餘 span 各自為一張卡片。
- * 卡片順序即 step-through 重播的步驟順序。
+ * 卡片順序即逐步瀏覽的步驟順序。
  */
 import type { SessionDocument, Span, SpanGroup } from "@/types/spanTree";
 

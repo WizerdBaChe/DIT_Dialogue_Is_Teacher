@@ -44,6 +44,19 @@ function colorize(text: string): ReactNode {
   });
 }
 
+const IO_SUMMARY_FIRST_LINE_LIMIT = 60;
+
+/** 從 IO 原文計算收合狀態下的行數與首行摘要 (不新增管線欄位，render 時即算)。 */
+export function summarizeCollapsedIOText(text: string): { lineCount: number; firstLine: string } {
+  if (text === "") return { lineCount: 0, firstLine: "" };
+  const lines = text.split("\n");
+  const firstLine = lines[0];
+  const truncated = firstLine.length > IO_SUMMARY_FIRST_LINE_LIMIT
+    ? `${firstLine.slice(0, IO_SUMMARY_FIRST_LINE_LIMIT)}…`
+    : firstLine;
+  return { lineCount: lines.length, firstLine: truncated };
+}
+
 /** 可摺疊的輸入/輸出區塊。標題由呼叫端傳入 (已在地化)。 */
 export function IOBlock({
   title,
@@ -56,11 +69,15 @@ export function IOBlock({
   defaultCollapsed?: boolean;
   colored?: boolean;
 }): ReactNode {
+  const t = useT();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const { lineCount, firstLine } = summarizeCollapsedIOText(text);
+  const headText = collapsed ? `${title} · ${t.card.collapsedSummary(lineCount, firstLine)}` : title;
   return (
     <div className={`io-block ${collapsed ? "collapsed" : ""}`}>
       <div className="io-head" onClick={() => setCollapsed((c) => !c)}>
-        {title} <span className="chev">▾</span>
+        {headText}
+        <span className="chev">▾</span>
       </div>
       <div className="io-body">{colored ? colorize(text) : text}</div>
     </div>
