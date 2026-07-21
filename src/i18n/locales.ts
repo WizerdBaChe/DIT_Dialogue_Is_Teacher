@@ -177,6 +177,8 @@ const zhTW = {
     thinkingHead: "思考鏈",
     groupFolded: (steps: number, collapsed: boolean) => `（${collapsed ? "折疊" : "展開"} ${steps} 步）`,
     groupHint: (collapsed: boolean) => `確定性降噪 · 點擊${collapsed ? "展開" : "收合"}`,
+    collapsedSummary: (lineCount: number, firstLine: string) =>
+      firstLine ? `${lineCount} 行 · ${firstLine}` : `${lineCount} 行`,
   },
 
   annotation: {
@@ -517,6 +519,8 @@ const en: Messages = {
     thinkingHead: "Reasoning",
     groupFolded: (steps: number, collapsed: boolean) => ` (${steps} steps ${collapsed ? "folded" : "expanded"})`,
     groupHint: (collapsed: boolean) => `Deterministic denoise · click to ${collapsed ? "expand" : "collapse"}`,
+    collapsedSummary: (lineCount: number, firstLine: string) =>
+      firstLine ? `${lineCount} line${lineCount === 1 ? "" : "s"} · ${firstLine}` : `${lineCount} line${lineCount === 1 ? "" : "s"}`,
   },
 
   annotation: {

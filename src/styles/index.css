@@ -613,8 +613,13 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 
 /* ---- IO block (foldable) ---- */
 .io-block { background: var(--bg-sunken); border: 1px solid var(--rule); font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px; overflow: hidden; border-radius: 2px; }
-.io-head { padding: 6px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; color: var(--text-dark); border-bottom: 1px solid var(--rule); font-family: var(--font-sans); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; font-weight: 600; }
-.io-head .chev { margin-left: auto; font-size: 9px; transition: transform 0.2s; }
+.io-head {
+  padding: 6px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+  color: var(--text-dark); border-bottom: 1px solid var(--rule); font-family: var(--font-sans);
+  text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.io-head .chev { flex: none; margin-left: auto; font-size: 9px; transition: transform 0.2s; }
 .io-block.collapsed .io-head { border-bottom: none; }
 .io-block.collapsed .chev { transform: rotate(-90deg); }
 .io-body { padding: 10px 12px; white-space: pre-wrap; line-height: 1.65; max-height: 280px; overflow: auto; overflow-wrap: anywhere; }
