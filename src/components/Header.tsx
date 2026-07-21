@@ -7,6 +7,7 @@ import { Disclaimer } from "./Disclaimer";
 import { OllamaPanel } from "./OllamaPanel";
 import { CloudPanel } from "./CloudPanel";
 import { SessionLoadActions } from "./SessionLoadActions";
+import { ExportControls } from "./ExportControls";
 
 const PROVIDERS: ProviderId[] = ["none", "ollama", "cloud"];
 
@@ -178,6 +179,8 @@ export function Header(): ReactNode {
                 </label>
               </div>
             </fieldset>
+
+            <ExportControls />
           </div>
 
           <Disclaimer />
