@@ -2,6 +2,7 @@
 import { parseClaudeCodeJsonlBlob } from "./jsonlStream";
 import { buildSessionDocumentFromParsedFiles } from "@/core/pipeline";
 import type { ParsedTranscriptFileInput } from "@/core/pipeline";
+import { getFallbackReport, resetFallbackReport } from "@/core/diagnostics";
 import type { SessionLoadProgress, SessionWorkerLoadRequest, SessionWorkerMessage } from "./contracts";
 
 const workerScope = self as DedicatedWorkerGlobalScope;
@@ -35,6 +36,8 @@ async function load(request: SessionWorkerLoadRequest): Promise<void> {
   };
 
   try {
+    // worker 會被重複使用來載入不同 session，記錄要按次清空。
+    resetFallbackReport();
     progress({ phase: "reading", loadedBytes: 0, lineCount: 0 });
     const parsedFiles: ParsedTranscriptFileInput[] = [];
 
@@ -53,7 +56,8 @@ async function load(request: SessionWorkerLoadRequest): Promise<void> {
     }
 
     const result = buildSessionDocumentFromParsedFiles(parsedFiles, (phase) => progress({ phase }));
-    post({ type: "complete", requestId: request.requestId, result });
+    // 降級記錄跟著結果一起回主執行緒，否則 worker 這一側的記錄會隨 terminate 消失。
+    post({ type: "complete", requestId: request.requestId, result, fallbacks: getFallbackReport() });
   } catch (error) {
     post({
       type: "error",

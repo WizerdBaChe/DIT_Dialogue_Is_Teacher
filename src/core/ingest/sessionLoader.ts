@@ -1,4 +1,5 @@
 import type { PipelineResult } from "@/core/pipeline";
+import { mergeFallbackReport } from "@/core/diagnostics";
 import type { SessionBlobInput, SessionLoadProgress, SessionWorkerLoadRequest, SessionWorkerMessage } from "./contracts";
 
 interface SessionWorkerLike {
@@ -47,7 +48,10 @@ export function startSessionLoad(
       }
       settled = true;
       worker.terminate();
-      if (event.data.type === "complete") resolve(event.data.result);
+      if (event.data.type === "complete") {
+        mergeFallbackReport(event.data.fallbacks ?? []);
+        resolve(event.data.result);
+      }
       else reject(new Error(event.data.message));
     };
     worker.onerror = (event) => {

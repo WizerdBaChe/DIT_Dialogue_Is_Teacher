@@ -67,7 +67,7 @@ describe("startSessionLoad", () => {
       type: "progress",
       progress: { phase: "parsing", loadedBytes: 10, totalBytes: 20, lineCount: 1, sourcePath: "main.jsonl" },
     });
-    worker.emit({ type: "complete", result });
+    worker.emit({ type: "complete", result, fallbacks: [] });
 
     await expect(task.promise).resolves.toEqual(result);
     expect(onProgress).toHaveBeenCalledOnce();

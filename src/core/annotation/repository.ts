@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { reportFallback } from "@/core/diagnostics";
 import type { AnnotationRecord, AnnotationRepository } from "./contracts";
 
 const DATABASE_NAME = "dit-annotations";
@@ -90,6 +91,7 @@ export class FallbackAnnotationRepository implements AnnotationRepository {
       return await primary();
     } catch (error) {
       this.degraded = true;
+      reportFallback("annotationRepository", "indexeddb-unavailable", { message: (error as Error).message });
       this.onDegraded?.(error as Error);
       return fallback();
     }
