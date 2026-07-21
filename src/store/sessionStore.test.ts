@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { selectCurrentPosition, useSessionStore } from "./sessionStore";
 import { r4MainSession, r4SubagentSession, sampleSession } from "@/fixtures";
+import { buildSessionDocument } from "@/core/pipeline";
+import { buildSessionExport } from "@/core/export/buildExport";
 
 afterEach(() => {
   useSessionStore.getState().pause();
@@ -20,6 +22,7 @@ afterEach(() => {
     mapError: null,
     minimapEnabled: true,
     mapShortcutEnabled: true,
+    snapshotMode: false,
   });
 });
 
@@ -272,5 +275,23 @@ describe("workspace navigation", () => {
 
     expect(useSessionStore.getState().minimapEnabled).toBe(false);
     expect(useSessionStore.getState().mapShortcutEnabled).toBe(false);
+  });
+});
+
+describe("snapshot hydration (EX-03)", () => {
+  it("hydrates a SessionExport payload, lands on overview, and skips cache restore", () => {
+    const { doc } = buildSessionDocument(r4MainSession);
+    const annotations = { "some-item": { what: "x", why: "y", generalLesson: "z", confidence: 0.5, provider: "ollama" as const } };
+    const payload = buildSessionExport(doc, { exportedAt: "2026-07-21T00:00:00.000Z", appVersion: "0.1.0", annotations });
+
+    useSessionStore.getState().hydrateSessionExport(payload);
+
+    const state = useSessionStore.getState();
+    expect(state.snapshotMode).toBe(true);
+    expect(state.doc?.session.id).toBe(doc.session.id);
+    expect(state.primaryView).toBe("overview");
+    expect(state.annotations).toEqual(annotations);
+    expect(state.cacheReady).toBe(true);
+    expect(state.restoredAnnotationCount).toBe(0);
   });
 });
