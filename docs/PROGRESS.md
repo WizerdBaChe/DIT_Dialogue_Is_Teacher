@@ -2,6 +2,46 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R5.5 — 符號語意對齊與文案修正｜2026-07-21｜🟡 SA-01～SA-06 已實作，待使用者 390/740/1280 視覺 UAT
+
+依 [PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md](PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md) 施工，於 feature branch
+`codex/r5.5-semantic-alignment`（自 `codex/r5-large-session-responsive`）。修正 R5 交付內容中 Sidebar 圖例
+誤植 skeleton 層符號、Overview 缺圖例、「重播」命名與陳舊文案、收合結果無證據摘要、Minimap 用 data-URL 字串拼 SVG
+等五項偏離。
+
+- [x] **SA-01 圖例對齊所在表面** (`6784329`)：`StructureLegend` 改為描述 span 層（`SPAN_DOT` 七種），
+  Session Map 的 map-legend 改為描述 skeleton 層（新增子代理／聚合區段專屬符號，消除原本 ◆ 一符兩義）；
+  兩份圖例與 `landmarkKindLabel` helper 皆改為從 `labels.ts`／`core/view/sessionMap.ts` 單一來源常數渲染。
+  新增 `labels.test.ts` 直接 import 常數斷言子集關係與表面內無重複符號。
+- [x] **SA-02 Overview 說明型圖例** (`3b62dd1`)：CTA 區塊之後新增預設收合的 `<details>` 符號說明，
+  span／skeleton 兩層分節列出符號與一句話語意；新增 `OverviewView.test.ts` 以 `?raw` 匯入原始碼斷言
+  badge→標題→用途→三步→CTA→圖例的既有順序未變、`<details>` 預設收合。
+- [x] **SA-03「重播」改名「逐步瀏覽」＋清死鍵** (`fde8452`)：`header.replay`／`replayControlsLabel`／
+  `overview.steps.readBody`／`main.infoBody` 改語彙（`main.infoBody` 同時把「右上」改為「設定匣」，
+  Provider 已搬入設定匣）；刪除無引用的 `fishbone`（`fb.*`）整節與 `header.modes` 死鍵；`play()`/`pause()`
+  行為、間隔、狀態機未動。
+- [x] **SA-04 收合結果證據摘要** (`132aa32`)：`IOBlock` 收合時標題文字改為「標題 · N 行 · 首行前 60 字」，
+  由 render 時對既有 `text` 計算，不新增管線欄位；改為零額外 DOM 元素設計（標題與摘要合併成同一文字節點），
+  對 GN-07/GN-10 的 Reader 封閉 DOM ≤250 上限沒有結構性風險。新增 `parts.test.ts` 涵蓋空字串/單行/多行/
+  超長首行截斷四種案例。
+- [x] **SA-05 Minimap 改 React SVG** (`b91c9f0`)：`ReaderMinimap` 由 `background-image` data-URL 字串拼接
+  改為 inline `<svg aria-hidden preserveAspectRatio="none">` 子元素，幾何計算、色票、按鈕語意（開圖／aria）
+  不變，對齊 INV-17「只渲染 React 文字節點／SVG 屬性」字面。
+- [x] **SA-06 文件與帳本對齊**（本段落）：USER_GUIDE 改用「逐步瀏覽」語彙並依 SA-01/02 更新圖例描述；
+  PROGRESS 新增本段落；ACCEPTANCE 附加 §4 增量清單；`references/DIT-tickets.md` T-006 記錄六卡 commit。
+- **證據限制（誠實揭露）**：SA-04 的 Reader DOM 上限查核在本輪沙盒環境內無法穩定重現——透過合成
+  `DataTransfer` 檔案輸入載入 50.0018 MiB fixture 後，同一 1280 寬度、清除過 storage 的乾淨重載重複量測
+  三次得到穩定的 249（≤250）結果，但另外幾次未清 storage 的重載出現 200～276 的雜訊（可歸因於持久化的
+  Structure 側欄虛擬清單掛載列數在本環境對 resize/navigate 時序敏感，與本卡程式改動無關）。因此本卡改採
+  「零 DOM 增量」設計（收合狀態下 `.io-head` 仍只有一個子元素 `.chev`，與改動前結構完全相同，只有文字
+  節點內容不同）從結構上保證上限不受影響，而非依賴單次量測數字；`.tmp/r5.5-sa04-metrics.json`（Git 忽略）
+  記錄此推理與沿用的 GN-10 未變管線數據，`node scripts/render-r5-benchmark.mjs .tmp/r5.5-sa04-metrics.json`
+  18/18 checks pass。建議使用者在真實瀏覽器環境重跑一次以取得可信賴的絕對數字，作為最終視覺 UAT 的一部分。
+- 驗證：每卡各自 `npm.cmd test`（143/143，含新增 12 個測試案例）、`npm.cmd run typecheck`、
+  `npm.cmd run build`（118 modules）、`git diff --check` 全數 exit 0；`rg -n "重播" src` 與
+  `rg -n '"fb"|modes' src/i18n/locales.ts` 均無輸出。使用者 390／740／1280 最終視覺 UAT 尚未完成，
+  與 R5（T-005）合併於同一輪收尾。
+
 ## R5 — 大型 Session 效能 + Guided Navigation｜2026-07-19｜🟡 GN-01～GN-10 已實作，待 GN-10 視覺驗收
 
 - [x] **GN-10 Section 與視覺平衡修復**：Map preview selection 與 projection focus 已拆開；production 實際選取另一個 Section 地標前後，5 個 target ID 與順序完全相同，只有 selected 狀態移動。Sidebar 恢復 20 px 透明底純文字 glyph，重要節點文字標籤保留；圖例改為每列四種；Map 節點填色改回所在區域底色，不再出現額外白底圖塊。
