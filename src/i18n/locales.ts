@@ -301,10 +301,13 @@ const zhTW = {
   export: {
     group: "匯出",
     json: "匯出 JSON",
+    html: "匯出 HTML 快照",
     privacyNote: "匯出檔包含完整逐字內容，可能含密鑰，分享前請自行確認。",
     done: (size: string) => `已匯出，檔案大小 ${size}`,
     doneLarge: (size: string) => `已匯出，檔案大小 ${size}；檔案較大，開啟會較慢`,
     failed: (reason: string) => `匯出失敗：${reason}`,
+    devUnavailable: "HTML 快照需要 production build（npm run build 後以 preview 開啟）",
+    templateMissing: "找不到快照模板（snapshot.html），請確認已執行 production build",
   },
 
   subagent: {
@@ -661,10 +664,13 @@ const en: Messages = {
   export: {
     group: "Export",
     json: "Export JSON",
+    html: "Export HTML snapshot",
     privacyNote: "The exported file contains the full verbatim content and may include secrets — check before sharing.",
     done: (size: string) => `Exported, file size ${size}`,
     doneLarge: (size: string) => `Exported, file size ${size}; the file is large and may open slowly`,
     failed: (reason: string) => `Export failed: ${reason}`,
+    devUnavailable: "The HTML snapshot needs a production build (run npm run build, then open it via preview)",
+    templateMissing: "Snapshot template (snapshot.html) not found — make sure you ran a production build",
   },
 
   subagent: {
