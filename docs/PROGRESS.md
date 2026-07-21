@@ -2,6 +2,47 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R6 — 匯出（FR-8）與 SessionLibrary 型別保鮮｜2026-07-21｜🔄 施工完成，待使用者 UAT
+
+依 [PSM_R6_EXPORT_v0.1.md](PSM_R6_EXPORT_v0.1.md) 施工，於 feature branch `codex/r6-export`。
+四張技術卡片（EX-01～EX-04）依序完成，EX-05（本段落）收尾文件與帳本。
+
+- [x] **EX-01 匯出核心與 JSON 匯出** (`3e196e0`)：新增 `src/core/export/{contracts,buildExport,download}.ts`
+  三個純函式模組（`SessionExport` 包裝層、`buildSessionExport`、`downloadText`）與 `ExportControls.tsx`
+  （設定匣「匯出」fieldset，含隱私提示一行、成功/大檔/失敗三種回報）；`Header.tsx` 掛載該 fieldset；
+  i18n 新增 `export.*` 鍵組，zh-TW／EN 同卡落地。
+- [x] **EX-02 SessionLibrary 型別保鮮** (`06f7b01`)：新增 `src/core/export/library.ts`——純函式
+  `toSessionLibrary()` 加三個編譯期型別斷言（`AssertDocumentsMatch` 等），確保 D-5 預留的
+  `SessionLibrary` 型別沒有隨 `SessionDocument` 演進而腐化；`rg -n "toSessionLibrary" src --glob
+  '!src/core/export/**'` 無輸出，證實零 UI 牽扯，D-5 本身維持凍結。
+- [x] **EX-03 快照 build target** (`37e3920`)：新增 `snapshot.html` / `src/snapshot.tsx` /
+  `vite.snapshot.config.ts`（`vite-plugin-singlefile`，D-R6-07），`package.json` build script 串接第二段
+  build；store 加 `snapshotMode` 與 `hydrateSessionExport`（僅加法，快取還原在 snapshotMode 下跳過，
+  著陸頁固定 Overview／D-R6-06）；`Header.tsx` 依 `snapshotMode` 隱藏載入／講解／Provider／匯出入口。
+  **兩個非預期的平台細節**（PSM §4.3 只預告了 worker chunk 風險，以下第二點是施工中新發現）：
+  (a) worker chunk 如預期仍獨立產出，但未被快照實際引用，不影響單檔完整性；
+  (b) Vite 的 HTML 層固定幫進入點腳本標 `type="module"` 並置於 `<head>`，與 rollup `output.format`
+  無關，因此除了把 `output.format` 設為 `iife`，另外加一個 post-build plugin 把該屬性換掉——
+  但 inline script 沒有 `defer` 語意，直接拿掉屬性會讓它在 `<head>` 解析當下立刻執行，早於 `<body>`
+  後段的 payload `<script>` 存在，改成包一層 `DOMContentLoaded` 監聽器解決。
+- [x] **EX-04 由應用內匯出 HTML 快照** (`a88a739`)：新增 `src/core/export/snapshotTemplate.ts`
+  （`injectSnapshotPayload`，EX-INV-6 轉義）；`ExportControls.tsx` 新增「匯出 HTML 快照」按鈕
+  （`fetch("./snapshot.html")` → 注入 → 下載；dev 模式顯示提示不產檔）。
+  **施工中發現並修正一個真實 bug**：快照 bundle 內聯了整個主應用，而 `snapshotTemplate.ts` 原始碼本身
+  含有佔位符文字字面值，會被一起打包進 bundle、且排在真正的 payload `<script>` 標籤之前；原本用純文字
+  `.replace()`（非 global）會命中 bundle 內那份自我引用的字面值而不是真正的標籤，導致 bundle 被撐壞、
+  佔位符實際沒換到。改成錨定完整的 `<script type="application/json" id="dit-snapshot">...</script>`
+  結構，並補上對應的自我引用回歸測試。此 bug 只有在**真實瀏覽器 file:// 硬性驗收**（而非單元測試或
+  typecheck）才會現形——單元測試用的模板字串沒有這份自我引用，因此原本的測試全綠但功能是壞的。
+- 驗證：四卡各自 `npm.cmd test`（163→171，新增 buildExport／library／snapshotTemplate／store 快照水合
+  等測試案例）、`npm.cmd run typecheck`、`npm.cmd run build`（兩段皆綠，`dist/snapshot.html` 內
+  `rg -c 'type="module"'` 為 0）、`git diff --check` 全數 exit 0。EX-03／EX-04 另外各自完成一次
+  **file:// 硬性驗收**：`npm.cmd run build` 產物注入 fixture payload 後，在確認無任何 dev/preview
+  server 執行的情況下以 `file://` 開啟，Reader／Map／Overview 可操作，console 無錯誤、Network 分頁
+  僅有開啟該檔本身一筆請求；EX-04 額外從真實 `vite preview` 應用內點擊「匯出 HTML 快照」下載檔案、
+  關閉 server 後開啟該真實下載檔驗證同一組項目。
+- **待辦**：EX-05（本段落）完成後即進入使用者 UAT（見 §7 清單／下方連結）。
+
 ## R5.5+ — UAT 後修正輪｜2026-07-21｜✅ 使用者已驗收，R5＋R5.5 一併合併回 `main`
 
 SA-01～SA-06 交付後，使用者在真實環境進行 R5＋R5.5 合併視覺 UAT，回報了一批定位與可用性偏差。
