@@ -298,6 +298,15 @@ const zhTW = {
     dismiss: "關閉提示",
   },
 
+  export: {
+    group: "匯出",
+    json: "匯出 JSON",
+    privacyNote: "匯出檔包含完整逐字內容，可能含密鑰，分享前請自行確認。",
+    done: (size: string) => `已匯出，檔案大小 ${size}`,
+    doneLarge: (size: string) => `已匯出，檔案大小 ${size}；檔案較大，開啟會較慢`,
+    failed: (reason: string) => `匯出失敗：${reason}`,
+  },
+
   subagent: {
     sectionLabel: "子代理局部分支",
     graphAria: (count: number) => `子代理分支，共 ${count} 個節點`,
@@ -647,6 +656,15 @@ const en: Messages = {
 
   notice: {
     dismiss: "Dismiss notice",
+  },
+
+  export: {
+    group: "Export",
+    json: "Export JSON",
+    privacyNote: "The exported file contains the full verbatim content and may include secrets — check before sharing.",
+    done: (size: string) => `Exported, file size ${size}`,
+    doneLarge: (size: string) => `Exported, file size ${size}; the file is large and may open slowly`,
+    failed: (reason: string) => `Export failed: ${reason}`,
   },
 
   subagent: {
