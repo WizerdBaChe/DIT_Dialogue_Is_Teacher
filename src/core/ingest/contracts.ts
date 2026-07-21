@@ -1,4 +1,5 @@
 import type { PipelineResult } from "@/core/pipeline";
+import type { FallbackRecord } from "@/core/diagnostics";
 
 export type SessionLoadPhase = "reading" | "parsing" | "organizing" | "validating" | "ready";
 
@@ -23,5 +24,5 @@ export interface SessionWorkerLoadRequest {
 
 export type SessionWorkerMessage =
   | { type: "progress"; requestId: string; progress: SessionLoadProgress }
-  | { type: "complete"; requestId: string; result: PipelineResult }
+  | { type: "complete"; requestId: string; result: PipelineResult; fallbacks: FallbackRecord[] }
   | { type: "error"; requestId: string; message: string };
