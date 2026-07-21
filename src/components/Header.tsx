@@ -33,6 +33,7 @@ export function Header(): ReactNode {
   const privacyReviewOpen = useSessionStore((state) => Boolean(state.privacyReview));
   const minimapEnabled = useSessionStore((state) => state.minimapEnabled);
   const mapShortcutEnabled = useSessionStore((state) => state.mapShortcutEnabled);
+  const snapshotMode = useSessionStore((state) => state.snapshotMode);
 
   const setProvider = useSessionStore((state) => state.setProvider);
   const toggleAnnotations = useSessionStore((state) => state.toggleAnnotations);
@@ -83,39 +84,41 @@ export function Header(): ReactNode {
 
         <WorkspaceTabs />
 
-        <div className="control teaching-control" role="group" aria-label={t.settings.teachingGroup}>
-          <label htmlFor="hdr-provider" className="teaching-label">{t.header.providerLabel}</label>
-          <select id="hdr-provider" value={providerId} onChange={(event) => setProvider(event.target.value as ProviderId)}>
-            {PROVIDERS.map((provider) => <option key={provider} value={provider}>{t.provider[provider]}</option>)}
-          </select>
-          <label className="toggle">
-            <input type="checkbox" checked={showAnnotations} onChange={toggleAnnotations} disabled={providerId === "none"} />
-            {t.header.showAnnotations}
-          </label>
-          <div className="batch-control">
-            <select
-              aria-label={t.header.annotateModeLabel}
-              value={annotationRunMode}
-              onChange={(event) => setAnnotationRunMode(event.target.value as "missing" | "failed" | "all")}
-            >
-              <option value="missing">{t.header.annotateModes.missing}</option>
-              <option value="failed">{t.header.annotateModes.failed}</option>
-              <option value="all">{t.header.annotateModes.all}</option>
+        {!snapshotMode && (
+          <div className="control teaching-control" role="group" aria-label={t.settings.teachingGroup}>
+            <label htmlFor="hdr-provider" className="teaching-label">{t.header.providerLabel}</label>
+            <select id="hdr-provider" value={providerId} onChange={(event) => setProvider(event.target.value as ProviderId)}>
+              {PROVIDERS.map((provider) => <option key={provider} value={provider}>{t.provider[provider]}</option>)}
             </select>
-            <button
-              className="btn"
-              onClick={() => void annotateAll()}
-              disabled={!hasDoc || providerId === "none"}
-              title={providerId === "none" ? t.header.annotateDisabled : undefined}
-            >
-              {t.header.annotateCount(annotationRunMode, annotationCount)}
-            </button>
+            <label className="toggle">
+              <input type="checkbox" checked={showAnnotations} onChange={toggleAnnotations} disabled={providerId === "none"} />
+              {t.header.showAnnotations}
+            </label>
+            <div className="batch-control">
+              <select
+                aria-label={t.header.annotateModeLabel}
+                value={annotationRunMode}
+                onChange={(event) => setAnnotationRunMode(event.target.value as "missing" | "failed" | "all")}
+              >
+                <option value="missing">{t.header.annotateModes.missing}</option>
+                <option value="failed">{t.header.annotateModes.failed}</option>
+                <option value="all">{t.header.annotateModes.all}</option>
+              </select>
+              <button
+                className="btn"
+                onClick={() => void annotateAll()}
+                disabled={!hasDoc || providerId === "none"}
+                title={providerId === "none" ? t.header.annotateDisabled : undefined}
+              >
+                {t.header.annotateCount(annotationRunMode, annotationCount)}
+              </button>
+            </div>
+            {restoredAnnotationCount > 0 && <span className="cache-status">{t.header.restored(restoredAnnotationCount)}</span>}
+            {providerId !== "none" && hasAnnotations && (
+              <button className="btn" onClick={clearAnnotations} title={t.header.clearAnnotationsTitle}>{t.header.clearAnnotations}</button>
+            )}
           </div>
-          {restoredAnnotationCount > 0 && <span className="cache-status">{t.header.restored(restoredAnnotationCount)}</span>}
-          {providerId !== "none" && hasAnnotations && (
-            <button className="btn" onClick={clearAnnotations} title={t.header.clearAnnotationsTitle}>{t.header.clearAnnotations}</button>
-          )}
-        </div>
+        )}
 
         <div className="control replay-control" aria-label={t.header.replayControlsLabel}>
           <button className="btn compact-action" onClick={prev} disabled={!hasDoc} title={t.header.prevTitle} aria-label={t.header.prevTitle}>‹</button>
@@ -140,13 +143,15 @@ export function Header(): ReactNode {
       {settingsOpen && (
         <section id="settings-tray" className="settings-tray" aria-label={t.settings.label}>
           <div className="settings-grid">
-            <fieldset className="settings-group">
-              <legend>{t.settings.sessionGroup}</legend>
-              <div className="settings-actions">
-                <SessionLoadActions />
-                <button className="btn" onClick={resetToSample} title={t.header.resetTitle}>{t.header.reset}</button>
-              </div>
-            </fieldset>
+            {!snapshotMode && (
+              <fieldset className="settings-group">
+                <legend>{t.settings.sessionGroup}</legend>
+                <div className="settings-actions">
+                  <SessionLoadActions />
+                  <button className="btn" onClick={resetToSample} title={t.header.resetTitle}>{t.header.reset}</button>
+                </div>
+              </fieldset>
+            )}
 
             <fieldset className="settings-group">
               <legend>{t.settings.languageGroup}</legend>
@@ -180,12 +185,16 @@ export function Header(): ReactNode {
               </div>
             </fieldset>
 
-            <ExportControls />
+            {!snapshotMode && <ExportControls />}
           </div>
 
-          <Disclaimer />
-          <OllamaPanel />
-          <CloudPanel />
+          {!snapshotMode && (
+            <>
+              <Disclaimer />
+              <OllamaPanel />
+              <CloudPanel />
+            </>
+          )}
         </section>
       )}
     </>

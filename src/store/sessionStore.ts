@@ -39,6 +39,7 @@ import {
   type AnnotationRunMode,
 } from "@/core/annotation";
 import { sampleSession } from "@/fixtures";
+import type { SessionExport } from "@/core/export/contracts";
 import { MESSAGES, type Locale } from "@/i18n/locales";
 import { resetFallbackReport } from "@/core/diagnostics";
 import {
@@ -194,6 +195,7 @@ function cancelPendingPrivacyReview(): void {
 
 function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin: SessionOrigin): void {
   const current = useSessionStore.getState();
+  const snapshotMode = current.snapshotMode;
   current.pause();
   cancelPendingPrivacyReview();
   cloudConsent = null;
@@ -226,9 +228,11 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     sessionFingerprint: null,
     itemFingerprints: {},
     cachedForCurrentConfig: {},
-    cacheReady: false,
+    cacheReady: snapshotMode,
     restoredAnnotationCount: 0,
   });
+  // EX-INV-4：快照模式下跳過 IndexedDB 快取還原 (file:// 的 null origin 部分瀏覽器會直接拒絕)。
+  if (snapshotMode) return;
   void (async () => {
     const itemFingerprints = await buildItemFingerprintMap(viewItems);
     const sessionFingerprint = await fingerprintSession(doc);
@@ -310,6 +314,9 @@ interface SessionState {
   /** 解析提示已被使用者收起；提示內容仍留在 warnings，總覽的則數不受影響。 */
   warningsDismissed: boolean;
 
+  /** 靜態 HTML 快照模式；true 時隱藏載入／講解／Provider／匯出入口並跳過快取還原 (EX-INV-4)。 */
+  snapshotMode: boolean;
+
   /** 「講解全部」進度 (null = 未執行)。 */
   annotateProgress: AnnotateProgress | null;
 
@@ -323,6 +330,8 @@ interface SessionState {
   annotationErrors: Record<string, string>;
 
   // ---- actions ----
+  /** 由匯出的 SessionExport 重新水合 store，供靜態快照的進入點使用 (EX-03)。 */
+  hydrateSessionExport: (payload: SessionExport) => void;
   loadFromText: (raw: string, origin?: SessionOrigin) => void;
   loadFromFiles: (files: TranscriptFileInput[], origin?: SessionOrigin) => void;
   loadFromBlobs: (files: SessionBlobInput[], origin?: SessionOrigin) => Promise<void>;
@@ -421,6 +430,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   restoredAnnotationCount: 0,
   storageNotice: null,
   warningsDismissed: false,
+  snapshotMode: false,
 
   annotateProgress: null,
 
@@ -431,6 +441,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   annotations: {},
   annotatingIds: {},
   annotationErrors: {},
+
+  hydrateSessionExport: (payload) => {
+    // 先設 snapshotMode，讓 publishPipelineResult 同步讀到並跳過快取還原 (EX-INV-4)。
+    set({ snapshotMode: true });
+    loadPipeline(() => ({ doc: payload.document, warnings: [] }), "user");
+    set({ annotations: payload.annotations, primaryView: "overview" });
+  },
 
   loadFromText: (raw, origin = "user") => loadPipeline(() => buildSessionDocument(raw), origin),
 
