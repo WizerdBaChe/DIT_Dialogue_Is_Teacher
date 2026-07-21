@@ -339,6 +339,12 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .session-map-header h2 { margin: 0; font-size: 22px; }
 .session-map-header h2:focus { outline: none; }
 .session-map-header p { margin: 3px 0 0; color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
+.map-anchor-note { color: var(--text-dark); }
+.map-anchor-note::before {
+  content: "⌐"; display: inline-block; margin-right: 5px; color: var(--text-dark);
+}
+.map-anchor-note.unresolved { color: var(--danger); }
+.map-anchor-note.unresolved::before { content: "△"; color: var(--danger); }
 .map-levels { display: flex; gap: 4px; }
 .map-levels .btn[aria-pressed="true"] { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 .map-close {
@@ -375,10 +381,20 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .map-target.map-kind-outcome { color: var(--success); }
 .map-target.map-kind-subagent { color: var(--decision); }
 .map-target.map-cluster .map-shape { stroke-dasharray: 6 4; }
+/* 閱讀位置 (你在這裡)：實線粗框 + 節點上方標籤，全圖唯一。 */
 .map-target .map-current-ring { fill: none; stroke: var(--accent-primary); stroke-width: 4; }
-.map-you-are-here {
+.map-target .map-you-are-here-tag {
+  fill: var(--accent-primary); font-family: var(--font-sans); font-size: 11px; font-weight: 700;
+  stroke: var(--bg-map); stroke-width: 4; paint-order: stroke;
+}
+/* 取景中心：只說明「這一層是以誰為中心裁切」，刻意低調，不得與你在這裡混淆。 */
+.map-target.focus .map-focus-ring {
+  fill: none; stroke: var(--text-dark); stroke-width: 1.5; stroke-dasharray: 4 5; opacity: 0.7;
+}
+.map-position-note {
   position: sticky; left: 12px; bottom: 8px; display: inline-block; padding: 3px 7px;
-  background: var(--accent-primary); color: #fff; font-family: var(--font-sans); font-size: 10px;
+  background: var(--bg-card); color: var(--text-dark); border: 1px solid var(--rule-strong);
+  font-family: var(--font-sans); font-size: 10px;
 }
 .map-landmarks { min-width: 0; min-height: 0; background: var(--bg-reader); }
 .map-landmark-scroll { height: 100%; overflow-y: auto; }
@@ -391,6 +407,17 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .map-landmark-row strong { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-main); }
 .map-landmark-row:hover, .map-landmark-row.selected { background: var(--accent-tint); }
 .map-landmark-row.selected { box-shadow: inset 3px 0 0 var(--accent-primary); }
+/* 支線 / 支線群組是主線站的子項：縮排 + 前置引線，語意上不是新的主線節點。 */
+.map-landmark-row.sub { padding-left: 30px; }
+.map-landmark-row.sub::before {
+  content: "└"; position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--text-dark); font-family: var(--font-mono);
+}
+.map-row-here {
+  margin-left: 6px; padding: 1px 5px; background: var(--accent-primary); color: #fff;
+  font-style: normal; font-size: 9px; letter-spacing: 0; text-transform: none; white-space: nowrap;
+}
+.map-footer-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .session-map-footer {
   display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 78px;
   padding: 12px 18px; border-top: 1px solid var(--rule-strong); background: var(--bg-footer);

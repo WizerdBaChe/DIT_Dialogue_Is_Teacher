@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   CLUSTER_MAP_SYMBOL,
+  EMPTY_SESSION_MAP_PROJECTION,
   MAX_MOUNTED_DETAIL_RIBS,
   SKELETON_NODE_KIND_ORDER,
   SKELETON_NODE_SYMBOL,
@@ -10,25 +11,49 @@ import {
   SUBAGENT_MAP_SYMBOL,
   buildSessionMapProjection,
   canJumpToMapTarget,
+  isSpineTarget,
+  resolveCurrentSpineTargetId,
   resolveSessionMapSelection,
+  type MapLandmark,
   type MapZoomLevel,
   type SessionMapTarget,
 } from "@/core/view/sessionMap";
+import { reportFallback } from "@/core/diagnostics";
 import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
-import { landmarkKindLabel } from "./labels";
+import { landmarkKindLabel, mapTargetOrdinal } from "./labels";
 import { SessionMapGraphic } from "./SessionMapGraphic";
 
-function focusIdForTarget(target: SessionMapTarget | null, currentId: string | null, viewItemIds: string[]): string | null {
+/**
+ * 聚合節點被展開時，要以哪一個來源項目當新的取景中心 —— 取離目前位置最近的那個。
+ * 用 Map 查位置：原本是在 reduce 裡對整個 viewItems 做 indexOf，
+ * 大 session (數萬項) 加上大聚合會變成數千萬次比較，點一下就卡住。
+ */
+function focusIdForTarget(
+  target: SessionMapTarget | null,
+  currentId: string | null,
+  viewIndexById: Map<string, number>,
+): string | null {
   if (!target) return currentId;
   if (target.type === "landmark") return target.viewItemId;
-  const currentIndex = currentId ? viewItemIds.indexOf(currentId) : -1;
+  const currentIndex = currentId ? viewIndexById.get(currentId) ?? -1 : -1;
   if (currentIndex < 0) return target.sourceViewItemIds[0] ?? null;
-  return target.sourceViewItemIds.reduce((nearest, id) => {
-    const nearestDistance = Math.abs(viewItemIds.indexOf(nearest) - currentIndex);
-    const distance = Math.abs(viewItemIds.indexOf(id) - currentIndex);
-    return distance < nearestDistance ? id : nearest;
-  }, target.sourceViewItemIds[0] ?? currentId);
+  let nearest: string | null = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const id of target.sourceViewItemIds) {
+    const index = viewIndexById.get(id);
+    // 位置不明的來源直接跳過；當成 index -1 會讓它假裝離開頭很近而被選中。
+    if (index === undefined) {
+      reportFallback("sessionMap/focusIdForTarget", "cluster-source-not-in-view-model", { id, clusterId: target.id });
+      continue;
+    }
+    const distance = Math.abs(index - currentIndex);
+    if (distance < nearestDistance) {
+      nearest = id;
+      nearestDistance = distance;
+    }
+  }
+  return nearest ?? target.sourceViewItemIds[0] ?? currentId;
 }
 
 export function SessionMapDialog(): ReactNode {
@@ -52,25 +77,13 @@ export function SessionMapDialog(): ReactNode {
   const graphicScrollRef = useRef<HTMLDivElement>(null);
   const focusReaderAfterClose = useRef(false);
   const [selectedMapTargetId, setSelectedMapTargetId] = useState<string | null>(null);
-  const currentViewItemId = playingId ?? activeId;
-  const viewItemIds = useMemo(() => viewItems.map((item) => item.id), [viewItems]);
-  const position = selectCurrentPosition({ viewItems, activeId, playingId });
-  const projection = useMemo(
-    () => doc && mapOpen
-      ? buildSessionMapProjection(doc, viewItems, mapZoomLevel, mapFocusId ?? currentViewItemId)
-      : { level: "global" as const, focusStationIndex: 0, targets: [], totalStations: 0, totalRibs: 0 },
-    [currentViewItemId, doc, mapFocusId, mapOpen, mapZoomLevel, viewItems],
-  );
-  const selectedTarget = resolveSessionMapSelection(projection, selectedMapTargetId ?? mapFocusId);
-  const virtualizer = useVirtualizer({
-    count: projection.targets.length,
-    getScrollElement: () => listRef.current,
-    estimateSize: () => 68,
-    overscan: 4,
-    getItemKey: (index) => projection.targets[index]?.id ?? index,
-  });
 
-  useEffect(() => {
+  /**
+   * 這個 layout effect 必須排在 useVirtualizer 之前。
+   * <dialog> 未開啟時是 display:none；內容若在那個狀態下被虛擬清單量到，高度會是 0 而且之後不再補算，
+   * 地標清單就會整片空白。先在 layout 階段把 dialog 打開，虛擬清單的 layout effect 才量得到真實高度。
+   */
+  useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (mapOpen && !dialog.open) {
@@ -80,10 +93,49 @@ export function SessionMapDialog(): ReactNode {
         dialog.setAttribute("open", "");
         dialog.dataset.modalFallback = "true";
       }
-      window.requestAnimationFrame(() => titleRef.current?.focus());
     } else if (!mapOpen && dialog.open) {
       dialog.close();
     }
+  }, [mapOpen]);
+  const currentViewItemId = playingId ?? activeId;
+  const viewIndexById = useMemo(() => new Map(viewItems.map((item, index) => [item.id, index])), [viewItems]);
+  const position = selectCurrentPosition({ viewItems, activeId, playingId });
+  const projection = useMemo(
+    () => doc && mapOpen
+      ? buildSessionMapProjection(doc, viewItems, mapZoomLevel, mapFocusId ?? currentViewItemId, currentViewItemId)
+      : EMPTY_SESSION_MAP_PROJECTION,
+    [currentViewItemId, doc, mapFocusId, mapOpen, mapZoomLevel, viewItems],
+  );
+  const selectedTarget = resolveSessionMapSelection(projection, selectedMapTargetId ?? mapFocusId);
+  const currentSpineTargetId = resolveCurrentSpineTargetId(projection, currentViewItemId);
+  // 換取景中心原本只能靠「再按一次層級鈕」這個隱藏操作；這裡把它變成看得見的按鈕。
+  const selectedStationIndex = selectedTarget
+    ? (selectedTarget.type === "landmark" ? selectedTarget.stationIndex : selectedTarget.firstStationIndex)
+    : null;
+  const canRecenter = mapZoomLevel !== "global"
+    && selectedStationIndex !== null
+    && selectedStationIndex !== projection.focusStationIndex;
+  // 全局層沒有裁切，不需要說明取景中心；定位失敗時要說「無法定位」而不是報一個假的中心。
+  const anchorStation = mapZoomLevel === "global" || !projection.focusResolved
+    ? null
+    : projection.targets.find((target): target is MapLandmark => (
+      target.type === "landmark"
+      && target.parentStationId === null
+      && target.stationIndex === projection.focusStationIndex
+    )) ?? null;
+  const anchorUnresolved = mapZoomLevel !== "global" && !projection.focusResolved && projection.targets.length > 0;
+  const virtualizer = useVirtualizer({
+    count: projection.targets.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 68,
+    overscan: 4,
+    getItemKey: (index) => projection.targets[index]?.id ?? index,
+  });
+
+  useEffect(() => {
+    if (!mapOpen) return;
+    const frame = window.requestAnimationFrame(() => titleRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
   }, [mapOpen]);
 
   useEffect(() => {
@@ -129,7 +181,7 @@ export function SessionMapDialog(): ReactNode {
     setSelectedMapTargetId(target.type === "landmark" ? target.viewItemId : target.id);
   };
   const changeZoom = (level: MapZoomLevel, target: SessionMapTarget | null = selectedTarget) => {
-    const focusId = focusIdForTarget(target, currentViewItemId, viewItemIds);
+    const focusId = focusIdForTarget(target, currentViewItemId, viewIndexById);
     setSelectedMapTargetId(focusId);
     setMapZoom(level, focusId ?? undefined);
   };
@@ -161,6 +213,12 @@ export function SessionMapDialog(): ReactNode {
           <div>
             <h2 id="session-map-title" ref={titleRef} tabIndex={-1}>{t.map.title}</h2>
             <p>{t.map.currentPosition(position.current ?? "—", position.total)}</p>
+            {anchorStation && (
+              <p className="map-anchor-note">
+                {t.map.anchoredAt(`${mapTargetOrdinal(anchorStation)} · ${landmarkKindLabel(t, anchorStation)}`)}
+              </p>
+            )}
+            {anchorUnresolved && <p className="map-anchor-note unresolved">{t.map.anchorUnresolved}</p>}
           </div>
           <div className="map-levels" role="group" aria-label={t.map.title}>
             {(["global", "section", "detail"] as MapZoomLevel[]).map((level) => (
@@ -197,7 +255,7 @@ export function SessionMapDialog(): ReactNode {
                   onSelect={selectTarget}
                 />
               </div>
-              <span className="map-you-are-here">{t.map.youAreHere}</span>
+              {!currentSpineTargetId && <span className="map-position-note">{t.map.currentOutOfView}</span>}
             </div>
             <section className="map-landmarks" aria-label={t.map.landmarkList}>
               <div ref={listRef} className="map-landmark-scroll">
@@ -205,19 +263,31 @@ export function SessionMapDialog(): ReactNode {
                   {mountedRows.map((virtualItem) => {
                     const target = projection.targets[virtualItem.index];
                     const selected = target.id === selectedTarget?.id;
+                    // 只認 id：viewItemId 在骨架有瑕疵時可能重複，比對 id 才保證全清單唯一。
+                    const current = target.id === currentSpineTargetId;
+                    // 支線與支線群組是站的子項，縮排並標成 sub，避免被誤讀成新的主線節點。
+                    const sub = !isSpineTarget(target);
+                    const kindText = target.type === "landmark"
+                      ? landmarkKindLabel(t, target)
+                      : target.groupKind === "ribs"
+                        ? t.map.branchCount(target.count)
+                        : target.groupKind === "subagents"
+                          ? t.map.subagentCount(target.count)
+                          : t.map.clusterLabel(target.count, target.firstStationIndex + 1, target.lastStationIndex + 1);
                     return (
                       <button
                         key={target.id}
                         type="button"
-                        className={`map-landmark-row ${selected ? "selected" : ""}`}
+                        className={`map-landmark-row ${selected ? "selected" : ""} ${sub ? "sub" : ""} ${current ? "current" : ""}`}
                         style={{ transform: `translateY(${virtualItem.start}px)` }}
                         data-index={virtualItem.index}
                         onClick={() => selectTarget(target)}
                       >
                         <span>
-                          {target.type === "landmark"
-                            ? landmarkKindLabel(t, target)
-                            : t.map.clusterLabel(target.count, target.firstStationIndex + 1, target.lastStationIndex + 1)}
+                          {target.type === "cluster" && target.groupKind === "range"
+                            ? kindText
+                            : `${mapTargetOrdinal(target)} · ${kindText}`}
+                          {current && <em className="map-row-here">{t.map.youAreHere}</em>}
                         </span>
                         <strong>{target.label}</strong>
                       </button>
@@ -242,6 +312,12 @@ export function SessionMapDialog(): ReactNode {
             ) : <p>{t.map.noSelection}</p>}
             {mapError && <p className="map-error" role="alert">{mapError}</p>}
           </div>
+          <div className="map-footer-actions">
+          {canRecenter && (
+            <button type="button" className="btn" onClick={() => changeZoom(mapZoomLevel, selectedTarget)}>
+              {t.map.recenter}
+            </button>
+          )}
           {selectedTarget?.type === "cluster" ? (
             <button
               type="button"
@@ -264,6 +340,7 @@ export function SessionMapDialog(): ReactNode {
               {t.map.jump}
             </button>
           )}
+          </div>
         </footer>
       </div>}
     </dialog>
