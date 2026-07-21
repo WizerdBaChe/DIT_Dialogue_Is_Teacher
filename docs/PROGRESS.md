@@ -2,7 +2,34 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
-## R5.5 — 符號語意對齊與文案修正｜2026-07-21｜🟡 SA-01～SA-06 已實作，待使用者 390/740/1280 視覺 UAT
+## R5.5+ — UAT 後修正輪｜2026-07-21｜✅ 使用者已驗收，R5＋R5.5 一併合併回 `main`
+
+SA-01～SA-06 交付後，使用者在真實環境進行 R5＋R5.5 合併視覺 UAT，回報了一批定位與可用性偏差。
+修正在同一分支上以四個垂直切片提交，全部包含在使用者最終驗收的版本內。
+
+- [x] **降級記錄機制** (`b3691f5`)：新增 `src/core/diagnostics.ts`，凡是「查不到就用替代值」的路徑
+  （normalizer 的 session id／sidechain uuid／tool_result 掛載／tool 名稱、cloud 信心值、annotation
+  repository 降級）都改為以穩定短代碼 `reportFallback()` 留下記錄；Worker 端記錄隨 `complete` 訊息併回
+  主執行緒，否則會隨 `terminate()` 消失。開發時可由 `window.__DIT_FALLBACKS` 讀取。
+- [x] **修正魚骨站點定位** (`d017b0f`)：`buildFishbone` 原本在骨架 span 本身不是 top-level viewItem 時
+  退回 `viewItems[0]`，導致站點位置、子代理掛載與「跳到這一步」全部指向錯誤卡片。改為建立
+  span → 承載 viewItem 的 owner map（涵蓋巢狀 tool_result 與群組成員），真的對應不到就整筆捨棄並記錄，
+  不再以猜測填補。這是 R5 Session Map 定位問題的根因。
+- [x] **地圖站序與取景語意** (`32b13f0`)：三個縮放層級共用同一套全域主線站序（`3` / `3.2` / `3–7`）；
+  支線與子代理改以站的子項（縮排 + 引線）呈現，不再是額外的主線節點，因此主線圖形在三層之間不再忽長忽短；
+  區段層改為範圍內「每一站」各給支線／子代理摘要列，而非只有焦點站。投影新增 `focusResolved` 與
+  `currentStationIndex`，把「取景中心」與「閱讀位置」徹底分離——定位失敗時明說「無法定位取景中心」，
+  不再假裝錨在第 1 站。Minimap 密度改以真實 viewItem 索引分桶，修正它與同一條軌道上位置圓點座標互相
+  矛盾的問題；找不到選取項目時不畫圓點，而不是畫在起點宣稱假位置。
+- [x] **工作區控制與可關閉提示** (`4ad846a`)：Provider、講解開關與批次講解由設定匣移回 header
+  （空間不足時自行換行撐高 header，不裁切）；error／解析提示／儲存降級三種橫幅新增關閉鈕，提示內容仍留在
+  store，總覽的則數不受影響；使用者自行載入的 session 直接進 Reader，Overview 僅作為內建範例的著陸頁
+  （ACCEPTANCE §1「初載先看到 Overview」指的是內建示範，語意不變）。
+- 驗證：四卡各自在「僅含該卡變更」的工作區狀態下驗過 `npm.cmd test`（147／150／158／158）、
+  `npm.cmd run typecheck`、`git diff --check` 全數 exit 0；最終狀態 `npm.cmd run build` 120 modules 成功。
+  測試數由 R5.5 收尾的 143 增至 158（新增 diagnostics、fishbone owner map、地圖站序與取景解析等案例）。
+
+## R5.5 — 符號語意對齊與文案修正｜2026-07-21｜✅ 已完成並經使用者視覺 UAT（含上方修正輪）
 
 依 [PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md](PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md) 施工，於 feature branch
 `codex/r5.5-semantic-alignment`（自 `codex/r5-large-session-responsive`）。修正 R5 交付內容中 Sidebar 圖例
@@ -42,7 +69,7 @@
   `rg -n '"fb"|modes' src/i18n/locales.ts` 均無輸出。使用者 390／740／1280 最終視覺 UAT 尚未完成，
   與 R5（T-005）合併於同一輪收尾。
 
-## R5 — 大型 Session 效能 + Guided Navigation｜2026-07-19｜🟡 GN-01～GN-10 已實作，待 GN-10 視覺驗收
+## R5 — 大型 Session 效能 + Guided Navigation｜2026-07-19｜✅ 已完成，2026-07-21 與 R5.5 合併驗收通過
 
 - [x] **GN-10 Section 與視覺平衡修復**：Map preview selection 與 projection focus 已拆開；production 實際選取另一個 Section 地標前後，5 個 target ID 與順序完全相同，只有 selected 狀態移動。Sidebar 恢復 20 px 透明底純文字 glyph，重要節點文字標籤保留；圖例改為每列四種；Map 節點填色改回所在區域底色，不再出現額外白底圖塊。
 - [x] **GN-10 production 證據**：390×844、740×1113、1280×720 文件級水平溢位皆為 false；Sidebar glyph 對底色為 8.03:1，Map 文字為 7.21:1，紅色 Close 為 7.92:1。50.0018 MiB fixture 的 Reader DOM 最大 247、Map DOM 最大 434；`r5-gn10-metrics.json` benchmark 18/18 checks pass。load／cancel、134 ms open latency 與 deep index 28,541 沿用未改管線的 GN-09 同機證據。
