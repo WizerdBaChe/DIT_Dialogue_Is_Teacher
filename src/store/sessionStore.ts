@@ -40,6 +40,7 @@ import {
 } from "@/core/annotation";
 import { sampleSession } from "@/fixtures";
 import { MESSAGES, type Locale } from "@/i18n/locales";
+import { resetFallbackReport } from "@/core/diagnostics";
 import {
   SessionLoadCancelledError,
   startSessionLoad,
@@ -199,14 +200,16 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
   const generation = ++cacheLoadGeneration;
   const viewItems = buildViewModel(doc);
   if (import.meta.env.DEV && typeof window !== "undefined") {
-    (window as unknown as { __DIT?: unknown }).__DIT = { doc, viewItems };
+    (window as unknown as { __DIT?: unknown }).__DIT = { doc, viewItems, store: useSessionStore };
   }
   useSessionStore.setState({
     doc,
     viewItems,
     warnings,
+    warningsDismissed: false,
     error: null,
-    primaryView: "overview",
+    // 使用者自己載入的 session 直接進閱讀；總覽只當作內建範例的著陸頁。
+    primaryView: sessionOrigin === "user" ? "reader" : "overview",
     sessionOrigin,
     structureDrawerOpen: false,
     mapOpen: false,
@@ -254,6 +257,8 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
 }
 
 function loadPipeline(build: () => PipelineResult, origin: SessionOrigin): void {
+  // 必須在 build() 之前清空：降級記錄只反映目前這份資料，而 normalizer 的事件是在 build() 期間產生的。
+  resetFallbackReport();
   try {
     publishPipelineResult(build(), origin);
   } catch (error) {
@@ -302,6 +307,8 @@ interface SessionState {
   cacheReady: boolean;
   restoredAnnotationCount: number;
   storageNotice: string | null;
+  /** 解析提示已被使用者收起；提示內容仍留在 warnings，總覽的則數不受影響。 */
+  warningsDismissed: boolean;
 
   /** 「講解全部」進度 (null = 未執行)。 */
   annotateProgress: AnnotateProgress | null;
@@ -321,6 +328,9 @@ interface SessionState {
   loadFromBlobs: (files: SessionBlobInput[], origin?: SessionOrigin) => Promise<void>;
   cancelSessionLoad: () => void;
   dismissSessionLoadStatus: () => void;
+  dismissWarnings: () => void;
+  dismissError: () => void;
+  dismissStorageNotice: () => void;
   reset: () => void;
   setProvider: (id: ProviderId) => void;
   setLocale: (locale: Locale) => void;
@@ -410,6 +420,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   cacheReady: false,
   restoredAnnotationCount: 0,
   storageNotice: null,
+  warningsDismissed: false,
 
   annotateProgress: null,
 
@@ -427,6 +438,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   loadFromBlobs: async (files, origin = "user") => {
     activeSessionLoad?.cancel();
+    // worker 的記錄會在 complete 時併回來，這裡先清掉上一份 session 的。
+    resetFallbackReport();
     const totalBytes = files.reduce((sum, file) => sum + file.blob.size, 0);
     set({
       sessionLoadProgress: { phase: "reading", loadedBytes: 0, totalBytes, lineCount: 0, sourcePath: null },
@@ -471,6 +484,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, sessionLoadError: null }),
+  dismissWarnings: () => set({ warningsDismissed: true }),
+  dismissError: () => set({ error: null }),
+  dismissStorageNotice: () => set({ storageNotice: null }),
 
   reset: () => {
     activeSessionLoad?.cancel();
@@ -482,6 +498,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       doc: null,
       viewItems: [],
       warnings: [],
+      warningsDismissed: false,
       error: null,
       sessionLoadProgress: null,
       sessionLoadError: null,

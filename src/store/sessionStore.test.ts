@@ -76,7 +76,7 @@ describe("multi-file session loading", () => {
 });
 
 describe("workspace navigation", () => {
-  it("publishes sample, user, and reset sessions into the overview", () => {
+  it("lands the sample on the overview but takes a loaded session straight to the reader", () => {
     useSessionStore.getState().loadFromText(sampleSession, "sample");
     expect(useSessionStore.getState().sessionOrigin).toBe("sample");
     expect(useSessionStore.getState().primaryView).toBe("overview");
@@ -84,7 +84,7 @@ describe("workspace navigation", () => {
 
     useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
     expect(useSessionStore.getState().sessionOrigin).toBe("user");
-    expect(useSessionStore.getState().primaryView).toBe("overview");
+    expect(useSessionStore.getState().primaryView).toBe("reader");
     expect(useSessionStore.getState().activeId).toBe(useSessionStore.getState().viewItems[0]?.id);
 
     useSessionStore.getState().setPrimaryView("subagents");

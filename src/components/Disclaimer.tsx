@@ -14,5 +14,12 @@ export function Disclaimer(): ReactNode {
 export function StorageNotice(): ReactNode {
   const t = useT();
   const storageNotice = useSessionStore((state) => state.storageNotice);
-  return storageNotice ? <div className="storage-notice" role="alert">{t.storage.degraded(storageNotice)}</div> : null;
+  const dismiss = useSessionStore((state) => state.dismissStorageNotice);
+  if (!storageNotice) return null;
+  return (
+    <div className="storage-notice" role="alert">
+      <span className="notice-body">{t.storage.degraded(storageNotice)}</span>
+      <button type="button" className="notice-dismiss" onClick={dismiss} aria-label={t.notice.dismiss} title={t.notice.dismiss}>✕</button>
+    </div>
+  );
 }
