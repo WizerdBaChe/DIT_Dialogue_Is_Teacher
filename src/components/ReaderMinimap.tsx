@@ -44,16 +44,6 @@ export function ReaderMinimap({ visibleStart, visibleEnd }: ReaderMinimapProps):
     }
   });
 
-  const minimapSvg = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">`,
-    `<path d="M ${trackLeft} 56 H ${width - trackLeft}" fill="none" stroke="#c3bcab" stroke-width="1.5"/>`,
-    `<path d="${landmarkPath.join(" ")}" fill="#4f4a41"/>`,
-    `<path d="${clusterPath.join(" ")}" fill="#8a6a2f" fill-opacity=".72"/>`,
-    `<rect x="${viewportX}" y="34" width="${Math.max(4, viewportEndX - viewportX)}" height="44" fill="rgba(124,33,40,.08)" stroke="#8a6a2f"/>`,
-    `<circle cx="${currentX}" cy="56" r="5" fill="#7c2128" stroke="#eee8dd" stroke-width="2"/>`,
-    "</svg>",
-  ].join("");
-
   return (
     <button
       type="button"
@@ -62,8 +52,15 @@ export function ReaderMinimap({ visibleStart, visibleEnd }: ReaderMinimapProps):
       aria-haspopup="dialog"
       aria-controls="session-map-dialog"
       data-label={t.map.youAreHere}
-      style={{ backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(minimapSvg)}")` }}
       onClick={openMap}
-    />
+    >
+      <svg aria-hidden="true" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        <path d={`M ${trackLeft} 56 H ${width - trackLeft}`} fill="none" stroke="#c3bcab" strokeWidth={1.5} />
+        <path d={landmarkPath.join(" ")} fill="#4f4a41" />
+        <path d={clusterPath.join(" ")} fill="#8a6a2f" fillOpacity={0.72} />
+        <rect x={viewportX} y={34} width={Math.max(4, viewportEndX - viewportX)} height={44} fill="rgba(124,33,40,.08)" stroke="#8a6a2f" />
+        <circle cx={currentX} cy={56} r={5} fill="#7c2128" stroke="#eee8dd" strokeWidth={2} />
+      </svg>
+    </button>
   );
 }
