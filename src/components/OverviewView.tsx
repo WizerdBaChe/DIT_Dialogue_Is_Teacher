@@ -20,6 +20,7 @@ export function OverviewView(): ReactNode {
   const sessionOrigin = useSessionStore((state) => state.sessionOrigin);
   const activeId = useSessionStore((state) => state.activeId);
   const playingId = useSessionStore((state) => state.playingId);
+  const snapshotMode = useSessionStore((state) => state.snapshotMode);
   const startReading = useSessionStore((state) => state.startReading);
   const dismissError = useSessionStore((state) => state.dismissError);
 
@@ -37,11 +38,14 @@ export function OverviewView(): ReactNode {
 
   const currentId = playingId ?? activeId;
   const isFirstItem = currentId === (viewItems[0]?.id ?? null);
-  const cta = sessionOrigin === "sample"
-    ? t.overview.startSample
-    : isFirstItem
-      ? t.overview.startReading
-      : t.overview.continueReading;
+  // LS-10：快照模式沒有載入入口，CTA 不引用「載入」語意，避免死文案 (SA-INV-3)。
+  const cta = snapshotMode
+    ? t.overview.startBrowsing
+    : sessionOrigin === "sample"
+      ? t.overview.startSample
+      : isFirstItem
+        ? t.overview.startReading
+        : t.overview.continueReading;
 
   return (
     <main className="main-content overview-view">
