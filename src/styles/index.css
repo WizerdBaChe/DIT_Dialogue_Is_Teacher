@@ -655,12 +655,15 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .notice-dismiss:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
 
 /* ---- Span card：無框，靠留白 + 底部細線分區，無陰影 ---- */
-/* LS-INV-4/LS-07：badges 與 layer-title 改真 grid 兩軌，不再用絕對定位 + 固定 padding-right 佔位。 */
+/* LS-INV-4/LS-07：badges 與 layer-title 改真 grid 兩軌，不再用絕對定位 + 固定 padding-right 佔位。
+   R7-INV-2（R7A-03）：badges 軌道不得再吃固定比例——第二軌改 minmax(0, auto)，實際寬度由
+   .badges 的內容（含 max-width 上限）決定；第一軌保 --measure-min 下限，0 badge 的卡幾乎滿版。 */
 .layer-card {
   background: transparent; border: none; border-bottom: 1px solid var(--rule);
   border-left: 3px solid transparent; padding: 22px 4px 22px 20px; margin-bottom: 6px;
   transition: border-color 0.2s, background 0.2s;
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 45%); column-gap: 12px; align-items: start;
+  display: grid; grid-template-columns: minmax(min(100%, var(--measure-min)), 1fr) minmax(0, auto);
+  column-gap: 12px; align-items: start;
   container-type: inline-size; container-name: layer-card;
 }
 .layer-card.highlighted { border-left-color: var(--accent-primary); background: var(--accent-tint); }
@@ -670,7 +673,7 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .layer-card.error.playing { background: rgba(138, 106, 47, 0.07); }
 
 .layer-card > *:not(.badges):not(.layer-title) { grid-column: 1 / -1; }
-.badges { grid-column: 2; grid-row: 1; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-self: start; }
+.badges { grid-column: 2; grid-row: 1; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-self: start; max-width: 22ch; }
 .badge {
   font-family: var(--font-sans); font-size: calc(10px * var(--ui-scale)); padding: 1px 7px; border-radius: 2px;
   border: 1px solid var(--rule-strong); background: transparent; color: var(--text-muted);
@@ -688,8 +691,10 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 }
 .layer-title .title-text { min-width: 0; overflow-wrap: break-word; }
 
-/* 容器（layer-card 本身）< 520px：badges 落到標題下一列，兩軌合併成單欄。 */
-@container layer-card (max-width: 519px) {
+/* 容器（layer-card 本身）< 460px：badges 落到標題下一列，兩軌合併成單欄。
+   R7A-03 重算：--measure-min(32ch≈272px) + kind chip(≈60px) + gap(12px) + badges 最小可接受寬(≈100px)
+   ≈ 444px，取整 460px（原 519px 是為舊版 45% 固定軌算的，不再適用）。 */
+@container layer-card (max-width: 459px) {
   .layer-card { grid-template-columns: minmax(0, 1fr); }
   .badges { grid-column: 1; grid-row: 2; justify-content: flex-start; margin-bottom: 8px; }
   .layer-title { grid-column: 1; grid-row: 1; flex-wrap: wrap; }
