@@ -46,6 +46,13 @@ R7A-00 → R7A-07 → （之後）R7B-00 → R7B-06。
   BACKLOG.md 登記「全站 `--fs-*` 階梯對齊」與「`@container` 成對 min/max 縫隙稽核」兩項；
   `git diff --check` exit 0。
 
+- [x] **UAT 回饋修正：settings-group `max-width` 補上限**（commit `31323e2`）：使用者在 1920px 寬螢幕
+  回報教學講解組視覺上仍吃掉不成比例的空間。根因：`--group-grow` 沒有上限，寬螢幕下 5 組都能塞進同一行
+  時，剩餘空間依 grow 值分配，但組內控制項是固定寬度，多分到的空間變成組內死白（教學講解 594px，
+  內容實際只需 ~470px）。修法：每組補 `max-width`（教學講解 520px、Session／匯出 340px、導航 300px、
+  語言 210px），成長到內容需求附近即停止。已於 1920/1280/390 三寬度重新驗證：1920 教學講解降到
+  519px；1280 仍維持 R7A-01 原驗收數字（語言 169、教學講解 465，皆達標）；390 無溢位。
+
 **Part A 全部 7 張卡片（R7A-00～07）已完成，等待使用者在真實環境完成 ACCEPTANCE.md §21 的 UAT。**
 依 PSM §0/§9.3，Part A 完成、Part B 開工前建議做一次 workflow-checkpoint；Part B（R7B-00～06，
 Codex 多來源接入）尚未開始，不得在 Part A UAT 通過前開工。
