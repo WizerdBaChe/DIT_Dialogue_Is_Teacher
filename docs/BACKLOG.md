@@ -2,6 +2,21 @@
 
 > 已決定但尚未實作的項目。最高優先在上。對應討論：2026-06-25。
 
+## 📌 2026-07-23 R7 Part A 收尾新增
+
+- [ ] **全站 `--fs-*` 字級階梯對齊**：R6.5 LS-01 建立了 `--fs-3xs`～`--fs-2xl` 九階，但當時只把
+  `--ui-scale` 這個「單一旋鈕」貫徹到全站，字級的「比例階梯」本身仍是虛設——全站 100 餘處字級仍是
+  各自的行內字面值（`calc(Npx * var(--ui-scale))`），彼此不對齊九階。R7A-06 只在本輪觸及的
+  header／settings／layer-card／io-head 選擇器內收斂（見
+  [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) A1.6／R7-INV-5），
+  刻意不擴大範圍。全站清掃需要新一輪逐選擇器核對（哪些該精確對齊、哪些是刻意的階梯外特例），
+  獨立排程，不得順手夾帶。
+- [ ] **`@container` 成對 min/max 斷點的縫隙稽核**：R7A-05 施工時發現 `.app-shell` 量到的
+  container inline-size 可能是小數（如 899.33px），會讓成對的 `(min-width:720px) and
+  (max-width:899px)` 型斷點漏接，靜默落回基準值。已用 spawn_task 提醒稽核 `index.css` 內其他既有
+  的成對 min/max 斷點（如品牌短名切換、Session 地圖 dialog 尺寸）是否有同樣的縫隙；本輪只修了
+  R7A-05 新增的三級 `--chrome-scale`，其餘既有斷點未動。
+
 ## 📌 2026-07-20 盤點（R5.5 合約定稿時）
 
 **狀態校正**——下列舊段落已被後續輪次完成或取代，僅留作歷史，不得再作為施工依據：
