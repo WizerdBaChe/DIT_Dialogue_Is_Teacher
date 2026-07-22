@@ -14,8 +14,8 @@ const HEIGHT = 112;
 const TRACK_LEFT = 12;
 const TRACK_WIDTH = WIDTH - TRACK_LEFT * 2;
 const AXIS_Y = 56;
-/** 密度分桶數：一桶約 4px，大 session 才不會退化成一片黑點。 */
-const BUCKETS = 38;
+/** 密度分桶數：一桶約 4px，大 session 才不會退化成一片黑點。LS-05：CSS 尺寸放大 1.5x 後同步調整。 */
+const BUCKETS = 57;
 /** 密度條的半高（以軸為中心上下對稱）；最高 11 → 全高 22px，約佔元件高度的 20%。 */
 const MIN_HALF_BAR = 2;
 const MAX_HALF_BAR = 11;

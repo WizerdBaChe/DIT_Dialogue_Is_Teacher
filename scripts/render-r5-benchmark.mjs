@@ -23,7 +23,11 @@ const checks = [
   ["progress appeared before ready", metrics.load.progressBeforeReady],
   ["cancellation completed before ready", metrics.cancellation.beforeCompletion],
   ["cancellation preserved the previous document", metrics.cancellation.preservedDocument],
-  ["closed Reader total DOM <= 250", metrics.reader.closedTotalElements <= 250],
+  // R6.5 LS-05/LS-06 widened the reader column and shortened the sidebar static area on purpose;
+  // both let more (shorter) rows fit on screen at once, so this ceiling moved from 250 to 320.
+  // The invariant under test — DOM count stays viewport-bounded, not proportional to the 29,452-item
+  // fixture — still holds (see docs/R6.5_BASELINE_2026-07-22.md).
+  ["closed Reader total DOM <= 320", metrics.reader.closedTotalElements <= 320],
   ["global map total DOM <= 500", metrics.map.global.totalElements <= 500],
   ["section map total DOM <= 500", metrics.map.section.totalElements <= 500],
   ["detail map total DOM <= 500", metrics.map.detail.totalElements <= 500],
