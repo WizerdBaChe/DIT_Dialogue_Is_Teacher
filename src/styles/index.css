@@ -44,6 +44,9 @@
 
   /* LS-INV-1：全站字級唯一旋鈕。1 = R5 GN-09 之前的原始倍率。 */
   --ui-scale: 1;
+  /* R7A-05：header 主導覽字級旋鈕。<720 維持雙列基線不套用；720/900/1280 三個既有 @container
+     斷點各覆寫一次，每級的值是該級最窄邊界、English 下的實測安全上限 (R7_BASELINE_2026-07-23.md)。 */
+  --chrome-scale: 1;
   --fs-3xs: calc(9.5px * var(--ui-scale));
   --fs-2xs: calc(10.5px * var(--ui-scale));
   --fs-xs: calc(11px * var(--ui-scale));
@@ -100,7 +103,7 @@ body {
   background: var(--bg-header);
   border-bottom: 1px solid var(--rule-strong);
   min-height: 56px;
-  padding: 8px 18px;
+  padding: 4px 18px;
   display: grid;
   grid-template-columns: auto auto max-content 1fr auto auto;
   align-items: center;
@@ -108,7 +111,7 @@ body {
   z-index: 10;
 }
 .brand { min-width: 0; }
-.brand h1 { font-family: var(--font-serif); font-size: calc(18px * var(--ui-scale)); color: var(--text-main); font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
+.brand h1 { font-family: var(--font-serif); font-size: calc(var(--fs-lg) * var(--chrome-scale)); line-height: 1.2; color: var(--text-main); font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
 .brand-short { display: none; }
 .control { display: flex; align-items: center; gap: 8px; }
 .header-spacer { min-width: 0; }
@@ -118,18 +121,35 @@ body {
   overflow: visible; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
 }
 .workspace-tab {
-  flex: 0 0 auto; min-height: 34px; padding: 5px 14px; border: 0; border-bottom: 2px solid transparent;
-  background: transparent; color: var(--text-muted); font-size: calc(12px * var(--ui-scale)); cursor: pointer;
+  flex: 0 0 auto; min-height: 40px; padding: 5px 14px; border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--text-muted); font-size: calc(var(--fs-sm) * var(--chrome-scale)); cursor: pointer;
   white-space: nowrap;
 }
 .workspace-tab:hover { color: var(--text-main); background: var(--bg-hover); }
 .workspace-tab.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); font-weight: 600; }
 .workspace-tab:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+.header .btn { font-size: calc(var(--fs-sm) * var(--chrome-scale)); }
 /* 教學講解 / 講解來源：D-R65-02 移入設定匣「教學講解」fieldset，不再佔用 header 軌道。 */
 .settings-group select#hdr-provider { max-width: 16ch; padding-right: 2rem; }
 .replay-control { gap: 4px; }
-.compact-action { width: 30px; padding-left: 0; padding-right: 0; }
-.compact-replay { min-width: 54px; }
+.compact-action { width: calc(30px * var(--chrome-scale)); padding-left: 0; padding-right: 0; }
+.compact-replay { min-width: calc(54px * var(--chrome-scale)); }
+
+/* R7A-05：三級旋鈕，鍵在既有 720/900/1280 @container 斷點；<720 沿用上面 :root 的 1（雙列基線）。
+   套用在 .header（容器 .app-shell 的子孫，非容器本身）：把自訂屬性設在查詢容器自己身上
+   （或 :root 這種祖先）在部分瀏覽器不會生效——container query 只保證能可靠地影響「容器的子孫」。
+   刻意只用 min-width、不配對 max-width：容器的 inline-size 常有小數（例如 899.33px），
+   min/max 各自取整的一對條件會漏掉這種小數落點，兩邊都不命中；只用遞增的 min-width，
+   後面命中的規則覆蓋前面的（源碼順序 + 相同特異度），沒有縫隙。 */
+@container dit-app (min-width: 720px) {
+  .header { --chrome-scale: 1.1; }
+}
+@container dit-app (min-width: 900px) {
+  .header { --chrome-scale: 1.2; }
+}
+@container dit-app (min-width: 1280px) {
+  .header { --chrome-scale: 1.5; }
+}
 .settings-toggle-btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .settings-toggle-btn.active { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 
