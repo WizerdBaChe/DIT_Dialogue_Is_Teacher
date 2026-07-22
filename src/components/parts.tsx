@@ -45,16 +45,58 @@ function colorize(text: string): ReactNode {
 }
 
 const IO_SUMMARY_FIRST_LINE_LIMIT = 60;
+const PARAMS_PREVIEW_LIMIT = 60;
+const PARAMS_STRING_VALUE_LIMIT = 32;
 
-/** 從 IO 原文計算收合狀態下的行數與首行摘要 (不新增管線欄位，render 時即算)。 */
+/** 純結構符號或空白組成的行，對自由文字摘要零資訊量 (R7-INV-3)。 */
+const MEANINGLESS_LINE = /^[\s{}[\]().,;:'"`=*_#|>-]*$/;
+
+/** 從 IO 原文計算收合狀態下的行數與首行摘要 (不新增管線欄位，render 時即算)。
+ *  跳過空行與純結構符號行，取第一行有實質字元者 (R7-INV-3)。 */
 export function summarizeCollapsedIOText(text: string): { lineCount: number; firstLine: string } {
   if (text === "") return { lineCount: 0, firstLine: "" };
   const lines = text.split("\n");
-  const firstLine = lines[0];
-  const truncated = firstLine.length > IO_SUMMARY_FIRST_LINE_LIMIT
-    ? `${firstLine.slice(0, IO_SUMMARY_FIRST_LINE_LIMIT)}…`
-    : firstLine;
-  return { lineCount: lines.length, firstLine: truncated };
+  const meaningful = (lines.find((line) => !MEANINGLESS_LINE.test(line)) ?? "").trim();
+  const firstLine = meaningful.length > IO_SUMMARY_FIRST_LINE_LIMIT
+    ? `${meaningful.slice(0, IO_SUMMARY_FIRST_LINE_LIMIT)}…`
+    : meaningful;
+  return { lineCount: lines.length, firstLine };
+}
+
+function formatParamValue(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const normalized = value.replace(/\n/g, " ");
+    return normalized.length > PARAMS_STRING_VALUE_LIMIT
+      ? `${normalized.slice(0, PARAMS_STRING_VALUE_LIMIT)}…`
+      : normalized;
+  }
+  if (typeof value === "number" || typeof value === "boolean" || value === null) return String(value);
+  if (Array.isArray(value)) return `[${value.length}]`;
+  if (typeof value === "object") return "{…}";
+  return undefined; // function 等不可序列化型別：略過該鍵
+}
+
+/** 結構化參數的收合摘要：由物件本身導出，不看序列化文字 (R7-INV-3，A4.3)。 */
+export function summarizeParams(params: Record<string, unknown>): { count: number; preview: string } {
+  const keys = Object.keys(params);
+  let preview = "";
+  for (const key of keys) {
+    const formatted = formatParamValue(params[key]);
+    if (formatted === undefined) continue;
+    const piece = `${key}: ${formatted}`;
+    if (preview === "") {
+      preview = piece.length > PARAMS_PREVIEW_LIMIT ? `${piece.slice(0, PARAMS_PREVIEW_LIMIT)}…` : piece;
+      if (piece.length > PARAMS_PREVIEW_LIMIT) break;
+      continue;
+    }
+    const candidate = `${preview}, ${piece}`;
+    if (candidate.length > PARAMS_PREVIEW_LIMIT) {
+      preview = `${preview}…`;
+      break;
+    }
+    preview = candidate;
+  }
+  return { count: keys.length, preview };
 }
 
 /** 可摺疊的輸入/輸出區塊。標題由呼叫端傳入 (已在地化)。 */
@@ -63,16 +105,26 @@ export function IOBlock({
   text,
   defaultCollapsed = true,
   colored = false,
+  structured,
 }: {
   title: string;
   text: string;
   defaultCollapsed?: boolean;
   colored?: boolean;
+  /** 有值時收合摘要走參數導向摘要，而非序列化文字的首行規則 (R7A-04)。 */
+  structured?: Record<string, unknown>;
 }): ReactNode {
   const t = useT();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
-  const { lineCount, firstLine } = summarizeCollapsedIOText(text);
-  const headText = collapsed ? `${title} · ${t.card.collapsedSummary(lineCount, firstLine)}` : title;
+  let collapsedSummary: string;
+  if (structured) {
+    const { count, preview } = summarizeParams(structured);
+    collapsedSummary = t.card.collapsedParamsSummary(count, preview);
+  } else {
+    const { lineCount, firstLine } = summarizeCollapsedIOText(text);
+    collapsedSummary = t.card.collapsedSummary(lineCount, firstLine);
+  }
+  const headText = collapsed ? `${title} · ${collapsedSummary}` : title;
   return (
     <div className={`io-block ${collapsed ? "collapsed" : ""}`}>
       <div className="io-head" onClick={() => setCollapsed((c) => !c)}>

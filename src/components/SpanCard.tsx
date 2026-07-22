@@ -29,7 +29,7 @@ export function SpanBody({ node }: { node: SpanNode }): ReactNode {
       )}
 
       {span.type === "tool_use" && span.tool && Object.keys(span.tool.params).length > 0 && (
-        <IOBlock title={t.card.paramsTitle} text={JSON.stringify(span.tool.params, null, 2)} />
+        <IOBlock title={t.card.paramsTitle} text={JSON.stringify(span.tool.params, null, 2)} structured={span.tool.params} />
       )}
 
       {children.map((c) => (

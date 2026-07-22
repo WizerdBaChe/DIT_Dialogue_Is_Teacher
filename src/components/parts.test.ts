@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeCollapsedIOText } from "./parts";
+import { summarizeCollapsedIOText, summarizeParams } from "./parts";
 
 describe("SA-04 collapsed IO evidence summary", () => {
   it("returns zero lines and an empty first line for empty text", () => {
@@ -24,5 +24,43 @@ describe("SA-04 collapsed IO evidence summary", () => {
   it("does not truncate a first line at exactly the limit", () => {
     const exact = "b".repeat(60);
     expect(summarizeCollapsedIOText(exact)).toEqual({ lineCount: 1, firstLine: exact });
+  });
+
+  it("skips a leading structural-only line to find the first meaningful one (R7A-04)", () => {
+    expect(summarizeCollapsedIOText('{\n  "a": 1\n}')).toEqual({ lineCount: 3, firstLine: '"a": 1' });
+  });
+});
+
+describe("R7A-04 summarizeParams (structured param summary)", () => {
+  it("(a) formats three scalar keys as count:3 with a key:value preview", () => {
+    expect(summarizeParams({ a: 1, b: true, c: "x" })).toEqual({ count: 3, preview: "a: 1, b: true, c: x" });
+  });
+
+  it("(b) truncates a string value over 32 chars with an ellipsis", () => {
+    const long = "x".repeat(40);
+    const { preview } = summarizeParams({ path: long });
+    expect(preview).toBe(`path: ${"x".repeat(32)}…`);
+  });
+
+  it("(c) renders array values as [n] and object values as {…}", () => {
+    expect(summarizeParams({ items: [1, 2, 3], meta: { nested: true } })).toEqual({
+      count: 2,
+      preview: "items: [3], meta: {…}",
+    });
+  });
+
+  it("(d) stops and appends an ellipsis once the preview exceeds 60 chars", () => {
+    const params = { alpha: "a".repeat(20), beta: "b".repeat(20), gamma: "c".repeat(20) };
+    const { preview } = summarizeParams(params);
+    expect(preview.length).toBeLessThanOrEqual(61);
+    expect(preview.endsWith("…")).toBe(true);
+  });
+
+  it("(e) converts newlines in string values to spaces", () => {
+    expect(summarizeParams({ text: "line1\nline2" })).toEqual({ count: 1, preview: "text: line1 line2" });
+  });
+
+  it("skips undefined/function values but still counts every top-level key", () => {
+    expect(summarizeParams({ a: 1, skip: undefined, fn: () => {} })).toEqual({ count: 3, preview: "a: 1" });
   });
 });

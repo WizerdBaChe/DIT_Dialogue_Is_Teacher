@@ -187,6 +187,8 @@ const zhTW = {
     groupHint: (collapsed: boolean) => `確定性降噪 · 點擊${collapsed ? "展開" : "收合"}`,
     collapsedSummary: (lineCount: number, firstLine: string) =>
       firstLine ? `${lineCount} 行 · ${firstLine}` : `${lineCount} 行`,
+    collapsedParamsSummary: (count: number, preview: string) =>
+      preview ? `${count} 項 · ${preview}` : `${count} 項`,
   },
 
   annotation: {
@@ -553,6 +555,8 @@ const en: Messages = {
     groupHint: (collapsed: boolean) => `Deterministic denoise · click to ${collapsed ? "expand" : "collapse"}`,
     collapsedSummary: (lineCount: number, firstLine: string) =>
       firstLine ? `${lineCount} line${lineCount === 1 ? "" : "s"} · ${firstLine}` : `${lineCount} line${lineCount === 1 ? "" : "s"}`,
+    collapsedParamsSummary: (count: number, preview: string) =>
+      preview ? `${count} field${count === 1 ? "" : "s"} · ${preview}` : `${count} field${count === 1 ? "" : "s"}`,
   },
 
   annotation: {
