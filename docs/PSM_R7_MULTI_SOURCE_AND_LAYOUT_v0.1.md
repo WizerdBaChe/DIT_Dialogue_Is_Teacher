@@ -321,12 +321,29 @@ locale 新增鍵（四字串）：
 
 展開後的內容**完全不變**（仍是 pretty JSON）——本卡只改收合態標題，不改資料流、不改互動。
 
-### A4.4 header chrome 尺度（D-R7-03，R7-INV-4）
+### A4.4 header chrome 尺度（D-R7-03，R7-INV-4，2026-07-23 依 R7A-00 實測修訂）
+
+> **本節已被 R7A-00 量測推翻並修訂一次**，見 [docs/R7_BASELINE_2026-07-23.md](R7_BASELINE_2026-07-23.md)。
+> 原案「單一常數 1.5、1280 English 為最緊情境」不成立：實測顯示 **740 寬**（header 從雙列切回單列的
+> 邊界）與 **1000 寬**（品牌從短名切回長名的邊界）都比 1280 更緊，740 English 下 1.5 會讓 header 衝到
+> 68px 並讓 `.workspace-tabs` 溢位 92px。使用者裁定：**不用單一常數，改用貼合既有專案斷點的分級旋鈕**
+> （`@container dit-app` 已有 719/899/999 三個斷點在用，本節沿用其中兩個），每一級的值都是在該級
+> **最窄邊界**、English（最長 tab 文案）下實測得出的安全上限，不是推算。
 
 ```css
-:root { --chrome-scale: 1.5; }      /* 第二旋鈕；1 = R6.5 現狀 */
+:root { --chrome-scale: 1; }   /* <720：既有雙列 header 設計，不套用本旋鈕，維持 R6.5 基線 */
 
-.header       { min-height: 56px; padding: 4px 18px; }              /* 可用高 40 → 48 */
+@container dit-app (min-width: 720px) and (max-width: 899px) {
+  :root { --chrome-scale: 1.1; }   /* 720 寬實測上限；899 有餘裕但取最窄邊界值 */
+}
+@container dit-app (min-width: 900px) and (max-width: 1279px) {
+  :root { --chrome-scale: 1.2; }   /* 1000 寬（品牌切回長名）實測上限，比 900 更緊，取該值 */
+}
+@container dit-app (min-width: 1280px) {
+  :root { --chrome-scale: 1.5; }   /* 1280／1706 實測皆有餘裕，維持原案倍率 */
+}
+
+.header       { min-height: 56px; padding: 4px 18px; }
 .brand h1     { font-size: calc(var(--fs-lg) * var(--chrome-scale)); line-height: 1.2; }
 .workspace-tab{ font-size: calc(var(--fs-sm) * var(--chrome-scale)); min-height: 40px; }
 .header .btn  { font-size: calc(var(--fs-sm) * var(--chrome-scale)); }
@@ -334,12 +351,21 @@ locale 新增鍵（四字串）：
 .compact-replay { min-width: calc(54px * var(--chrome-scale)); }
 ```
 
-> `--fs-lg` = 17px（現行 brand 為 18px，token 化後為 17px×1.5 = 25.5px；差 1px 屬 A1.6 的階梯對齊，
-> 視為預期）。`--fs-sm` = 12.5px → 18.75px。
+> `--fs-lg` = 17px、`--fs-sm` = 12.5px，同原案。720–899 與 900–1279 兩級刻意**不**再往下細分
+> （例如不為 900–999 的短品牌子區間單獨給更高的值），因為那會讓字級隨寬度變化非單調（900 附近變大、
+> 1000 又縮小），使用者體感是「越寬反而字變小」的跳動——寧可 900–999 少放大一點，換取全區間單調遞增。
+> `--ui-scale` 与本旋鈕是兩個獨立軸線；`<720` 沿用 R6.5 既有雙列 header，不受本節約束
+> （呼應 R7-INV-4 的既有措辭疑義：56px 上下限只在單列情境成立）。
 
-**必須重驗 LS-INV-2**：header 是「放大不可壓縮軌道」，1280 English 為最緊情境。
-推算總需求：brand 短名（<1000px 才切，1280 為長名 ≈290）＋ tabs ≈330 ＋ replay ≈240 ＋ settings ≈150
-＋ gap 48 ＝ **≈1058 < 1244**，有餘裕。**但 R6.5 的 M0 教訓是推算與實測差距可達 81%——本項以量測為準。**
+**R7A-00 實測驗證表**（English 最壞情境，見基線文件 §5 與後續追加量測）：
+
+| 分級 | 測試寬度 | `--chrome-scale` | header 高度 | `.workspace-tabs` scrollWidth/clientWidth |
+|---|---|---|---|---|
+| 720–899 | 720（邊界） | 1.1 | 56 | 260/260 |
+| 720–899 | 720（邊界） | 1.15（否決） | 59 | 268/268 |
+| 900–1279 | 1000（品牌切長名，最緊點） | 1.2 | 56 | 276/276 |
+| 900–1279 | 1000 | 1.25（否決） | 61 | 284/284 |
+| ≥1280 | 1280 | 1.5 | 56 | 323/323 |
 
 `.settings-tray` 內的控制項**不套用** `--chrome-scale`（使用者明示「其他字體不用動」）。
 
@@ -432,21 +458,29 @@ locale 新增鍵（四字串）：
 - **驗收證據**：Reader 中任一 `tool_use` 卡片收合態顯示 `參數 · N 項 · key: value…`；
   `結果` 區塊摘要語意不變。
 
-### R7A-05 — header chrome 尺度 ×1.5（D-R7-03，R7-INV-4）
+### R7A-05 — header chrome 尺度分級旋鈕（D-R7-03，R7-INV-4，2026-07-23 依 R7A-00 實測修訂）
 
+> R7A-00 實測發現 740／1000 寬（非原案假設的 1280）才是最緊情境，1.5 常數在這兩點會讓 header
+> 超過 56px 且 `.workspace-tabs` 溢位。使用者裁定不採「降低單一倍率」，改採「依既有專案斷點分級」——
+> 每級的值都是該級最窄邊界、English 下的實測安全上限。詳見 A4.4 已修訂版與
+> [docs/R7_BASELINE_2026-07-23.md](R7_BASELINE_2026-07-23.md)。
 - **檔案**：`src/styles/index.css`
-- **契約**：A4.4 的 `--chrome-scale` 與五條宣告；`.header { min-height: 56px }` 不得變更。
-- **做什麼**：`:root` 加 `--chrome-scale: 1.5`；header padding 8px→4px；brand／tab／btn 字級改
+- **契約**：A4.4（已修訂版）的四級 `--chrome-scale` container query 與五條套用宣告；
+  `.header { min-height: 56px }` 在 `≥720px` 單列情境不得變更；`<720px` 雙列情境沿用 R6.5 基線，
+  不受本卡約束。
+- **做什麼**：`:root` 預設 `--chrome-scale: 1`（<720 雙列基線）；於 `@container dit-app` 三個既有斷點
+  （720/900/1280）分別覆寫為 1.1／1.2／1.5；header padding 8px→4px；brand／tab／btn 字級改
   `calc(var(--fs-*) * var(--chrome-scale))`；brand 加 `line-height: 1.2`；tab `min-height` 34→40px；
   `.compact-action` / `.compact-replay` 尺寸隨旋鈕。
-- **錯誤路徑**：若實測 header 超過 56px 或 `.workspace-tabs` 於 1280 en 溢位 → **停工回報**，
-  不得自行降倍率或放寬高度（D-R7-03）。
+- **錯誤路徑**：若任一分級邊界（720／900→1000／1280）實測 header 超過 56px 或 `.workspace-tabs`
+  溢位 → **停工回報**，不得自行降倍率或放寬高度（D-R7-03）。R7A-00 已在 740／1000 邊界做過此驗證，
+  R7A-05 施工後須以真實 build 重跑同組邊界確認契約沒有漂移（例如字級 token 化四捨五入造成的誤差）。
 - **遷移／回滾**：單檔單 commit，revert；或把 `--chrome-scale` 設回 `1` 即等同關閉本卡效果
   （**自證機制**：這個旋鈕能一鍵還原，證明 R7-INV-4 成立）。
 - **測試對應**：SIT 全量。UAT：§A7 項 5、6。
-- **驗收證據**：390 / 740 / 1280 / 1706 × zh / en 共 8 張 header 截圖；
-  `.header` 的 `getBoundingClientRect().height === 56`；`.workspace-tabs` 全部情境
-  `scrollWidth === clientWidth`。
+- **驗收證據**：390 / 720 / 740 / 900 / 1000 / 1280 / 1706 × zh / en 共 14 張 header 截圖或量測記錄；
+  `≥720px` 情境 `.header` 的 `getBoundingClientRect().height === 56`（`<720` 沿用既有雙列基線，
+  不套此斷言）；`.workspace-tabs` 全部情境 `scrollWidth === clientWidth`。
 
 ### R7A-06 — 觸及範圍字級 token 化（R7-INV-5）
 
