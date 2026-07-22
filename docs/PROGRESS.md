@@ -21,8 +21,12 @@ R7A-00 → R7A-07 → （之後）R7B-00 → R7B-06。
   390 無水平溢位；`npm.cmd test` 181 項全綠。
 - [x] **R7A-02 教學講解群組內部分層**（commit `7c6b720`）：`.settings-actions.rows` 兩軌 grid，
   四列語意（來源／顯示開關／批次講解／快取清除）各自成列；1280 與 390 皆無水平溢位；測試 182 項全綠。
-- [ ] **R7A-03～04**：未受本次停工影響（layer-card badges 軌道、IOBlock 摘要分流），
-  可直接按 PSM 原案施工，尚未開始。
+- [x] **R7A-03 layer-card badges 軌道內容驅動**（commit `695374b`）：第二軌 `minmax(0,45%)` 改
+  `minmax(0,auto)`，`.badges` 加 `max-width:22ch`，`@container` 解除點 519px→459px；瀏覽器實測
+  0 badge 卡 `.layer-title` 佔卡寬 95.8%（達標 ≥0.95）、1-2 badge 卡 87-92%（達標 ≥0.80）；
+  390 寬確認斷點觸發單欄。**未完成**：`npm run benchmark:r5` 50MiB fixture 效能量測（需要手動產生
+  fixture＋瀏覽器自動化跑完整 R5 情境，本次 session 未執行，下一輪或使用者驗收前需補跑）。
+- [ ] **R7A-04**：IOBlock 摘要語意分流，未受停工影響，尚未開始。
 - [ ] **R7A-05**：待用上述三級旋鈕實作（尚未寫 CSS，PSM 文字已就緒）。
 - [ ] **R7A-06～07**：未開始。
 
