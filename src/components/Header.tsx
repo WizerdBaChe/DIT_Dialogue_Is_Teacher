@@ -121,15 +121,20 @@ export function Header(): ReactNode {
             {!snapshotMode && (
               <fieldset className="settings-group g-teaching">
                 <legend>{t.settings.teachingGroup}</legend>
-                <div className="settings-actions">
+                <div className="settings-actions rows">
                   <label htmlFor="hdr-provider">{t.header.providerLabel}</label>
                   <select id="hdr-provider" value={providerId} onChange={(event) => setProvider(event.target.value as ProviderId)}>
                     {PROVIDERS.map((provider) => <option key={provider} value={provider}>{t.provider[provider]}</option>)}
                   </select>
-                  <label className="toggle">
-                    <input type="checkbox" checked={showAnnotations} onChange={toggleAnnotations} disabled={providerId === "none"} />
-                    {t.header.showAnnotations}
-                  </label>
+
+                  <span className="row-span">
+                    <label className="toggle">
+                      <input type="checkbox" checked={showAnnotations} onChange={toggleAnnotations} disabled={providerId === "none"} />
+                      {t.header.showAnnotations}
+                    </label>
+                  </span>
+
+                  <span>{t.header.annotateModeLabel}</span>
                   <div className="batch-control">
                     <select
                       aria-label={t.header.annotateModeLabel}
@@ -149,10 +154,13 @@ export function Header(): ReactNode {
                       {t.header.annotateCount(annotationRunMode, annotationCount)}
                     </button>
                   </div>
-                  <span className="cache-status">{t.header.cachedAnnotationCount(cachedAnnotationCount)}</span>
-                  {providerId !== "none" && hasAnnotations && (
-                    <button className="btn" onClick={clearAnnotations} title={t.header.clearAnnotationsTitle}>{t.header.clearAnnotations}</button>
-                  )}
+
+                  <span className="row-span cache-row">
+                    <span className="cache-status">{t.header.cachedAnnotationCount(cachedAnnotationCount)}</span>
+                    {providerId !== "none" && hasAnnotations && (
+                      <button className="btn" onClick={clearAnnotations} title={t.header.clearAnnotationsTitle}>{t.header.clearAnnotations}</button>
+                    )}
+                  </span>
                 </div>
               </fieldset>
             )}

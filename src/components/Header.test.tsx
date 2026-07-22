@@ -44,3 +44,18 @@ describe("Settings tray group layout (R7A-01, R7-INV-1)", () => {
     expect(groupClasses).toEqual(["g-session", "g-teaching", "g-language", "g-navigation", "g-export"]);
   });
 });
+
+describe("Teaching notes group row layout (R7A-02, R7-INV-1)", () => {
+  it("keeps the provider label and select as adjacent children of the same rows grid", () => {
+    const { container } = render(<Header />);
+    fireEvent.click(container.querySelector(".settings-toggle-btn") as HTMLButtonElement);
+
+    const rowsGrid = document.querySelector(".settings-actions.rows");
+    expect(rowsGrid).not.toBeNull();
+    const children = Array.from(rowsGrid?.children ?? []);
+    const labelIndex = children.findIndex((el) => el.getAttribute("for") === "hdr-provider");
+    const selectIndex = children.findIndex((el) => el.id === "hdr-provider");
+    expect(labelIndex).toBeGreaterThanOrEqual(0);
+    expect(selectIndex).toBe(labelIndex + 1);
+  });
+});
