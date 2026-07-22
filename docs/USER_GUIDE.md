@@ -7,7 +7,7 @@ Ollama 與 OpenCode 講解是選配功能。
 
 ### 建議順序
 
-載入 → 總覽 → 閱讀 → 結構跳轉 → 地圖 → 子代理 → 選配講解。
+載入 → 總覽 → 閱讀 → 結構跳轉 → 地圖 → 子代理 → 選配講解 → 匯出。
 
 1. **載入 Session**：選「載入 .jsonl」讀單一或多個檔案；選「載入 Session 資料夾」同時讀主檔與
    `subagents/*.jsonl`。讀取期間會顯示階段、百分比、MiB 與行數；按「取消載入」會保留上一份有效 Session。
@@ -25,6 +25,13 @@ Ollama 與 OpenCode 講解是選配功能。
    與時間順序不變。
 7. **選配講解**：設定內可選不講解、Ollama 或 OpenCode。OpenCode 外傳前必經去識別化預覽與逐 Session 同意；
    Secret finding 會阻擋請求。批次模式可補未處理、重試失敗或全部重跑，成功結果會保存到本機快取。
+8. **匯出**：設定匣「匯出」區塊提供兩種格式——「匯出 JSON」是帶版本標記的原始結構化資料（`ditExport` /
+   `exportVersion` / `exportedAt`），適合程式化重用或存檔；「匯出 HTML 快照」產出**單一可獨立開啟**的
+   `.html` 檔，雙擊即可用瀏覽器直接開啟重現 Overview／Reader／Map（含講解），不需要安裝 DIT、不需要
+   dev server、不需要任何網路連線；快照本身不會對外發出任何請求。兩種格式都會把講解結果一併帶出。
+   **隱私提醒**：匯出檔包含 session 的完整逐字內容，可能含 API 金鑰、路徑等內部資訊——分享前請自行確認
+   內容，不要未經檢查就傳給他人。HTML 快照必須先用 `npm run build` 產出 production build，
+   dev 模式下按此按鈕只會顯示提示，不會產出檔案。
 
 ### 畫面寬度與快捷鍵
 
@@ -38,7 +45,7 @@ Ollama 與 OpenCode 講解是選配功能。
 
 ### Recommended flow
 
-Load → Overview → Reader → structure jump → Map → Subagents → optional explanations.
+Load → Overview → Reader → structure jump → Map → Subagents → optional explanations → export.
 
 1. **Load a Session**: use “Load .jsonl” for one or more files, or “Load Session folder” for the main transcript plus
    `subagents/*.jsonl`. Loading shows phase, percent, MiB, and line count. Cancel keeps the previous valid Session.
@@ -59,6 +66,14 @@ Load → Overview → Reader → structure jump → Map → Subagents → option
    representation while preserving cross-file parent linkage and timestamp order.
 7. **Add explanations only when needed**: Settings offers none, Ollama, or OpenCode. OpenCode requires a de-identified preview
    and per-Session consent; secret findings block the request. Batch modes fill missing items, retry failures, or rerun all.
+8. **Export**: the Settings "Export" group offers two formats. "Export JSON" is the raw structured data with a versioned
+   wrapper (`ditExport` / `exportVersion` / `exportedAt`), suited for programmatic reuse or archiving. "Export HTML snapshot"
+   produces a **single self-contained** `.html` file — double-click it to reopen Overview/Reader/Map (including
+   explanations) in a browser, with no DIT install, no dev server, and no network access needed; the snapshot itself never
+   makes outbound requests. Both formats include any saved explanations. **Privacy note**: the exported file contains the
+   full verbatim session content, which may include API keys, paths, or other internal details — review it before sharing,
+   never send it unchecked. The HTML snapshot requires a production build (`npm run build`) first; in dev mode this button
+   only shows a notice and produces no file.
 
 ### Widths and shortcut
 

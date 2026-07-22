@@ -7,7 +7,8 @@ export function StructureLegend(): ReactNode {
   const items = SPAN_LEGEND_ORDER.map((type) => [SPAN_DOT[type], t.spanKind[type]] as const);
 
   return (
-    <div className="tree-legend" aria-label={t.sidebar.legendLabel}>
+    <details className="tree-legend" aria-label={t.sidebar.legendLabel}>
+      <summary>{t.sidebar.legendSummary}</summary>
       <span className="tree-legend-title">{t.sidebar.legendLabel}</span>
       <div className="tree-legend-grid">
         {items.map(([symbol, label]) => (
@@ -18,6 +19,6 @@ export function StructureLegend(): ReactNode {
         ))}
       </div>
       <p className="tree-legend-note">{t.sidebar.legendNote}</p>
-    </div>
+    </details>
   );
 }

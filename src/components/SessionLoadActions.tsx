@@ -10,7 +10,11 @@ interface SessionLoadActionsProps {
 export function SessionLoadActions({ labels = "header", className = "" }: SessionLoadActionsProps): ReactNode {
   const t = useT();
   const loadFromBlobs = useSessionStore((state) => state.loadFromBlobs);
+  const snapshotMode = useSessionStore((state) => state.snapshotMode);
   const copy = labels === "overview" ? t.overview : t.header;
+
+  // LS-INV-7：快照模式下不應存在載入入口，守門實作在元件自身，呼叫端不需各自判斷。
+  if (snapshotMode) return null;
 
   const onFiles = (event: ChangeEvent<HTMLInputElement>) => {
     const selected = [...(event.target.files ?? [])].filter((file) => /\.(jsonl|json|txt)$/i.test(file.name));
