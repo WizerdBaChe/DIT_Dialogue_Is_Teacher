@@ -39,6 +39,7 @@ import {
   type AnnotationRunMode,
 } from "@/core/annotation";
 import { sampleSession } from "@/fixtures";
+import type { SessionExport } from "@/core/export/contracts";
 import { MESSAGES, type Locale } from "@/i18n/locales";
 import { resetFallbackReport } from "@/core/diagnostics";
 import {
@@ -118,6 +119,8 @@ const annotationJobController = new AnnotationJobController();
 const annotationRepository = createAnnotationRepository((error) => {
   useSessionStore.setState({ storageNotice: `Annotation storage degraded to memory: ${error.message}` });
 });
+/** 測試專用：讓 sessionStore.test.ts 能直接寫入快取記錄，驗證 LS-INV-6 的還原語意。 */
+export const __testAnnotationRepository = annotationRepository;
 
 /** 取某個 view item 的代表 span (group 取第一個成員)。 */
 function primarySpan(item: ViewItem): Span {
@@ -194,6 +197,7 @@ function cancelPendingPrivacyReview(): void {
 
 function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin: SessionOrigin): void {
   const current = useSessionStore.getState();
+  const snapshotMode = current.snapshotMode;
   current.pause();
   cancelPendingPrivacyReview();
   cloudConsent = null;
@@ -226,9 +230,12 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     sessionFingerprint: null,
     itemFingerprints: {},
     cachedForCurrentConfig: {},
-    cacheReady: false,
-    restoredAnnotationCount: 0,
+    cacheReady: snapshotMode,
+    cachedAnnotationCount: 0,
+    restoreNotice: null,
   });
+  // EX-INV-4：快照模式下跳過 IndexedDB 快取還原 (file:// 的 null origin 部分瀏覽器會直接拒絕)。
+  if (snapshotMode) return;
   void (async () => {
     const itemFingerprints = await buildItemFingerprintMap(viewItems);
     const sessionFingerprint = await fingerprintSession(doc);
@@ -246,7 +253,8 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
       sessionFingerprint,
       itemFingerprints,
       cacheReady: true,
-      restoredAnnotationCount: latest.size,
+      cachedAnnotationCount: latest.size,
+      restoreNotice: latest.size > 0 ? { count: latest.size } : null,
       annotations: { ...state.annotations, ...restored },
     }));
     await refreshCurrentCacheMatches();
@@ -305,10 +313,16 @@ interface SessionState {
   itemFingerprints: Record<string, string>;
   cachedForCurrentConfig: Record<string, true>;
   cacheReady: boolean;
-  restoredAnnotationCount: number;
+  /** 持久衍生狀態：目前 session 於本機快取命中的講解則數；每次 session 發布重算 (LS-INV-6)。 */
+  cachedAnnotationCount: number;
+  /** 瞬時事件：本次載入首次從快取還原時設定；`dismissRestoreNotice()` 或切換 session 時清為 null。 */
+  restoreNotice: { count: number } | null;
   storageNotice: string | null;
   /** 解析提示已被使用者收起；提示內容仍留在 warnings，總覽的則數不受影響。 */
   warningsDismissed: boolean;
+
+  /** 靜態 HTML 快照模式；true 時隱藏載入／講解／Provider／匯出入口並跳過快取還原 (EX-INV-4)。 */
+  snapshotMode: boolean;
 
   /** 「講解全部」進度 (null = 未執行)。 */
   annotateProgress: AnnotateProgress | null;
@@ -323,6 +337,8 @@ interface SessionState {
   annotationErrors: Record<string, string>;
 
   // ---- actions ----
+  /** 由匯出的 SessionExport 重新水合 store，供靜態快照的進入點使用 (EX-03)。 */
+  hydrateSessionExport: (payload: SessionExport) => void;
   loadFromText: (raw: string, origin?: SessionOrigin) => void;
   loadFromFiles: (files: TranscriptFileInput[], origin?: SessionOrigin) => void;
   loadFromBlobs: (files: SessionBlobInput[], origin?: SessionOrigin) => Promise<void>;
@@ -331,6 +347,7 @@ interface SessionState {
   dismissWarnings: () => void;
   dismissError: () => void;
   dismissStorageNotice: () => void;
+  dismissRestoreNotice: () => void;
   reset: () => void;
   setProvider: (id: ProviderId) => void;
   setLocale: (locale: Locale) => void;
@@ -418,9 +435,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   itemFingerprints: {},
   cachedForCurrentConfig: {},
   cacheReady: false,
-  restoredAnnotationCount: 0,
+  cachedAnnotationCount: 0,
+  restoreNotice: null,
   storageNotice: null,
   warningsDismissed: false,
+  snapshotMode: false,
 
   annotateProgress: null,
 
@@ -431,6 +450,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   annotations: {},
   annotatingIds: {},
   annotationErrors: {},
+
+  hydrateSessionExport: (payload) => {
+    // 先設 snapshotMode，讓 publishPipelineResult 同步讀到並跳過快取還原 (EX-INV-4)。
+    set({ snapshotMode: true });
+    loadPipeline(() => ({ doc: payload.document, warnings: [] }), "user");
+    set({ annotations: payload.annotations, primaryView: "overview" });
+  },
 
   loadFromText: (raw, origin = "user") => loadPipeline(() => buildSessionDocument(raw), origin),
 
@@ -487,6 +513,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   dismissWarnings: () => set({ warningsDismissed: true }),
   dismissError: () => set({ error: null }),
   dismissStorageNotice: () => set({ storageNotice: null }),
+  dismissRestoreNotice: () => set({ restoreNotice: null }),
 
   reset: () => {
     activeSessionLoad?.cancel();
@@ -515,7 +542,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       itemFingerprints: {},
       cachedForCurrentConfig: {},
       cacheReady: true,
-      restoredAnnotationCount: 0,
+      cachedAnnotationCount: 0,
+      restoreNotice: null,
     });
   },
 

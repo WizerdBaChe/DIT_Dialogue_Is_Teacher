@@ -73,6 +73,7 @@ export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }
             <h2 id={titleId} ref={titleRef} tabIndex={variant === "drawer" ? -1 : undefined} title={doc.session.title}>
               {doc.session.title}
             </h2>
+            <p className="structure-position">{t.structure.position(position.current ?? "—", position.total)}</p>
           </div>
           <button
             type="button"
@@ -84,7 +85,6 @@ export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }
             <span aria-hidden="true">{variant === "drawer" ? "×" : "«"}</span>
           </button>
         </div>
-        <p className="structure-position">{t.structure.position(position.current ?? "—", position.total)}</p>
         <StructureLegend />
       </div>
 

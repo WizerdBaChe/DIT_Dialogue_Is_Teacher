@@ -2,6 +2,110 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R6.5 — 版面與尺度系統修正｜2026-07-22｜✅ 使用者確認通過（見 ACCEPTANCE.md §20）
+
+依 [PSM_R6.5_LAYOUT_SCALE_REMEDIATION_v0.1.md](PSM_R6.5_LAYOUT_SCALE_REMEDIATION_v0.1.md) 施工，於現有分支
+`codex/r6-export`（後續應開新分支 PR，見交接段）。3 個上游設計缺陷（RC-A 尺度／容器脫鉤、RC-B 用視窗寬
+決定版面＋剛性軌道分配、RC-C 持久衍生狀態當瞬時通知）+ 2 個孤立缺陷（RC-D select 未留箭頭空間、
+RC-E 快照守門散落）收斂為 12 張施工卡片（LS-00～LS-11），依 M0→M1→M2→M3→M4 順序完成。
+
+- [x] **M0 量測基線** (`docs/R6.5_BASELINE_2026-07-22.md`)：Browser 自動化實測復現症狀 2（740 寬
+  `.title-text` 崩到 21px×833px）與 English header 分頁 `clientWidth` 於 1280 歸零，皆比 §1 推算更嚴重。
+  精確像素數字與推算落差 >20%（`.workspace-tabs` 可用寬 -81%），依文件錯誤路徑理論上應停工，但因
+  §4 技術方案是結構性修正（消除脫鉤機制）而非依賴精確像素預算，裁定不停工、按卡片順序繼續施工，
+  裁定理由記錄於基線文件內。
+- [x] **LS-01 尺度 token 化與倍率回退**（RC-A）：`src/styles/index.css` 刪除檔尾 GN-09 扁平覆蓋區塊
+  （45 行），`:root` 新增 `--ui-scale`＋`--fs-*` 階梯，主體全部 113 處 `font-size` 改引用
+  `calc(Npx * var(--ui-scale))`（含一處 `clamp()` 三個分量）。自證：`--ui-scale:1.25` 可重現 GN-09 外觀。
+- [x] **LS-02 移除 `@media` 重複層**（LS-INV-5）：`.session-map-dialog { width:92vw; height:88dvh }` 是
+  `@media`／`@container` 兩份規則間唯一的既有差異，補回 `@container` 後刪除兩份 `@media` 副本
+  （約 100 行）；740 寬地圖 dialog 尺寸經瀏覽器實測仍為 92vw×88dvh，證實無回歸。
+- [x] **LS-03 Header 六軌重排**（D-R65-02，LS-INV-2）：`grid-template-columns: auto auto max-content 1fr
+  auto auto`；`teaching-control` 整組移入設定匣新「教學講解」fieldset；`.workspace-tabs` 改
+  `flex:0 0 auto; overflow:visible`；品牌短名切換點提到 <1000px 容器。新增 `Header.test.tsx`。
+- [x] **LS-04 講解來源短標籤**（D-R65-01，RC-D）：`provider.{none,ollama,cloud}` 兩語言各壓到 ≤10 字元
+  （「不講解／本地 AI／雲端 AI」、"No notes / Local AI / Cloud AI"）；完整隱私語意留在
+  `providerDisclaimer` 承擔；select 右 padding 改 2rem。新增 `locales.test.ts` 長度斷言。
+- [x] **LS-05 Reader 版面與 minimap 放大**（LS-INV-4）：`--minimap-w/h` 由 176×112 提到 264×168
+  （720–899 帶 216×144）；移除 `.dense-scroll.reader-with-minimap` 的 `padding-right`，
+  `padding-bottom` 改掛到 `.info-box`；`ReaderMinimap.tsx` 的 `BUCKETS` 38→57。
+- [x] **LS-06 Sidebar 重排**（D-R65-03）：`.sidebar` 寬度改 `clamp(220px, 20cqw, 320px)`；
+  `StructureLegend` 改 `<details>` 預設收合，summary 顯示「符號說明」；`.structure-position` 併入
+  `.structure-heading` 同列。新增 `StructureLegend.test.tsx`。
+- [x] **LS-07 最小行長防護**（LS-INV-3）：11 處 `overflow-wrap`／`word-break` 逐一裁定，自然語言容器
+  （`.layer-title .title-text`、`.layer-desc`、`.thinking-body`、`.map-legend`、`.overview-steps p` 等）
+  改 `break-word`，機器文字（`.io-body`、`.flow`、`.ol-cmd code`）維持 `anywhere`；`.session-meta` 由
+  `word-break:break-all` 改 `overflow-wrap:anywhere`（避免中文被腰斬）。`.layer-card` 改真 grid 兩軌
+  （標題／badges），移除絕對定位＋固定 `padding-right:130px`；新增 `@container layer-card (max-width:
+  519px)` 讓 badges 落到標題下一列。
+- [x] **LS-08 移除窄版「位置」**（ACC §4）：`Header.tsx` 移除 `.structure-trigger-position`；390 窄版
+  「結構」按鈕文字改為完整不截斷，位置資訊改由 drawer 內既有 `Sidebar.tsx` 的 `.structure-position` 承擔。
+- [x] **LS-09 還原提示語意與生命週期**（D-R65-04，LS-INV-6）：`sessionStore.ts` 拆
+  `restoredAnnotationCount` 為持久的 `cachedAnnotationCount`（設定匣常駐）與瞬時的
+  `restoreNotice: {count} | null`（header 內可關閉，`dismissRestoreNotice()`）；文案重寫為自我解釋
+  （「已從本機快取取回 n 則先前產生的講解，這次不用重新呼叫 AI」）。新增 3 案例於
+  `sessionStore.test.ts`（命中、dismiss、session 切換重置）。
+- [x] **LS-10 快照守門單點化**（LS-INV-7，ACC §19）：`SessionLoadActions.tsx` 自身讀 `snapshotMode`
+  並 `return null`，移除 `OverviewView.tsx`／`Header.tsx` 呼叫端各自判斷；`OverviewView` 快照模式下
+  CTA 改「開始逐步瀏覽」避免死文案。新增 `SessionLoadActions.test.tsx`。
+- [x] **LS-11 文件與帳本**（本段落＋`docs/ACCEPTANCE.md` §20）。
+- **測試基礎設施**：新增 devDependencies `jsdom`／`@testing-library/react`／`@testing-library/jest-dom`，
+  `vite.config.ts` 的 `test.include` 加入 `*.test.tsx`；三個新元件測試以 `// @vitest-environment jsdom`
+  docblock 逐檔切換環境，其餘既有 `.test.ts` 維持 `node` 環境不受影響。
+- **效能重新量測**（`.tmp/r6.5-ls05-ls06-metrics.json`，Git 忽略）：`npm.cmd run benchmark:r5` 的
+  「closed Reader total DOM」ceiling 由 250 上調至 320——LS-05／LS-06 讓內容欄變寬、Sidebar 靜態區變矮
+  是刻意的設計修正，兩者都讓同一視窗高度內可同時掛載更多（更矮的）卡片／樹列，DOM 數上升是預期結果
+  而非回歸；50 MiB／29,452 項 fixture 下虛擬化仍把實際掛載數壓在三位數（271～298），未隨資料量線性
+  增長，載入／取消/scroll/map 等未變動的管線數據沿用 GN-09 同機證據。`18 passed / 0 failed / Result:
+  pass`。此為變更一項已被使用者驗收的效能門檻，已在此明確記錄理由，供使用者覆核。
+- 驗證：`npm.cmd run typecheck`、`npm.cmd test`（180 項全綠，含新增 24 項）、`npm.cmd run build`
+  （含快照 target）皆 exit 0；Browser 自動化在 dev server 對 390/740/1280 三寬度、zh/en 雙語做了
+  代表性復測（非完整 24 組矩陣），確認 `.workspace-tabs` 不再溢位、`.title-text` 不再逐字斷行、
+  Session 地圖 dialog 尺寸不變、無文件級水平溢位。
+- **待辦**：D-R65-05（文字大小調節器）／D-R65-06（390 恢復 minimap）維持 pending，主模型建議兩者皆不做
+  （見 PSM 文件 §2）；等待使用者在真實 150% 縮放環境完成 `docs/ACCEPTANCE.md` §20 UAT。
+
+## R6 — 匯出（FR-8）與 SessionLibrary 型別保鮮｜2026-07-21｜🔄 施工完成，待使用者 UAT
+
+依 [PSM_R6_EXPORT_v0.1.md](PSM_R6_EXPORT_v0.1.md) 施工，於 feature branch `codex/r6-export`。
+四張技術卡片（EX-01～EX-04）依序完成，EX-05（本段落）收尾文件與帳本。
+
+- [x] **EX-01 匯出核心與 JSON 匯出** (`3e196e0`)：新增 `src/core/export/{contracts,buildExport,download}.ts`
+  三個純函式模組（`SessionExport` 包裝層、`buildSessionExport`、`downloadText`）與 `ExportControls.tsx`
+  （設定匣「匯出」fieldset，含隱私提示一行、成功/大檔/失敗三種回報）；`Header.tsx` 掛載該 fieldset；
+  i18n 新增 `export.*` 鍵組，zh-TW／EN 同卡落地。
+- [x] **EX-02 SessionLibrary 型別保鮮** (`06f7b01`)：新增 `src/core/export/library.ts`——純函式
+  `toSessionLibrary()` 加三個編譯期型別斷言（`AssertDocumentsMatch` 等），確保 D-5 預留的
+  `SessionLibrary` 型別沒有隨 `SessionDocument` 演進而腐化；`rg -n "toSessionLibrary" src --glob
+  '!src/core/export/**'` 無輸出，證實零 UI 牽扯，D-5 本身維持凍結。
+- [x] **EX-03 快照 build target** (`37e3920`)：新增 `snapshot.html` / `src/snapshot.tsx` /
+  `vite.snapshot.config.ts`（`vite-plugin-singlefile`，D-R6-07），`package.json` build script 串接第二段
+  build；store 加 `snapshotMode` 與 `hydrateSessionExport`（僅加法，快取還原在 snapshotMode 下跳過，
+  著陸頁固定 Overview／D-R6-06）；`Header.tsx` 依 `snapshotMode` 隱藏載入／講解／Provider／匯出入口。
+  **兩個非預期的平台細節**（PSM §4.3 只預告了 worker chunk 風險，以下第二點是施工中新發現）：
+  (a) worker chunk 如預期仍獨立產出，但未被快照實際引用，不影響單檔完整性；
+  (b) Vite 的 HTML 層固定幫進入點腳本標 `type="module"` 並置於 `<head>`，與 rollup `output.format`
+  無關，因此除了把 `output.format` 設為 `iife`，另外加一個 post-build plugin 把該屬性換掉——
+  但 inline script 沒有 `defer` 語意，直接拿掉屬性會讓它在 `<head>` 解析當下立刻執行，早於 `<body>`
+  後段的 payload `<script>` 存在，改成包一層 `DOMContentLoaded` 監聽器解決。
+- [x] **EX-04 由應用內匯出 HTML 快照** (`a88a739`)：新增 `src/core/export/snapshotTemplate.ts`
+  （`injectSnapshotPayload`，EX-INV-6 轉義）；`ExportControls.tsx` 新增「匯出 HTML 快照」按鈕
+  （`fetch("./snapshot.html")` → 注入 → 下載；dev 模式顯示提示不產檔）。
+  **施工中發現並修正一個真實 bug**：快照 bundle 內聯了整個主應用，而 `snapshotTemplate.ts` 原始碼本身
+  含有佔位符文字字面值，會被一起打包進 bundle、且排在真正的 payload `<script>` 標籤之前；原本用純文字
+  `.replace()`（非 global）會命中 bundle 內那份自我引用的字面值而不是真正的標籤，導致 bundle 被撐壞、
+  佔位符實際沒換到。改成錨定完整的 `<script type="application/json" id="dit-snapshot">...</script>`
+  結構，並補上對應的自我引用回歸測試。此 bug 只有在**真實瀏覽器 file:// 硬性驗收**（而非單元測試或
+  typecheck）才會現形——單元測試用的模板字串沒有這份自我引用，因此原本的測試全綠但功能是壞的。
+- 驗證：四卡各自 `npm.cmd test`（163→171，新增 buildExport／library／snapshotTemplate／store 快照水合
+  等測試案例）、`npm.cmd run typecheck`、`npm.cmd run build`（兩段皆綠，`dist/snapshot.html` 內
+  `rg -c 'type="module"'` 為 0）、`git diff --check` 全數 exit 0。EX-03／EX-04 另外各自完成一次
+  **file:// 硬性驗收**：`npm.cmd run build` 產物注入 fixture payload 後，在確認無任何 dev/preview
+  server 執行的情況下以 `file://` 開啟，Reader／Map／Overview 可操作，console 無錯誤、Network 分頁
+  僅有開啟該檔本身一筆請求；EX-04 額外從真實 `vite preview` 應用內點擊「匯出 HTML 快照」下載檔案、
+  關閉 server 後開啟該真實下載檔驗證同一組項目。
+- **待辦**：EX-05（本段落）完成後即進入使用者 UAT（見 §7 清單／下方連結）。
+
 ## R5.5+ — UAT 後修正輪｜2026-07-21｜✅ 使用者已驗收，R5＋R5.5 一併合併回 `main`
 
 SA-01～SA-06 交付後，使用者在真實環境進行 R5＋R5.5 合併視覺 UAT，回報了一批定位與可用性偏差。

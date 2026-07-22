@@ -1,6 +1,38 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { selectCurrentPosition, useSessionStore } from "./sessionStore";
+import { __testAnnotationRepository, selectCurrentPosition, useSessionStore } from "./sessionStore";
 import { r4MainSession, r4SubagentSession, sampleSession } from "@/fixtures";
+import { buildSessionDocument } from "@/core/pipeline";
+import { buildViewModel } from "@/core/view/viewModel";
+import { fingerprintItem, fingerprintSession } from "@/core/annotation/fingerprint";
+import type { AnnotationRecord } from "@/core/annotation/contracts";
+import { buildSessionExport } from "@/core/export/buildExport";
+
+async function seedCachedAnnotationForFirstItem(raw: string): Promise<{ itemId: string }> {
+  const { doc } = buildSessionDocument(raw);
+  const viewItems = buildViewModel(doc);
+  const firstItem = viewItems[0];
+  const span = firstItem.type === "span" ? firstItem.node.span : firstItem.nodes[0].span;
+  const itemFingerprint = await fingerprintItem(span, undefined);
+  const sessionFingerprint = await fingerprintSession(doc);
+  const record: AnnotationRecord = {
+    cacheKey: `test-${firstItem.id}`,
+    sessionFingerprint,
+    itemFingerprint,
+    itemId: firstItem.id,
+    annotation: { what: "What", why: "Why", generalLesson: "Lesson", confidence: 0.8, provider: "ollama" },
+    provenance: {
+      providerId: "ollama",
+      modelId: "qwen2.5-coder:7b",
+      promptVersion: "2.0.0",
+      locale: "zh-TW",
+      privacyPolicyId: null,
+      privacyPolicyVersion: null,
+      createdAt: "2026-07-18T00:00:00.000Z",
+    },
+  };
+  await __testAnnotationRepository.put(record);
+  return { itemId: firstItem.id };
+}
 
 afterEach(() => {
   useSessionStore.getState().pause();
@@ -20,6 +52,7 @@ afterEach(() => {
     mapError: null,
     minimapEnabled: true,
     mapShortcutEnabled: true,
+    snapshotMode: false,
   });
 });
 
@@ -272,5 +305,66 @@ describe("workspace navigation", () => {
 
     expect(useSessionStore.getState().minimapEnabled).toBe(false);
     expect(useSessionStore.getState().mapShortcutEnabled).toBe(false);
+  });
+});
+
+describe("snapshot hydration (EX-03)", () => {
+  it("hydrates a SessionExport payload, lands on overview, and skips cache restore", () => {
+    const { doc } = buildSessionDocument(r4MainSession);
+    const annotations = { "some-item": { what: "x", why: "y", generalLesson: "z", confidence: 0.5, provider: "ollama" as const } };
+    const payload = buildSessionExport(doc, { exportedAt: "2026-07-21T00:00:00.000Z", appVersion: "0.1.0", annotations });
+
+    useSessionStore.getState().hydrateSessionExport(payload);
+
+    const state = useSessionStore.getState();
+    expect(state.snapshotMode).toBe(true);
+    expect(state.doc?.session.id).toBe(doc.session.id);
+    expect(state.primaryView).toBe("overview");
+    expect(state.annotations).toEqual(annotations);
+    expect(state.cacheReady).toBe(true);
+    expect(state.cachedAnnotationCount).toBe(0);
+    expect(state.restoreNotice).toBeNull();
+  });
+});
+
+describe("restore notice lifecycle (LS-INV-6)", () => {
+  it("sets restoreNotice.count and cachedAnnotationCount when the cache hits on load", async () => {
+    await seedCachedAnnotationForFirstItem(r4MainSession);
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+
+    await vi.waitFor(() => {
+      if (!useSessionStore.getState().cacheReady) throw new Error("cache not ready yet");
+    });
+
+    const state = useSessionStore.getState();
+    expect(state.cachedAnnotationCount).toBe(1);
+    expect(state.restoreNotice).toEqual({ count: 1 });
+  });
+
+  it("dismissRestoreNotice clears the transient notice but keeps cachedAnnotationCount", async () => {
+    await seedCachedAnnotationForFirstItem(r4MainSession);
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    await vi.waitFor(() => {
+      if (!useSessionStore.getState().cacheReady) throw new Error("cache not ready yet");
+    });
+
+    useSessionStore.getState().dismissRestoreNotice();
+
+    const state = useSessionStore.getState();
+    expect(state.restoreNotice).toBeNull();
+    expect(state.cachedAnnotationCount).toBe(1);
+  });
+
+  it("resets restoreNotice to null on the next session publish", async () => {
+    await seedCachedAnnotationForFirstItem(r4MainSession);
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: r4MainSession }]);
+    await vi.waitFor(() => {
+      if (!useSessionStore.getState().cacheReady) throw new Error("cache not ready yet");
+    });
+    expect(useSessionStore.getState().restoreNotice).toEqual({ count: 1 });
+
+    useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: sampleSession }]);
+
+    expect(useSessionStore.getState().restoreNotice).toBeNull();
   });
 });

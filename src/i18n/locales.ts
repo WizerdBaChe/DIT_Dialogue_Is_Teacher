@@ -35,7 +35,8 @@ const zhTW = {
     annotateModes: { missing: "講解未處理", failed: "重試失敗", all: "全部重新講解" },
     annotateCount: (mode: string, count: number) => `${mode === "missing" ? "講解未處理" : mode === "failed" ? "重試失敗" : "全部重新講解"}（${count}）`,
     annotateDisabled: "請先選擇本地 Ollama 或 OpenCode",
-    restored: (count: number) => `已還原 ${count} 則`,
+    restored: (count: number) => `已從本機快取取回 ${count} 則先前產生的講解，這次不用重新呼叫 AI`,
+    cachedAnnotationCount: (count: number) => `本機快取講解：${count} 則`,
     clearAnnotations: "清除本次顯示",
     clearAnnotationsTitle: "只清除畫面上的講解；已儲存內容仍保留，下次可自動還原",
     prevTitle: "上一步",
@@ -88,6 +89,7 @@ const zhTW = {
     startSample: "開始示範",
     startReading: "開始閱讀",
     continueReading: "繼續閱讀",
+    startBrowsing: "開始逐步瀏覽",
     loadFile: "載入 .jsonl",
     loadFolder: "載入 Session 資料夾",
     legend: {
@@ -158,6 +160,7 @@ const zhTW = {
     empty: "尚未載入 session。",
     skeleton: (nodes: number, ribs: number) => `蒸餾骨架：主線 ${nodes} · 支線 ${ribs}`,
     legendLabel: "屬性符號圖例",
+    legendSummary: "符號說明",
     legendNote: "重要節點另以文字標籤標示（目標／決策／里程碑／結果），詳見 Session 地圖。",
   },
 
@@ -298,6 +301,18 @@ const zhTW = {
     dismiss: "關閉提示",
   },
 
+  export: {
+    group: "匯出",
+    json: "匯出 JSON",
+    html: "匯出 HTML 快照",
+    privacyNote: "匯出檔包含完整逐字內容，可能含密鑰，分享前請自行確認。",
+    done: (size: string) => `已匯出，檔案大小 ${size}`,
+    doneLarge: (size: string) => `已匯出，檔案大小 ${size}；檔案較大，開啟會較慢`,
+    failed: (reason: string) => `匯出失敗：${reason}`,
+    devUnavailable: "HTML 快照需要 production build（npm run build 後以 preview 開啟）",
+    templateMissing: "找不到快照模板（snapshot.html），請確認已執行 production build",
+  },
+
   subagent: {
     sectionLabel: "子代理局部分支",
     graphAria: (count: number) => `子代理分支，共 ${count} 個節點`,
@@ -339,9 +354,9 @@ const zhTW = {
   } as Record<SpanTag, string>,
 
   provider: {
-    none: "不講解（純結構，零外傳）",
-    ollama: "本地 Ollama（離線）",
-    cloud: "OpenCode Cloud AI（需外傳）",
+    none: "不講解",
+    ollama: "本地 AI",
+    cloud: "雲端 AI",
   } as Record<ProviderId, string>,
 
   providerDisclaimer: {
@@ -386,7 +401,8 @@ const en: Messages = {
     annotateModes: { missing: "Annotate missing", failed: "Retry failed", all: "Re-annotate all" },
     annotateCount: (mode: string, count: number) => `${mode === "missing" ? "Annotate missing" : mode === "failed" ? "Retry failed" : "Re-annotate all"} (${count})`,
     annotateDisabled: "Select local Ollama or OpenCode first",
-    restored: (count: number) => `${count} restored`,
+    restored: (count: number) => `Restored ${count} previously generated notes from local cache — no AI call needed`,
+    cachedAnnotationCount: (count: number) => `Cached notes: ${count}`,
     clearAnnotations: "Clear current view",
     clearAnnotationsTitle: "Clear notes from this view only; saved notes remain available for automatic restore",
     prevTitle: "Previous step",
@@ -439,6 +455,7 @@ const en: Messages = {
     startSample: "Start sample",
     startReading: "Start reading",
     continueReading: "Continue reading",
+    startBrowsing: "Start step-through browsing",
     loadFile: "Load .jsonl",
     loadFolder: "Load session folder",
     legend: {
@@ -509,6 +526,7 @@ const en: Messages = {
     empty: "No session loaded yet.",
     skeleton: (nodes: number, ribs: number) => `Distilled skeleton: ${nodes} spine · ${ribs} ribs`,
     legendLabel: "Node symbol legend",
+    legendSummary: "Legend",
     legendNote: "Important nodes are also marked with text labels (objective / decision / milestone / outcome) — see the Session Map.",
   },
 
@@ -649,6 +667,18 @@ const en: Messages = {
     dismiss: "Dismiss notice",
   },
 
+  export: {
+    group: "Export",
+    json: "Export JSON",
+    html: "Export HTML snapshot",
+    privacyNote: "The exported file contains the full verbatim content and may include secrets — check before sharing.",
+    done: (size: string) => `Exported, file size ${size}`,
+    doneLarge: (size: string) => `Exported, file size ${size}; the file is large and may open slowly`,
+    failed: (reason: string) => `Export failed: ${reason}`,
+    devUnavailable: "The HTML snapshot needs a production build (run npm run build, then open it via preview)",
+    templateMissing: "Snapshot template (snapshot.html) not found — make sure you ran a production build",
+  },
+
   subagent: {
     sectionLabel: "Subagent branches",
     graphAria: (count: number) => `Subagent branch with ${count} nodes`,
@@ -690,9 +720,9 @@ const en: Messages = {
   },
 
   provider: {
-    none: "No notes (structure only, zero egress)",
-    ollama: "Local Ollama (offline)",
-    cloud: "OpenCode Cloud AI (sends data out)",
+    none: "No notes",
+    ollama: "Local AI",
+    cloud: "Cloud AI",
   },
 
   providerDisclaimer: {
