@@ -119,6 +119,8 @@ const annotationJobController = new AnnotationJobController();
 const annotationRepository = createAnnotationRepository((error) => {
   useSessionStore.setState({ storageNotice: `Annotation storage degraded to memory: ${error.message}` });
 });
+/** 測試專用：讓 sessionStore.test.ts 能直接寫入快取記錄，驗證 LS-INV-6 的還原語意。 */
+export const __testAnnotationRepository = annotationRepository;
 
 /** 取某個 view item 的代表 span (group 取第一個成員)。 */
 function primarySpan(item: ViewItem): Span {
@@ -229,7 +231,8 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     itemFingerprints: {},
     cachedForCurrentConfig: {},
     cacheReady: snapshotMode,
-    restoredAnnotationCount: 0,
+    cachedAnnotationCount: 0,
+    restoreNotice: null,
   });
   // EX-INV-4：快照模式下跳過 IndexedDB 快取還原 (file:// 的 null origin 部分瀏覽器會直接拒絕)。
   if (snapshotMode) return;
@@ -250,7 +253,8 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
       sessionFingerprint,
       itemFingerprints,
       cacheReady: true,
-      restoredAnnotationCount: latest.size,
+      cachedAnnotationCount: latest.size,
+      restoreNotice: latest.size > 0 ? { count: latest.size } : null,
       annotations: { ...state.annotations, ...restored },
     }));
     await refreshCurrentCacheMatches();
@@ -309,7 +313,10 @@ interface SessionState {
   itemFingerprints: Record<string, string>;
   cachedForCurrentConfig: Record<string, true>;
   cacheReady: boolean;
-  restoredAnnotationCount: number;
+  /** 持久衍生狀態：目前 session 於本機快取命中的講解則數；每次 session 發布重算 (LS-INV-6)。 */
+  cachedAnnotationCount: number;
+  /** 瞬時事件：本次載入首次從快取還原時設定；`dismissRestoreNotice()` 或切換 session 時清為 null。 */
+  restoreNotice: { count: number } | null;
   storageNotice: string | null;
   /** 解析提示已被使用者收起；提示內容仍留在 warnings，總覽的則數不受影響。 */
   warningsDismissed: boolean;
@@ -340,6 +347,7 @@ interface SessionState {
   dismissWarnings: () => void;
   dismissError: () => void;
   dismissStorageNotice: () => void;
+  dismissRestoreNotice: () => void;
   reset: () => void;
   setProvider: (id: ProviderId) => void;
   setLocale: (locale: Locale) => void;
@@ -427,7 +435,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   itemFingerprints: {},
   cachedForCurrentConfig: {},
   cacheReady: false,
-  restoredAnnotationCount: 0,
+  cachedAnnotationCount: 0,
+  restoreNotice: null,
   storageNotice: null,
   warningsDismissed: false,
   snapshotMode: false,
@@ -504,6 +513,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   dismissWarnings: () => set({ warningsDismissed: true }),
   dismissError: () => set({ error: null }),
   dismissStorageNotice: () => set({ storageNotice: null }),
+  dismissRestoreNotice: () => set({ restoreNotice: null }),
 
   reset: () => {
     activeSessionLoad?.cancel();
@@ -532,7 +542,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       itemFingerprints: {},
       cachedForCurrentConfig: {},
       cacheReady: true,
-      restoredAnnotationCount: 0,
+      cachedAnnotationCount: 0,
+      restoreNotice: null,
     });
   },
 
