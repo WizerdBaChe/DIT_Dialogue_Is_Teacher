@@ -158,6 +158,14 @@ body {
   font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
 }
 .settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 3px; }
+/* R7A-02: multi-control groups (teaching notes) use a label/control two-track grid so the four
+   semantic segments (source / display toggle / batch run / cache maintenance) don't get split by wrap. */
+.settings-actions.rows {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 10px; align-items: center; padding-top: 3px;
+}
+.settings-actions.rows > .row-span { grid-column: 1 / -1; }
+.settings-actions.rows .cache-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .session-load-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .settings-actions > label:not(.btn):not(.toggle) { color: var(--text-dark); font-size: calc(11px * var(--ui-scale)); font-weight: 600; }
 .settings-tray .disclaimer { padding: 8px 18px; border-top: 1px solid var(--rule); }
