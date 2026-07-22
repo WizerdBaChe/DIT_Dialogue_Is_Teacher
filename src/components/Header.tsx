@@ -109,7 +109,7 @@ export function Header(): ReactNode {
         <section id="settings-tray" className="settings-tray" aria-label={t.settings.label}>
           <div className="settings-grid">
             {!snapshotMode && (
-              <fieldset className="settings-group">
+              <fieldset className="settings-group g-session">
                 <legend>{t.settings.sessionGroup}</legend>
                 <div className="settings-actions">
                   <SessionLoadActions />
@@ -119,7 +119,7 @@ export function Header(): ReactNode {
             )}
 
             {!snapshotMode && (
-              <fieldset className="settings-group">
+              <fieldset className="settings-group g-teaching">
                 <legend>{t.settings.teachingGroup}</legend>
                 <div className="settings-actions">
                   <label htmlFor="hdr-provider">{t.header.providerLabel}</label>
@@ -157,7 +157,7 @@ export function Header(): ReactNode {
               </fieldset>
             )}
 
-            <fieldset className="settings-group">
+            <fieldset className="settings-group g-language">
               <legend>{t.settings.languageGroup}</legend>
               <div className="settings-actions">
                 <label htmlFor="hdr-locale">{t.header.languageLabel}</label>
@@ -167,7 +167,7 @@ export function Header(): ReactNode {
               </div>
             </fieldset>
 
-            <fieldset className="settings-group">
+            <fieldset className="settings-group g-navigation">
               <legend>{t.settings.navigationGroup}</legend>
               <div className="settings-actions">
                 <label className="toggle">

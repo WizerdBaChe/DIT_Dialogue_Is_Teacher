@@ -137,11 +137,22 @@ body {
   flex-shrink: 0; max-height: 45dvh; overflow-y: auto; overscroll-behavior: contain;
   background: var(--bg-card); border-bottom: 1px solid var(--rule-strong);
 }
+/* R7-INV-1: each group declares its own width need (--group-basis) and stretchiness
+   (--group-grow); the grid only flows and wraps, it does not divide space equally. */
 .settings-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 12px; padding: 14px 18px;
+  display: flex; flex-wrap: wrap; align-items: flex-start;
+  gap: 12px 14px; padding: 14px 18px;
 }
-.settings-group { min-width: 0; margin: 0; padding: 0 12px 10px; border: 1px solid var(--rule); }
+.settings-group {
+  flex: var(--group-grow, 1) 1 var(--group-basis, 240px);
+  min-width: min(100%, var(--group-basis, 240px));
+  min-height: 0; margin: 0; padding: 0 12px 10px; border: 1px solid var(--rule);
+}
+.settings-group.g-language   { --group-basis: 170px; --group-grow: 0; }
+.settings-group.g-navigation { --group-basis: 260px; }
+.settings-group.g-session    { --group-basis: 300px; }
+.settings-group.g-export     { --group-basis: 300px; }
+.settings-group.g-teaching   { --group-basis: 460px; --group-grow: 2; }
 .settings-group legend {
   padding: 0 6px; color: var(--text-dark); font-family: var(--font-sans); font-size: calc(10px * var(--ui-scale));
   font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
