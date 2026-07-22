@@ -2,6 +2,31 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R7 Part A — 版面收尾｜2026-07-23｜🔄 施工中（可續接標記）
+
+分支 `feat/r7-layout-multisource`（自已含 R6+R6.5 的 `main` 切出）。依
+[PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) 施工，順序
+R7A-00 → R7A-07 → （之後）R7B-00 → R7B-06。
+
+- [x] **R7A-00 量測基線**（commit `69a61a6`）：[docs/R7_BASELINE_2026-07-23.md](R7_BASELINE_2026-07-23.md)。
+  第 5 項（×1.5 模擬）觸發文件明訂的停工條件——740 寬 English 下原案常數 1.5 讓 header 衝到
+  68px 且 tabs 溢位 92px，比 PSM 原假設的「1280 English 最緊」更緊。已停工回報使用者，
+  使用者裁定「不降單一倍率，改依解析度分級」。
+- [x] **D-R7-03 重新裁定**（commit `1075a39`）：改 `--chrome-scale` 為三級 container-query
+  斷點（沿用既有 720/900/1280 邊界），每級取該級最窄邊界 English 下實測安全上限：
+  720–899→1.1、900–1279→1.2、≥1280→1.5；`<720` 雙列 header 不套用本旋鈕，沿用 R6.5 基線。
+  A4.4／R7A-05 卡片文字已同步修訂，見 PSM 文件。
+- [ ] **R7A-01～04**：未受本次停工影響（settings-group 等分、教學講解分列、layer-card badges
+  軌道、IOBlock 摘要分流），可直接按 PSM 原案施工，尚未開始。
+- [ ] **R7A-05**：待用上述三級旋鈕實作（尚未寫 CSS，PSM 文字已就緒）。
+- [ ] **R7A-06～07**：未開始。
+
+**續接指引**：若中斷於此，下一位／下一輪從 `feat/r7-layout-multisource` 分支的
+`git log --oneline -5` 對照本段落 checkbox 即可精確定位到「R7A-01 尚未開始」這一步；
+`docs/R7_BASELINE_2026-07-23.md` 與 PSM A4.4／R7A-05 已修訂版是唯一施工依據，不需重新量測
+740／1000 邊界（除非之後的卡片改動了 header 相關 CSS 選擇器，那時才需要照 R7A-05 錯誤路徑
+重新驗證邊界）。
+
 ## R6.5 — 版面與尺度系統修正｜2026-07-22｜✅ 使用者確認通過（見 ACCEPTANCE.md §20）
 
 依 [PSM_R6.5_LAYOUT_SCALE_REMEDIATION_v0.1.md](PSM_R6.5_LAYOUT_SCALE_REMEDIATION_v0.1.md) 施工，於現有分支
