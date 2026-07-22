@@ -168,11 +168,15 @@ body {
   min-width: min(100%, var(--group-basis, 240px));
   min-height: 0; margin: 0; padding: 0 12px 10px; border: 1px solid var(--rule);
 }
-.settings-group.g-language   { --group-basis: 170px; --group-grow: 0; }
-.settings-group.g-navigation { --group-basis: 260px; }
-.settings-group.g-session    { --group-basis: 300px; }
-.settings-group.g-export     { --group-basis: 300px; }
-.settings-group.g-teaching   { --group-basis: 460px; --group-grow: 2; }
+/* max-width caps: --group-grow has no ceiling on its own, so on wide screens where every group
+   fits on one row, leftover space gets divided by grow share regardless of whether a group's
+   content can use it — a fixed-width select/button row just leaves dead space. Cap each group at
+   its real content need (+ small buffer) so growth stops once the content is comfortably fit. */
+.settings-group.g-language   { --group-basis: 170px; --group-grow: 0; max-width: 210px; }
+.settings-group.g-navigation { --group-basis: 260px; max-width: 300px; }
+.settings-group.g-session    { --group-basis: 300px; max-width: 340px; }
+.settings-group.g-export     { --group-basis: 300px; max-width: 340px; }
+.settings-group.g-teaching   { --group-basis: 460px; --group-grow: 2; max-width: 520px; }
 .settings-group legend {
   padding: 0 6px; color: var(--text-dark); font-family: var(--font-sans);
   font-size: var(--fs-2xs); /* R7A-06: 10px 階梯外，就近取 --fs-2xs(10.5px) */
