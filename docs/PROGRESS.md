@@ -2,7 +2,7 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
-## R7 Part A — 版面收尾｜2026-07-23｜🔄 施工中（可續接標記）
+## R7 Part A — 版面收尾｜2026-07-23｜🔄 施工完成，待使用者 UAT（ACCEPTANCE.md §21）
 
 分支 `feat/r7-layout-multisource`（自已含 R6+R6.5 的 `main` 切出）。依
 [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) 施工，順序
@@ -37,13 +37,23 @@ R7A-00 → R7A-07 → （之後）R7B-00 → R7B-06。
   提醒稽核專案內其他既有的成對 min/max 斷點。瀏覽器實測 720/899/1000/1280/1706 五個邊界（English
   最壞情境）header 皆 56px、tabs 皆無溢位；390 維持雙列基線（chrome-scale=1，不受影響）；
   `npm.cmd test` 189 項全綠。
-- [ ] **R7A-06～07**：未開始。
+- [x] **R7A-06 觸及範圍字級 token 化**（commit `b50a7a3`）：R7A-01～05 觸及的選擇器（settings-group
+  legend、settings-actions label、export-privacy-note、error-banner、toggle、cache-status、
+  batch-control select、badge、layer-title、layer-title .kind、io-block、io-head、io-head .chev）
+  改引用 `--fs-*`；階梯外的值就近取最相近階並在該行加註（≤0.5px 差異）；`grep -c "var(--fs-" ` = 16；
+  瀏覽器實測 computed font-size 與文件記載差異一致，無非預期變化。
+- [x] **R7A-07 文件、驗收單與帳本**（本次提交）：ACCEPTANCE.md §21 寫入 Part A UAT 清單；
+  BACKLOG.md 登記「全站 `--fs-*` 階梯對齊」與「`@container` 成對 min/max 縫隙稽核」兩項；
+  `git diff --check` exit 0。
+
+**Part A 全部 7 張卡片（R7A-00～07）已完成，等待使用者在真實環境完成 ACCEPTANCE.md §21 的 UAT。**
+依 PSM §0/§9.3，Part A 完成、Part B 開工前建議做一次 workflow-checkpoint；Part B（R7B-00～06，
+Codex 多來源接入）尚未開始，不得在 Part A UAT 通過前開工。
 
 **續接指引**：若中斷於此，下一位／下一輪從 `feat/r7-layout-multisource` 分支的
-`git log --oneline -5` 對照本段落 checkbox 即可精確定位到「R7A-01 尚未開始」這一步；
-`docs/R7_BASELINE_2026-07-23.md` 與 PSM A4.4／R7A-05 已修訂版是唯一施工依據，不需重新量測
-740／1000 邊界（除非之後的卡片改動了 header 相關 CSS 選擇器，那時才需要照 R7A-05 錯誤路徑
-重新驗證邊界）。
+`git log --oneline -20` 對照本段落 checkbox 可確認 Part A 全部完成；下一步是**等使用者跑完
+ACCEPTANCE.md §21**，UAT 通過後才能開始 R7B-00（Part B 硬性前置量測卡）。若 §21 UAT 發現「有問題」
+項目，比照 R6.5 §20 的模式：先回報，不自行判斷是否要回頭改 Part A 的卡片。
 
 ## R6.5 — 版面與尺度系統修正｜2026-07-22｜✅ 使用者確認通過（見 ACCEPTANCE.md §20）
 

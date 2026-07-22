@@ -2,7 +2,9 @@
 
 日期：2026-07-22
 
-狀態：**Part A／Part B 皆 build-ready，待簽核後施工**（D-R7-01～09 已於 2026-07-22 由使用者裁定）。
+狀態：**Part A（R7A-00～07）已施工完成，2026-07-23 於分支 `feat/r7-layout-multisource`，
+待使用者於 [ACCEPTANCE.md §21](ACCEPTANCE.md) 完成 UAT**；Part B build-ready，待 Part A UAT
+通過後開工（D-R7-01～09 已於 2026-07-22 由使用者裁定）。
 
 定位：本文件是 R7 輪的**唯一施工依據**（sole-source），涵蓋兩個爆炸半徑互不重疊的部分：
 
