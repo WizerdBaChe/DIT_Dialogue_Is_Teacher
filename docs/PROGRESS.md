@@ -26,7 +26,11 @@ R7A-00 → R7A-07 → （之後）R7B-00 → R7B-06。
   0 badge 卡 `.layer-title` 佔卡寬 95.8%（達標 ≥0.95）、1-2 badge 卡 87-92%（達標 ≥0.80）；
   390 寬確認斷點觸發單欄。**未完成**：`npm run benchmark:r5` 50MiB fixture 效能量測（需要手動產生
   fixture＋瀏覽器自動化跑完整 R5 情境，本次 session 未執行，下一輪或使用者驗收前需補跑）。
-- [ ] **R7A-04**：IOBlock 摘要語意分流，未受停工影響，尚未開始。
+- [x] **R7A-04 IOBlock 摘要語意分流**（commit `8895e3b`）：新增 `summarizeParams`（值導向、60 字元上限、
+  逐型別格式化），`summarizeCollapsedIOText` 跳過空行／純結構符號行；`IOBlock` 新增 `structured?` prop；
+  `SpanCard` 傳入 `structured={span.tool.params}`；locales 新增 `collapsedParamsSummary`（zh+en）；
+  `parts.test.ts` 新增 7 案例（含既有回歸）；瀏覽器實測收合態顯示「參數 · 1 項 ·
+  file_path: src/TodoList.jsx」，展開後仍是完整 pretty JSON；`npm.cmd test` 189 項全綠。
 - [ ] **R7A-05**：待用上述三級旋鈕實作（尚未寫 CSS，PSM 文字已就緒）。
 - [ ] **R7A-06～07**：未開始。
 
