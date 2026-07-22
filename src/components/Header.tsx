@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
+import { useSessionStore } from "@/store/sessionStore";
 import type { ProviderId } from "@/types/spanTree";
 import { useT, useLocale, LOCALE_ORDER, LOCALE_NATIVE_NAME } from "@/i18n";
 import { WorkspaceTabs } from "./WorkspaceTabs";
@@ -8,6 +8,7 @@ import { OllamaPanel } from "./OllamaPanel";
 import { CloudPanel } from "./CloudPanel";
 import { SessionLoadActions } from "./SessionLoadActions";
 import { ExportControls } from "./ExportControls";
+import { NoticeBanner } from "./NoticeBanner";
 
 const PROVIDERS: ProviderId[] = ["none", "ollama", "cloud"];
 
@@ -25,10 +26,8 @@ export function Header(): ReactNode {
   const cachedCount = useSessionStore((state) => Object.keys(state.cachedForCurrentConfig).length);
   const failedCount = useSessionStore((state) => Object.keys(state.annotationErrors).length);
   const annotationRunMode = useSessionStore((state) => state.annotationRunMode);
-  const restoredAnnotationCount = useSessionStore((state) => state.restoredAnnotationCount);
-  const viewItems = useSessionStore((state) => state.viewItems);
-  const activeId = useSessionStore((state) => state.activeId);
-  const playingId = useSessionStore((state) => state.playingId);
+  const cachedAnnotationCount = useSessionStore((state) => state.cachedAnnotationCount);
+  const restoreNotice = useSessionStore((state) => state.restoreNotice);
   const structureDrawerOpen = useSessionStore((state) => state.structureDrawerOpen);
   const privacyReviewOpen = useSessionStore((state) => Boolean(state.privacyReview));
   const minimapEnabled = useSessionStore((state) => state.minimapEnabled);
@@ -45,10 +44,9 @@ export function Header(): ReactNode {
   const clearAnnotations = useSessionStore((state) => state.clearAnnotations);
   const resetToSample = useSessionStore((state) => state.resetToSample);
   const openStructureDrawer = useSessionStore((state) => state.openStructureDrawer);
+  const dismissRestoreNotice = useSessionStore((state) => state.dismissRestoreNotice);
   const setMinimapEnabled = useSessionStore((state) => state.setMinimapEnabled);
   const setMapShortcutEnabled = useSessionStore((state) => state.setMapShortcutEnabled);
-
-  const position = selectCurrentPosition({ viewItems, activeId, playingId });
 
   const annotationCount = annotationRunMode === "missing"
     ? Math.max(0, viewItemCount - cachedCount)
@@ -77,48 +75,11 @@ export function Header(): ReactNode {
           onClick={openStructureDrawer}
         >
           <span>{t.structure.openDrawer}</span>
-          <span className="structure-trigger-position">
-            {t.structure.position(position.current ?? "—", position.total)}
-          </span>
         </button>
 
         <WorkspaceTabs />
 
-        {!snapshotMode && (
-          <div className="control teaching-control" role="group" aria-label={t.settings.teachingGroup}>
-            <label htmlFor="hdr-provider" className="teaching-label">{t.header.providerLabel}</label>
-            <select id="hdr-provider" value={providerId} onChange={(event) => setProvider(event.target.value as ProviderId)}>
-              {PROVIDERS.map((provider) => <option key={provider} value={provider}>{t.provider[provider]}</option>)}
-            </select>
-            <label className="toggle">
-              <input type="checkbox" checked={showAnnotations} onChange={toggleAnnotations} disabled={providerId === "none"} />
-              {t.header.showAnnotations}
-            </label>
-            <div className="batch-control">
-              <select
-                aria-label={t.header.annotateModeLabel}
-                value={annotationRunMode}
-                onChange={(event) => setAnnotationRunMode(event.target.value as "missing" | "failed" | "all")}
-              >
-                <option value="missing">{t.header.annotateModes.missing}</option>
-                <option value="failed">{t.header.annotateModes.failed}</option>
-                <option value="all">{t.header.annotateModes.all}</option>
-              </select>
-              <button
-                className="btn"
-                onClick={() => void annotateAll()}
-                disabled={!hasDoc || providerId === "none"}
-                title={providerId === "none" ? t.header.annotateDisabled : undefined}
-              >
-                {t.header.annotateCount(annotationRunMode, annotationCount)}
-              </button>
-            </div>
-            {restoredAnnotationCount > 0 && <span className="cache-status">{t.header.restored(restoredAnnotationCount)}</span>}
-            {providerId !== "none" && hasAnnotations && (
-              <button className="btn" onClick={clearAnnotations} title={t.header.clearAnnotationsTitle}>{t.header.clearAnnotations}</button>
-            )}
-          </div>
-        )}
+        <div className="header-spacer" aria-hidden="true" />
 
         <div className="control replay-control" aria-label={t.header.replayControlsLabel}>
           <button className="btn compact-action" onClick={prev} disabled={!hasDoc} title={t.header.prevTitle} aria-label={t.header.prevTitle}>‹</button>
@@ -140,6 +101,10 @@ export function Header(): ReactNode {
         </button>
       </header>
 
+      {!snapshotMode && restoreNotice && (
+        <NoticeBanner tone="warn" onDismiss={dismissRestoreNotice}>{t.header.restored(restoreNotice.count)}</NoticeBanner>
+      )}
+
       {settingsOpen && (
         <section id="settings-tray" className="settings-tray" aria-label={t.settings.label}>
           <div className="settings-grid">
@@ -149,6 +114,45 @@ export function Header(): ReactNode {
                 <div className="settings-actions">
                   <SessionLoadActions />
                   <button className="btn" onClick={resetToSample} title={t.header.resetTitle}>{t.header.reset}</button>
+                </div>
+              </fieldset>
+            )}
+
+            {!snapshotMode && (
+              <fieldset className="settings-group">
+                <legend>{t.settings.teachingGroup}</legend>
+                <div className="settings-actions">
+                  <label htmlFor="hdr-provider">{t.header.providerLabel}</label>
+                  <select id="hdr-provider" value={providerId} onChange={(event) => setProvider(event.target.value as ProviderId)}>
+                    {PROVIDERS.map((provider) => <option key={provider} value={provider}>{t.provider[provider]}</option>)}
+                  </select>
+                  <label className="toggle">
+                    <input type="checkbox" checked={showAnnotations} onChange={toggleAnnotations} disabled={providerId === "none"} />
+                    {t.header.showAnnotations}
+                  </label>
+                  <div className="batch-control">
+                    <select
+                      aria-label={t.header.annotateModeLabel}
+                      value={annotationRunMode}
+                      onChange={(event) => setAnnotationRunMode(event.target.value as "missing" | "failed" | "all")}
+                    >
+                      <option value="missing">{t.header.annotateModes.missing}</option>
+                      <option value="failed">{t.header.annotateModes.failed}</option>
+                      <option value="all">{t.header.annotateModes.all}</option>
+                    </select>
+                    <button
+                      className="btn"
+                      onClick={() => void annotateAll()}
+                      disabled={!hasDoc || providerId === "none"}
+                      title={providerId === "none" ? t.header.annotateDisabled : undefined}
+                    >
+                      {t.header.annotateCount(annotationRunMode, annotationCount)}
+                    </button>
+                  </div>
+                  <span className="cache-status">{t.header.cachedAnnotationCount(cachedAnnotationCount)}</span>
+                  {providerId !== "none" && hasAnnotations && (
+                    <button className="btn" onClick={clearAnnotations} title={t.header.clearAnnotationsTitle}>{t.header.clearAnnotations}</button>
+                  )}
                 </div>
               </fieldset>
             )}
