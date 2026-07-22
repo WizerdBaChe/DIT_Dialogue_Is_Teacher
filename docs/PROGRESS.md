@@ -31,7 +31,12 @@ R7A-00 → R7A-07 → （之後）R7B-00 → R7B-06。
   `SpanCard` 傳入 `structured={span.tool.params}`；locales 新增 `collapsedParamsSummary`（zh+en）；
   `parts.test.ts` 新增 7 案例（含既有回歸）；瀏覽器實測收合態顯示「參數 · 1 項 ·
   file_path: src/TodoList.jsx」，展開後仍是完整 pretty JSON；`npm.cmd test` 189 項全綠。
-- [ ] **R7A-05**：待用上述三級旋鈕實作（尚未寫 CSS，PSM 文字已就緒）。
+- [x] **R7A-05 header chrome 尺度分級旋鈕**（commit `13a23aa`）：三級 `--chrome-scale`
+  （1.1／1.2／1.5）套用在 `.header`；施工中發現並修正兩個 container query 陷阱（自訂屬性設在
+  容器本身或 `:root` 不生效、成對 min/max 有小數縫隙），已記入 PSM A4.4 附註；已用 spawn_task
+  提醒稽核專案內其他既有的成對 min/max 斷點。瀏覽器實測 720/899/1000/1280/1706 五個邊界（English
+  最壞情境）header 皆 56px、tabs 皆無溢位；390 維持雙列基線（chrome-scale=1，不受影響）；
+  `npm.cmd test` 189 項全綠。
 - [ ] **R7A-06～07**：未開始。
 
 **續接指引**：若中斷於此，下一位／下一輪從 `feat/r7-layout-multisource` 分支的

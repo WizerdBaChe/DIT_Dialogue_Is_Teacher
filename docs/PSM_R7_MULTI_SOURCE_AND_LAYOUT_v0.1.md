@@ -357,6 +357,15 @@ locale 新增鍵（四字串）：
 > `--ui-scale` 与本旋鈕是兩個獨立軸線；`<720` 沿用 R6.5 既有雙列 header，不受本節約束
 > （呼應 R7-INV-4 的既有措辭疑義：56px 上下限只在單列情境成立）。
 
+**施工中發現的兩個 container query 陷阱（R7A-05 實作記錄，非量測，但值得記在契約旁）**：
+1. 把自訂屬性覆寫設在查詢容器自己身上（`.app-shell { --chrome-scale: ... }`）或設在 `:root` 這種
+   祖先，在實測瀏覽器中都不生效——只有設在**容器的子孫**（`.header`）才可靠生效，已改用此模式。
+2. 成對的 `min-width`/`max-width`（如 720–899 配 900–1279）有真實縫隙：`.app-shell` 量到的
+   `inline-size` 可能是小數（例如 899.33px），同時不滿足 `max-width:899px` 與 `min-width:900px`，
+   靜默落回基準值。已改為三個遞增的 `min-width`-only 查詢（後面命中者靠源碼順序覆蓋前面），
+   沒有縫隙。已用 `spawn_task` 提醒使用者這個模式可能也影響專案裡其他既有的成對 min/max 斷點
+   （非本輪範圍，列入 BACKLOG 稽核）。
+
 **R7A-00 實測驗證表**（English 最壞情境，見基線文件 §5 與後續追加量測）：
 
 | 分級 | 測試寬度 | `--chrome-scale` | header 高度 | `.workspace-tabs` scrollWidth/clientWidth |
