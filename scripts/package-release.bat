@@ -32,8 +32,9 @@ if exist "%STAGE%" rmdir /s /q "%STAGE%"
 mkdir "%STAGE%"
 
 echo.
-echo [3/5] Staging release contents (dist + double-click launcher)
-xcopy /e /i /y dist\* "%STAGE%\" >nul
+echo [3/5] Staging release contents (dist -^> app\, launcher stays at top level)
+mkdir "%STAGE%\app"
+xcopy /e /i /y dist\* "%STAGE%\app\" >nul
 if errorlevel 1 (
     echo Staging dist\ failed, aborting.
     exit /b 1

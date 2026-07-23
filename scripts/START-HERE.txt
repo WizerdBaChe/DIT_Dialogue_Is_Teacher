@@ -6,19 +6,29 @@ DIT — Dialogue Is Teacher（本地端點開即用）
 3. 不需要安裝任何東西（不需要 Node.js、不需要 Python）。
 4. 想停止的話，直接關閉那個黑色視窗即可（伺服器只在你電腦本機執行，沒有對外開放）。
 
+【去哪裡找你的 session .jsonl 檔案】
+DIT 支援兩種來源，畫面內的「載入 .jsonl」會自動判斷是哪一種，不用手動選：
+- Claude Code： ~/.claude/projects/<你的專案>/*.jsonl
+- Codex CLI： ~/.codex/sessions/rollout-*.jsonl
+（Windows 上「~」通常對應 C:\Users\<你的帳號>）
+沒有現成檔案也沒關係，開啟後會先載入一份內建範例讓你看效果。
+
 【常見問題】
-Q: 我直接雙擊 index.html 為什麼是白畫面？
+Q: 我直接雙擊 app 資料夾裡的 index.html 為什麼是白畫面？
 A: 瀏覽器基於安全限制，不允許用「檔案」的方式直接開啟這種網頁應用程式，一定要透過 start-dit.bat 啟動的本機伺服器來開。
 
 Q: Windows 防火牆跳出詢問怎麼辦？
 A: 選擇「允許」即可，這個伺服器只接受你自己電腦的連線（127.0.0.1），不會被外部連線存取。
 
 Q: 我不是 Windows，是 macOS / Linux 怎麼辦？
-A: 在這個資料夾用終端機執行其中一種：
+A: 用終端機切換進這個資料夾底下的 app 子資料夾，再執行其中一種：
+     cd app
      npx serve .
    或
+     cd app
      python3 -m http.server 4787
-   然後打開瀏覽器連到終端機顯示的網址即可。
+   然後打開瀏覽器連到終端機顯示的網址即可。（DIT 本體放在 app/ 資料夾裡，跟啟動腳本分開放，
+   資料夾看起來比較乾淨；不影響任何功能。）
 
 授權條款請見同一個下載頁面上的 LICENSE / 專案 README。
 
@@ -32,18 +42,29 @@ DIT — Dialogue Is Teacher (double-click and go)
 3. No installation needed (no Node.js, no Python required).
 4. To stop it, just close that console window (the server only runs locally on your machine; nothing is exposed externally).
 
+[Where to find your session .jsonl file]
+DIT supports two sources; "Load .jsonl" in the app detects which one automatically:
+- Claude Code: ~/.claude/projects/<your-project>/*.jsonl
+- Codex CLI: ~/.codex/sessions/rollout-*.jsonl
+(On Windows, "~" usually maps to C:\Users\<your-username>)
+Don't have a file handy? That's fine — a built-in sample loads automatically on first launch.
+
 [FAQ]
-Q: Why is index.html blank when I double-click it directly?
+Q: Why is index.html (inside the app folder) blank when I double-click it directly?
 A: Browsers block this kind of module-based web app from running directly off the filesystem for security reasons. You must launch it through start-dit.bat, which starts a tiny local server for you.
 
 Q: Windows Firewall is asking for permission — what do I do?
 A: Click "Allow". The server only accepts connections from your own machine (127.0.0.1); nothing is exposed externally.
 
 Q: I'm on macOS / Linux, not Windows — what do I do?
-A: In this folder, run one of:
+A: In your terminal, cd into the "app" subfolder here, then run one of:
+     cd app
      npx serve .
    or
+     cd app
      python3 -m http.server 4787
-   then open the URL your terminal prints in a browser.
+   then open the URL your terminal prints in a browser. (DIT itself lives in the app/
+   folder, kept separate from the launcher scripts to keep this folder tidy — this
+   doesn't change how anything works.)
 
 See the LICENSE / project README on the same download page for license terms.

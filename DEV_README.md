@@ -228,13 +228,30 @@ npm run build
 - `scripts/start-dit.ps1` — 純 `System.Net.HttpListener` 寫的本機靜態檔案伺服器，**沒有任何外部依賴**（不需要 Node/Python），只綁定 `127.0.0.1`（不需要系統管理員權限、不會被防火牆規則擋、不會對外網開放）；埠號預設 `4787`，被佔用會自動往上找空的。
 - `scripts/START-HERE.txt` — 給終端使用者看的中英文說明（含「為什麼不能直接雙擊 index.html」與 macOS/Linux 的替代做法）。
 
+發布包內，`dist/*` 會放進 `app/` 子資料夾，跟三個啟動腳本分開放在最外層，資料夾看起來乾淨（使用者只會先看到 `start-dit.bat`／`.ps1`／`START-HERE.txt`／`LICENSE.txt`，不會被 `assets/`、`session.worker-*.js` 這些內部檔案洗版）：
+
+```
+dit-dialogue-is-teacher-v<version>/
+├── start-dit.bat
+├── start-dit.ps1
+├── START-HERE.txt
+├── LICENSE.txt
+└── app/
+    ├── index.html
+    ├── assets/
+    ├── session.worker-*.js
+    └── snapshot.html
+```
+
+這一層巢狀**不會**造成跨系統的相對路徑問題：`start-dit.ps1` 的 `$root` 直接指到 `Join-Path $PSScriptRoot "app"`，HTTP 伺服器的文件根目錄本來就是「請求路徑相對於這個根目錄」，跟這個根目錄實際放在磁碟的哪一層無關；`index.html` 內的資源路徑（`/assets/...`）也是相對於 HTTP 根目錄，不是相對於檔案系統路徑，同樣不受影響。唯一要注意的地方：macOS/Linux 手動起 server 的替代做法（`npx serve .` / `python3 -m http.server`）要先 `cd app` 再執行，`START-HERE.txt` 已經把這點寫進去了。
+
 一鍵重新產生發布包（會自動跑 build + test，任一步失敗就中止，不會打包出壞的 release）：
 
 ```bash
 scripts\package-release.bat
 ```
 
-流程：讀 `package.json` 的 `version` → `npm run build` → `npm run test` → 把 `dist/*` 複製進暫存資料夾，連同上面三個啟動腳本、以及 `LICENSE`（複製一份成 `LICENSE.txt`）→ 用 PowerShell 的 `Compress-Archive` 壓成 `releases/dit-dialogue-is-teacher-v<version>.zip`（`releases/` 已在 `.gitignore`，不進版控，只上傳成 GitHub Release 附件）→ 清掉暫存資料夾。
+流程：讀 `package.json` 的 `version` → `npm run build` → `npm run test` → 建立暫存資料夾、把 `dist/*` 複製進 `app/` 子資料夾，連同上面三個啟動腳本、以及 `LICENSE`（複製一份成 `LICENSE.txt`）放在最外層 → 用 PowerShell 的 `Compress-Archive` 壓成 `releases/dit-dialogue-is-teacher-v<version>.zip`（`releases/` 已在 `.gitignore`，不進版控，只上傳成 GitHub Release 附件）→ 清掉暫存資料夾。
 
 這個腳本改一次、以後每個版本都能重跑；改動啟動邏輯只需要動 `start-dit.ps1`，`package-release.bat` 不用跟著改。
 

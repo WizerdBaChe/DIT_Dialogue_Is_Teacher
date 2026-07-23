@@ -2,8 +2,17 @@
 # No dependencies (no Node/Python required) — uses only .NET APIs bundled with Windows.
 # Binds to 127.0.0.1 only, so no admin rights and no firewall exposure are needed.
 
+# App files live in an "app" subfolder next to this script, so the top level of the
+# unzipped release only shows start-dit.bat/.ps1 and this README-style text file.
+# This only changes which local folder is served as the HTTP document root — every
+# asset path in index.html is root-relative ("/assets/..."), so it resolves the same
+# way regardless of how deep that folder sits on disk, on any OS.
 $ErrorActionPreference = "Stop"
-$root = $PSScriptRoot
+$root = Join-Path $PSScriptRoot "app"
+if (-not (Test-Path $root -PathType Container)) {
+    Write-Host "找不到 app 資料夾（$root），發布包可能不完整。" -ForegroundColor Red
+    exit 1
+}
 $mime = @{
     ".html" = "text/html; charset=utf-8"
     ".js"   = "text/javascript; charset=utf-8"
