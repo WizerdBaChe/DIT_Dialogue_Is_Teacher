@@ -195,3 +195,31 @@
 - Implement GN-01 only, run its stated automated and manual acceptance, and stop at its commit boundary before GN-02.
 - Preserve the current dirty worktree and unrelated user changes; do not modify `.claude/settings.local.json`.
 - Independent author-versus-verifier document sign-off remains unavailable; the user approved the contract on 2026-07-19 and final visual acceptance still requires user UAT after GN-08.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 8 – Provider Openness Design (make the tool usable by everyone)
+- Status: design locked; implementation deferred to a new session
+- Date: 2026-07-24
+- Detail: docs/rounds/r8-provider-openness/DESIGN_R8_PROVIDER_OPENNESS_v0.1.md
+
+## Goals
+- Turn the personal, opencode-only cloud path into an open, provider-agnostic teaching layer so any user can pick their own AI (local or paid) with a painless full-feature experience.
+
+## Decisions (user-ratified 2026-07-24; ADR-026..030 in the design doc)
+- Verified hard fact: DIT is a browser-only static app; most cloud APIs block direct browser calls via CORS. OpenAI/Gemini are CORS-blocked; Anthropic works with the `anthropic-dangerous-direct-browser-access` header; Ollama/LM Studio/Jan are local; OpenRouter/Groq browser-direct is unverified (M0 to test). "Zero-install + free cloud" does not exist.
+- ADR-026: merge `none/ollama/cloud` into ONE Endpoint Provider + Preset registry, all metadata-driven.
+- ADR-027: keep a Local Proxy preset (opencode demoted to one option, add LiteLLM) to cover CORS-blocked clouds like OpenAI/Groq.
+- ADR-028: relicense to MIT (charitable open source). A no-redistribution license cannot protect the idea, is unenforceable for a solo dev, and contradicts "everyone can use"; donations and the author's own commercialization are both allowed under MIT, so non-commercial was rejected.
+- ADR-029: persist BYOK keys via a runtime-fetched `dit.config.json` (release is served over localhost, so a sibling fetch works) + in-memory paste fallback; localStorage is not the default. Keys never enter the UI export, snapshots, or logs.
+- ADR-030: every `sendsDataOut` preset must route through the existing Privacy Envelope, not only the old opencode path.
+
+## Changes
+- docs/rounds/r8-provider-openness/DESIGN_R8_PROVIDER_OPENNESS_v0.1.md: added the PIM-level semantic contract (glossary, INV-R8-1..8, preset schema, EndpointStatus state machine, key/config design, ADR-026..030, milestone proposal M0..M6, M1 manual acceptance). Labeled PIM-grade, NOT sole-source PSM.
+- references/DIT-context.md: added canonical definitions for Endpoint Provider, Preset, Local Proxy, BYOK, Config File.
+
+## Open Questions / TODO (resolve at the start of the implementing session)
+- M0 empirical checks BEFORE coding: (a) Anthropic browser-direct with the dangerous header actually succeeds; (b) whether OpenRouter/Groq are browser-directable (if yes, promote to `direct` presets and skip the proxy for them).
+- `ProviderId` rename/migration scope (`cloud` is now misleading) — decide ADR once M0 is known.
+- Onboarding depth is a UX-semantic decision — ASK the user before building it (M6).
+- This design doc is PIM-grade; the implementing session must expand it to a work-card PSM before building, and must not treat it as sole-source.
