@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Span } from "@/types/spanTree";
 import { LocalPrivacyGateway } from "@/core/privacy";
 import { createOpenCodeTransport } from "@/core/llm/cloud";
-import { annotateOpenCodeWithPrivacy } from "./privacyAdapter";
+import { annotateWithPrivacy } from "./privacyAdapter";
 
 const span: Span = {
   id: "span-1",
@@ -21,10 +21,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("annotateOpenCodeWithPrivacy", () => {
+describe("annotateWithPrivacy", () => {
   it("does not call the transport when the user cancels the privacy preview", async () => {
     const annotate = vi.fn();
-    await expect(annotateOpenCodeWithPrivacy(span, { sessionTitle: "Project Kestrel", locale: "en" }, {
+    await expect(annotateWithPrivacy(span, { sessionTitle: "Project Kestrel", locale: "en" }, {
       gateway: new LocalPrivacyGateway(),
       transport: { annotate },
       reviewer: async () => null,
@@ -41,7 +41,7 @@ describe("annotateOpenCodeWithPrivacy", () => {
       provider: "cloud",
     });
     let preview = "";
-    await annotateOpenCodeWithPrivacy(span, { sessionTitle: "Project Kestrel", locale: "en" }, {
+    await annotateWithPrivacy(span, { sessionTitle: "Project Kestrel", locale: "en" }, {
       gateway: new LocalPrivacyGateway(),
       transport: { annotate },
       reviewer: async (inspection) => {
@@ -62,7 +62,7 @@ describe("annotateOpenCodeWithPrivacy", () => {
     const reviewer = vi.fn();
     const annotate = vi.fn();
     const secretSpan = { ...span, text: "api_key=ghp_abcdefghijklmnopqrstuvwxyz123456" };
-    await expect(annotateOpenCodeWithPrivacy(secretSpan, { sessionTitle: "Safe title", locale: "en" }, {
+    await expect(annotateWithPrivacy(secretSpan, { sessionTitle: "Safe title", locale: "en" }, {
       gateway: new LocalPrivacyGateway(),
       transport: { annotate },
       reviewer,
@@ -81,7 +81,7 @@ describe("annotateOpenCodeWithPrivacy", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(true), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await annotateOpenCodeWithPrivacy(span, { sessionTitle: "Project Kestrel", locale: "en" }, {
+    await annotateWithPrivacy(span, { sessionTitle: "Project Kestrel", locale: "en" }, {
       gateway: new LocalPrivacyGateway(),
       transport: createOpenCodeTransport(),
       reviewer: async () => ({ consentId: "consent-e2e" }),

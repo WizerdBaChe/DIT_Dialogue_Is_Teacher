@@ -9,18 +9,23 @@ import {
   type PrivacyInspection,
   type PrivacyRequest,
 } from "@/core/privacy";
-import type { OpenCodeTransport } from "@/core/llm/cloud";
 
 export type PrivacyReviewer = (inspection: PrivacyInspection) => Promise<PrivacyConsent | null>;
 
+/** Any transport that accepts an already-sanitized envelope instead of a raw span (INV-R8-1: every
+ * `sendsDataOut` preset routes through here, not just OpenCode). */
+export interface PrivacyProtectedTransport {
+  annotate(envelope: PrivacyEnvelope, locale?: "zh-TW" | "en"): Promise<Annotation>;
+}
+
 export interface PrivacyProtectedAnnotationOptions {
   gateway: PrivacyGateway;
-  transport: OpenCodeTransport;
+  transport: PrivacyProtectedTransport;
   reviewer: PrivacyReviewer;
   privacyRequest?: PrivacyRequest;
 }
 
-export async function annotateOpenCodeWithPrivacy(
+export async function annotateWithPrivacy(
   span: Span,
   context: AnnotateContext,
   options: PrivacyProtectedAnnotationOptions,

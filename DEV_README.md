@@ -77,7 +77,7 @@ Zustand store (src/store/sessionStore.ts) → React 元件樹 (src/components/*)
 | 降噪 | `src/core/denoise/` | 確定性標籤與分組 | 契約 |
 | 蒸餾 | `src/core/distill/` | spine/rib 分類 → DistilledSkeleton | 契約 |
 | 自檢 | `src/core/validate/` | invariant 檢查 | 契約 |
-| 講解 | `src/core/llm/` | `LLMProvider` 介面 + none/ollama/cloud | 契約 |
+| 講解 | `src/core/llm/` | `LLMProvider` 介面 + preset registry（見下）| 契約 |
 | 編排 | `src/core/pipeline.ts` | 組合上述為單一入口 | 上述各核心模組 |
 | 視圖模型 | `src/core/view/` | Span Tree → 可渲染清單 / 魚骨站點 | 契約 |
 | 狀態 | `src/store/` | Zustand：載入/Provider/重播/講解 | pipeline、view、llm |
@@ -89,6 +89,8 @@ Zustand store (src/store/sessionStore.ts) → React 元件樹 (src/components/*)
 
 - **新增來源**：實作 `SourceAdapter`（`parse(raw): RawEvent[]`），在 `src/core/adapters/index.ts` 註冊。其餘層不動。
 - **新增講解 Provider**：實作 `LLMProvider`（`annotate(span, ctx): Promise<Annotation>`），在 `src/core/llm/index.ts` 的 `getProvider` 註冊。`sendsDataOut` 旗標要設對，它驅動 UI 的隱私責任說明。
+  R8 起講解來源已擴充為可插拔的 **preset registry**（`src/core/llm/presets.ts`）：本地（ollama/lmstudio/jan）、雲端直連（anthropic-byok/openrouter/groq，皆需 BYOK）、本地代理（cloud＝opencode，沿用既有實作）、自訂端點。
+  完整語意契約、ADR 與已知技術債見 [docs/rounds/r8-provider-openness/](docs/rounds/r8-provider-openness/)。
 - **新增降噪規則**：在 `denoiser.ts` 內加純函式規則，輸出 `tags`/`groups`，不要直接改 UI 渲染邏輯。
 - **多 session（D-5，已預留未實作）**：型別層已有 `SessionLibrary` 預留；store 目前只持單一 `doc`，未來要改持陣列時，型別契約不需要動。
 
