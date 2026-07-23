@@ -246,8 +246,8 @@ const zhTW = {
     hint:
       "模型較大 (≥4B) 首次回應需把模型載入 VRAM，可能較久 → 若逾時，先把「逾時」調到 120 秒再試。連續講解變慢多半是模型被卸載重載：把「保活」設長一點即可緩解。「停用思考」只適用 qwen3 / deepseek-r1 等會思考的模型。",
     offlineGuide: "請啟動 Ollama 並允許瀏覽器跨域存取，然後按「重新檢查」：",
-    offlineHintPrefix: "↑ Windows PowerShell。或永久設定：",
-    offlineHintMid: " 後重啟 Ollama。macOS/Linux：",
+    offlineHintPrefix: "↑ 已依你的作業系統顯示對應指令。永久設定：Windows 用 ",
+    offlineHintMid: " 後重啟 Ollama；macOS/Linux 用 ",
     offlineHintEnd: "。",
     noModelGuide: "尚未安裝任何模型。建議先 pull 一個輕量模型（擇一）：",
     noModelHint: "安裝完成後按「重新檢查」。7B 約需數 GB 空間；3B 較省資源。",
@@ -619,8 +619,8 @@ const en: Messages = {
     hint:
       'Large models (≥4B) load into VRAM on first response and may be slow → if it times out, bump "Timeout" to 120s and retry. Slowdowns over successive notes usually mean the model got unloaded/reloaded: set "Keep-alive" longer to ease it. "Disable thinking" applies only to thinking models like qwen3 / deepseek-r1.',
     offlineGuide: 'Start Ollama and allow cross-origin browser access, then press "Re-check":',
-    offlineHintPrefix: "↑ Windows PowerShell. Or set permanently: ",
-    offlineHintMid: " then restart Ollama. macOS/Linux: ",
+    offlineHintPrefix: "↑ Shown for your detected OS. To persist it: on Windows, ",
+    offlineHintMid: " then restart Ollama; on macOS/Linux, ",
     offlineHintEnd: ".",
     noModelGuide: "No model installed yet. Pull a lightweight model first (pick one):",
     noModelHint: 'After installing, press "Re-check". 7B needs a few GB; 3B is lighter.',

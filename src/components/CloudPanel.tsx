@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
 import type { OpenCodeState } from "@/core/llm";
-import { WEB_RUNTIME_START_COMMANDS } from "@/core/runtime";
+import { getRuntimeStartCommand } from "@/core/runtime";
 
 const STATE_CLASS: Record<OpenCodeState, string> = {
   checking: "checking",
@@ -37,7 +37,7 @@ export function CloudPanel(): ReactNode {
   const state = status?.state ?? "checking";
   const models = Array.from(new Set([...(status?.models ?? []), config.modelID]));
   const copyCommand = () => {
-    void navigator.clipboard?.writeText(WEB_RUNTIME_START_COMMANDS.opencode).then(
+    void navigator.clipboard?.writeText(getRuntimeStartCommand("opencode")).then(
       () => {
         setCopied(true);
         setTimeout(() => setCopied(false), 1400);
@@ -110,7 +110,7 @@ export function CloudPanel(): ReactNode {
           </div>
 
           <div className="ol-cmd">
-            <code>{WEB_RUNTIME_START_COMMANDS.opencode}</code>
+            <code>{getRuntimeStartCommand("opencode")}</code>
             <button type="button" className="ol-copy" onClick={copyCommand} aria-label={t.cloud.copyAria}>
               {copied ? t.cloud.copied : t.cloud.copy}
             </button>
