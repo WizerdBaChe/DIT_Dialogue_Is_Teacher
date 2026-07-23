@@ -1,0 +1,60 @@
+DIT Personal Use License (v1.0)
+
+Copyright (c) 2026 Nathan Ba Che ("the Author"). All rights reserved.
+
+This license applies to the DIT — Dialogue Is Teacher software and all
+associated source code, documentation, and assets in this repository
+(the "Software").
+
+1. Grant of Rights
+
+   Permission is hereby granted, free of charge, to any person obtaining a
+   copy of the Software, to use, run, study, and modify the Software for
+   personal purposes, including private, non-commercial, and internal use,
+   subject to the conditions below.
+
+2. Redistribution Restriction
+
+   Redistribution of the Software, in original or modified form, is NOT
+   permitted. This includes, without limitation: publishing, sublicensing,
+   selling, hosting a public instance, uploading to a public or private
+   package registry, bundling with another product, or otherwise making the
+   Software (or any derivative of it) available to any third party.
+
+   Providing attribution to the Author does NOT satisfy this restriction
+   and does NOT create an exception on its own. Redistribution remains
+   prohibited even when the original source, author, or repository is
+   credited, unless the Author has granted prior written permission as
+   described in Section 3.
+
+3. Exception by Written Permission
+
+   The Author may, at their sole discretion, grant a written exception
+   permitting redistribution (in original or modified form) for a specific
+   person, project, or purpose. Such an exception is only valid if given
+   explicitly in writing by the Author (e.g. email, signed document, or a
+   dated public statement by the Author naming the grantee and scope). No
+   other form of consent — implied, verbal, or inferred from silence — is
+   sufficient.
+
+4. Retention of Notice
+
+   Any copy or modified copy of the Software that you keep for your own
+   permitted use under Section 1 must retain this license text and the
+   copyright notice above.
+
+5. No Warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+   USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+6. Termination
+
+   Any use in violation of Section 2 automatically terminates the rights
+   granted under Section 1, without notice.
+
+To request a redistribution exception, contact the Author directly.
