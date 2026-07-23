@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { SettingsDialog } from "./SettingsDialog";
 import { useSessionStore } from "@/store/sessionStore";
 
@@ -59,6 +59,20 @@ describe("SettingsDialog (R7 settings-dialog redesign)", () => {
     act(() => {
       dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
     });
+    expect(useSessionStore.getState().settingsOpen).toBe(false);
+  });
+
+  it("closes on a backdrop click (target is the dialog element itself), not on clicks inside the shell", () => {
+    render(<SettingsDialog />);
+    openDialog();
+    const dialog = document.querySelector("#settings-dialog") as HTMLDialogElement;
+    const shell = document.querySelector(".settings-dialog-shell") as HTMLDivElement;
+    expect(shell).not.toBeNull();
+
+    fireEvent.click(shell);
+    expect(useSessionStore.getState().settingsOpen).toBe(true);
+
+    fireEvent.click(dialog);
     expect(useSessionStore.getState().settingsOpen).toBe(false);
   });
 });
