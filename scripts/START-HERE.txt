@@ -1,0 +1,49 @@
+DIT — Dialogue Is Teacher（本地端點開即用）
+
+【如何開始】
+1. 在這個資料夾裡，直接雙擊「start-dit.bat」。
+2. 出現黑色視窗、瀏覽器自動開啟後，就可以開始使用 DIT 了。
+3. 不需要安裝任何東西（不需要 Node.js、不需要 Python）。
+4. 想停止的話，直接關閉那個黑色視窗即可（伺服器只在你電腦本機執行，沒有對外開放）。
+
+【常見問題】
+Q: 我直接雙擊 index.html 為什麼是白畫面？
+A: 瀏覽器基於安全限制，不允許用「檔案」的方式直接開啟這種網頁應用程式，一定要透過 start-dit.bat 啟動的本機伺服器來開。
+
+Q: Windows 防火牆跳出詢問怎麼辦？
+A: 選擇「允許」即可，這個伺服器只接受你自己電腦的連線（127.0.0.1），不會被外部連線存取。
+
+Q: 我不是 Windows，是 macOS / Linux 怎麼辦？
+A: 在這個資料夾用終端機執行其中一種：
+     npx serve .
+   或
+     python3 -m http.server 4787
+   然後打開瀏覽器連到終端機顯示的網址即可。
+
+授權條款請見同一個下載頁面上的 LICENSE / 專案 README。
+
+---
+
+DIT — Dialogue Is Teacher (double-click and go)
+
+[How to start]
+1. In this folder, double-click "start-dit.bat".
+2. A console window will appear and your browser will open automatically — you're ready to use DIT.
+3. No installation needed (no Node.js, no Python required).
+4. To stop it, just close that console window (the server only runs locally on your machine; nothing is exposed externally).
+
+[FAQ]
+Q: Why is index.html blank when I double-click it directly?
+A: Browsers block this kind of module-based web app from running directly off the filesystem for security reasons. You must launch it through start-dit.bat, which starts a tiny local server for you.
+
+Q: Windows Firewall is asking for permission — what do I do?
+A: Click "Allow". The server only accepts connections from your own machine (127.0.0.1); nothing is exposed externally.
+
+Q: I'm on macOS / Linux, not Windows — what do I do?
+A: In this folder, run one of:
+     npx serve .
+   or
+     python3 -m http.server 4787
+   then open the URL your terminal prints in a browser.
+
+See the LICENSE / project README on the same download page for license terms.
