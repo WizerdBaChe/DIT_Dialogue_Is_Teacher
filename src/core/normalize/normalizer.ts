@@ -57,8 +57,53 @@ function summarize(ev: RawEvent): string {
   }
 }
 
+/**
+ * 剝除合成的附件標頭區塊：以 `#` 開頭的標頭行，及其後續縮排／清單內容，
+ * 直到遇到不縮排、非清單的一般文字行為止（如 Codex 的
+ * 「# Files mentioned by the user」附件展開）。
+ */
+function stripSyntheticHeaderBlocks(text: string): string {
+  const kept: string[] = [];
+  let skipping = false;
+  for (const rawLine of text.split(/\r?\n/)) {
+    if (/^\s*#/.test(rawLine)) {
+      skipping = true;
+      continue;
+    }
+    if (skipping) {
+      const isContinuation = rawLine.trim() === ""
+        || /^\s+/.test(rawLine)
+        || /^\s*[-*]\s/.test(rawLine)
+        || /^\s*\d+[.)]\s/.test(rawLine);
+      if (isContinuation) continue;
+      skipping = false;
+    }
+    kept.push(rawLine);
+  }
+  return kept.join("\n");
+}
+
+const FALLBACK_TITLE_MAX_LENGTH = 48;
+
+/** 規則式 session 標題 fallback（無 `ai-title`／等價欄位時使用，所有來源共用）。 */
+function deriveFallbackTitle(events: RawEvent[]): string | undefined {
+  const firstUserText = events.find((event) => event.kind === "user_text" && event.text?.trim());
+  if (!firstUserText?.text) return undefined;
+
+  const stripped = stripSyntheticHeaderBlocks(firstUserText.text);
+  const firstLine = stripped
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .find((l) => l.length > 0);
+  if (!firstLine) return undefined;
+
+  return firstLine.length > FALLBACK_TITLE_MAX_LENGTH
+    ? `${firstLine.slice(0, FALLBACK_TITLE_MAX_LENGTH)}…`
+    : firstLine;
+}
+
 /** 合理化 session meta，補上 fallback。 */
-function finalizeMeta(meta: Partial<SessionMeta>): SessionMeta {
+function finalizeMeta(meta: Partial<SessionMeta>, events: RawEvent[]): SessionMeta {
   if (!meta.id) {
     // 合成 id 每次載入都不同，會讓講解快取的 session 指紋對不上。
     reportFallback("normalizer/finalizeMeta", "missing-session-id");
@@ -67,7 +112,7 @@ function finalizeMeta(meta: Partial<SessionMeta>): SessionMeta {
     id: meta.id ?? `session-${Date.now()}`,
     source: meta.source ?? "claude-code",
     tool: meta.tool ?? "claude-code",
-    title: meta.title ?? "未命名 session",
+    title: meta.title ?? deriveFallbackTitle(events) ?? "未命名 session",
     projectPath: meta.projectPath ?? null,
     startedAt: meta.startedAt ?? null,
     model: meta.model ?? null,
@@ -155,7 +200,7 @@ export function normalize(parsed: ParseResult): SessionDocument {
 
   return {
     schemaVersion: SCHEMA_VERSION,
-    session: finalizeMeta(parsed.meta),
+    session: finalizeMeta(parsed.meta, parsed.events),
     spans,
     groups,
   };
