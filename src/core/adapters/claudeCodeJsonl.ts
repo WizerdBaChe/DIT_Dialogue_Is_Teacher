@@ -182,4 +182,8 @@ export const claudeCodeJsonlAdapter: SourceAdapter = {
     for (const line of raw.split(/\r?\n/)) accumulator.pushLine(line);
     return accumulator.finish();
   },
+
+  createAccumulator(): ClaudeCodeJsonlAccumulator {
+    return new ClaudeCodeJsonlAccumulator();
+  },
 };
