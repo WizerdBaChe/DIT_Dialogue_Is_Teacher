@@ -241,11 +241,8 @@ npx serve dist
 
 `package.json` 目前是 `"private": true`，不會被發佈到 npm registry，`version` 欄位純粹是給人看的里程碑標記。沒有 remote、沒有 CI 依賴這個號碼，所以要不要 bump、bump 到多少，純看你想不想在 `git log`/`git tag` 上留一個對應的標記；建議語意：新來源/新講解模式等使用者能感知的功能 → bump minor（`0.x.0`），純內部重構/文件 → 不用動。
 
-### 9.5 已知的跨平台落差（見 README「支援環境」）
+### 9.5 跨平台的複製指令（`src/core/runtime/webRuntimeController.ts`）
 
-DIT 本體（純瀏覽器）行為在 Windows/macOS/Linux 完全一致；唯二會露出「寫死 Windows 語法」的地方都在**面板顯示的複製指令**，不影響功能本身：
+Ollama／OpenCode 面板顯示的一鍵複製指令已依作業系統分流：`detectRuntimeOS()` 讀 `navigator.platform`／`navigator.userAgent` 判斷 Windows 與否（無 `navigator` 的環境，如測試，預設 posix），`getRuntimeStartCommand(service, os?)` 依判斷結果回傳 PowerShell（`$env:OLLAMA_ORIGINS="*"; ollama serve`、`opencode.cmd serve ...`）或 posix shell（`OLLAMA_ORIGINS="*" ollama serve`、`opencode serve ...`，無 `.cmd`）版本；`WebRuntimeController.startCommand()` 與兩個面板元件都改呼叫這個函式，不再各自 import 一份寫死的常數。
 
-- `src/core/runtime/webRuntimeController.ts` 的 `WEB_RUNTIME_START_COMMANDS.ollama` 是 PowerShell 語法（`$env:OLLAMA_ORIGINS="*"; ollama serve`）。
-- 同檔案 `WEB_RUNTIME_START_COMMANDS.opencode` 硬寫 `opencode.cmd`（Windows 專用副檔名）。
-
-目前 README 只在文字上提醒 macOS/Linux 使用者手動替換；如果之後要做「跟著使用者 OS 換文案」，加一個 `navigator.userAgent`/`navigator.platform` 判斷再選字串即可，兩個常數本身已經集中在同一個檔案，改動面很小。
+新增服務或改指令內容時，只需要動 `WEB_RUNTIME_START_COMMANDS_BY_OS` 這個矩陣；OS 判斷邏輯與指令內容已分離，不會再重演「單一常數只有一種 OS 語法」的問題。

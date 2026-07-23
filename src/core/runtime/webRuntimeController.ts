@@ -7,11 +7,45 @@ import {
   type RuntimeStatus,
 } from "./contracts";
 
-export const WEB_RUNTIME_START_COMMANDS: Readonly<Record<RuntimeService, string>> = {
-  ollama: '$env:OLLAMA_ORIGINS="*"; ollama serve',
-  opencode:
-    "opencode.cmd serve --port 4096 --hostname 127.0.0.1 --cors http://localhost:5173 --cors http://127.0.0.1:5173 --cors http://localhost:4173 --cors http://127.0.0.1:4173",
+/** 只分 Windows 與 posix（macOS／Linux 共用同一套 shell 語法），不必再細分下去。 */
+export type RuntimeOS = "windows" | "posix";
+
+interface PlatformHints {
+  userAgent?: string;
+  platform?: string;
+}
+
+const OPENCODE_CORS_ARGS =
+  "--cors http://localhost:5173 --cors http://127.0.0.1:5173 --cors http://localhost:4173 --cors http://127.0.0.1:4173";
+
+/** 依作業系統分流的啟動指令；未知環境（無 navigator，如 SSR/測試）預設 posix，語法較寬鬆、不會誤導 Windows 使用者去跑一個少了 `.cmd` 會失敗的指令。 */
+const WEB_RUNTIME_START_COMMANDS_BY_OS: Readonly<Record<RuntimeOS, Readonly<Record<RuntimeService, string>>>> = {
+  windows: {
+    ollama: '$env:OLLAMA_ORIGINS="*"; ollama serve',
+    opencode: `opencode.cmd serve --port 4096 --hostname 127.0.0.1 ${OPENCODE_CORS_ARGS}`,
+  },
+  posix: {
+    ollama: 'OLLAMA_ORIGINS="*" ollama serve',
+    opencode: `opencode serve --port 4096 --hostname 127.0.0.1 ${OPENCODE_CORS_ARGS}`,
+  },
 };
+
+/**
+ * 從 `navigator.platform`／`navigator.userAgent` 判斷是不是 Windows；兩者擇一命中即可，
+ * 因為部分瀏覽器已棄用 `platform`、只剩 `userAgent` 可靠。傳入 `hints` 供測試注入，
+ * 不傳則讀取全域 `navigator`（瀏覽器執行期的實際情況）。
+ */
+export function detectRuntimeOS(hints?: PlatformHints): RuntimeOS {
+  const source = hints ?? (typeof navigator === "undefined" ? undefined : navigator);
+  const platform = source?.platform ?? "";
+  const userAgent = source?.userAgent ?? "";
+  return /win/i.test(platform) || /windows/i.test(userAgent) ? "windows" : "posix";
+}
+
+/** 供元件直接取用單一服務的啟動指令；預設依偵測到的作業系統選字串，也可傳 `os` 覆寫（測試／預覽用）。 */
+export function getRuntimeStartCommand(service: RuntimeService, os: RuntimeOS = detectRuntimeOS()): string {
+  return WEB_RUNTIME_START_COMMANDS_BY_OS[os][service];
+}
 
 export type RuntimeStatusProbe = () => Promise<RuntimeStatus>;
 
@@ -49,7 +83,7 @@ export class WebRuntimeController implements RuntimeController {
   }
 
   startCommand(service: RuntimeService): string {
-    return WEB_RUNTIME_START_COMMANDS[service];
+    return getRuntimeStartCommand(service);
   }
 
   async start(service: RuntimeService): Promise<RuntimeStartResult> {

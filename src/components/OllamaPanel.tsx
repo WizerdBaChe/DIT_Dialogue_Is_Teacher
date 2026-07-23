@@ -10,7 +10,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import { useT } from "@/i18n";
 import { RECOMMENDED_MODELS, type OllamaState } from "@/core/llm";
-import { WEB_RUNTIME_START_COMMANDS } from "@/core/runtime";
+import { getRuntimeStartCommand } from "@/core/runtime";
 
 /** 狀態記號 (幾何字元，非 emoji) 與 CSS class；文字標籤走 i18n。 */
 const STATE_DOT: Record<OllamaState, { dot: string; cls: string }> = {
@@ -164,7 +164,7 @@ export function OllamaPanel(): ReactNode {
           {state === "offline" && (
             <div className="ol-guide">
               <p>{t.ollama.offlineGuide}</p>
-              <Cmd text={WEB_RUNTIME_START_COMMANDS.ollama} />
+              <Cmd text={getRuntimeStartCommand("ollama")} />
               <p className="ol-hint">
                 {t.ollama.offlineHintPrefix}
                 <code>setx OLLAMA_ORIGINS "*"</code>
