@@ -149,6 +149,24 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     expect(result.events.filter((e) => e.kind === "unknown")).toHaveLength(0);
   });
 
+  it("scopes pairing to the matching turn_id so an out-of-order close doesn't cross-pair with a more-recently-opened call (R7B-05 real-sample finding)", () => {
+    const raw = [
+      // Turn A opens an apply_patch call, then turn B (a concurrent/sub-agent turn) opens its own.
+      line("response_item", { type: "custom_tool_call", call_id: "call_a", name: "exec", input: "tools.apply_patch({})", internal_chat_message_metadata_passthrough: { turn_id: "turn-a" } }),
+      line("response_item", { type: "custom_tool_call", call_id: "call_b", name: "exec", input: "tools.apply_patch({})", internal_chat_message_metadata_passthrough: { turn_id: "turn-b" } }),
+      // Turn A closes first even though call_b (turn B) was opened more recently — without turn_id
+      // scoping, "nearest still-open compatible call" would wrongly grab call_b here.
+      line("event_msg", { type: "patch_apply_end", turn_id: "turn-a", call_id: "exec-a", success: true, changes: { "a.ts": {} } }),
+      line("event_msg", { type: "patch_apply_end", turn_id: "turn-b", call_id: "exec-b", success: true, changes: { "b.ts": {} } }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    const toolUses = result.events.filter((e) => e.kind === "tool_use");
+    expect(toolUses.find((e) => e.toolUseId === "call_a")?.toolInput).toMatchObject({ changes: { "a.ts": {} } });
+    expect(toolUses.find((e) => e.toolUseId === "call_b")?.toolInput).toMatchObject({ changes: { "b.ts": {} } });
+    expect(result.events.filter((e) => e.kind === "unknown")).toHaveLength(0);
+  });
+
   it("degrades patch_apply_end to a standalone unknown event with a warning when no compatible call is open", () => {
     const raw = line("event_msg", { type: "patch_apply_end", call_id: "exec-1", success: true });
     const result = codexJsonlAdapter.parse(raw);
