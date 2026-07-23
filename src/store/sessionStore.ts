@@ -217,6 +217,7 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     sessionOrigin,
     structureDrawerOpen: false,
     mapOpen: false,
+    settingsOpen: false,
     mapZoomLevel: "global",
     mapFocusId: null,
     mapError: null,
@@ -291,6 +292,8 @@ interface SessionState {
   structureCollapsed: boolean;
   structureDrawerOpen: boolean;
   mapOpen: boolean;
+  /** 設定對話框開關 (R7 設計改版：取代原本的內嵌 settings tray)。 */
+  settingsOpen: boolean;
   mapZoomLevel: MapZoomLevel;
   mapFocusId: string | null;
   mapError: string | null;
@@ -376,6 +379,8 @@ interface SessionState {
   closeStructureDrawer: () => void;
   openMap: () => void;
   closeMap: () => void;
+  openSettings: () => void;
+  closeSettings: () => void;
   setMapZoom: (level: MapZoomLevel, focusId?: string) => void;
   setMapFocus: (id: string) => void;
   jumpToMapItem: (id: string) => void;
@@ -410,6 +415,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   structureCollapsed: false,
   structureDrawerOpen: false,
   mapOpen: false,
+  settingsOpen: false,
   mapZoomLevel: "global",
   mapFocusId: null,
   mapError: null,
@@ -532,6 +538,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       primaryView: "overview",
       structureDrawerOpen: false,
       mapOpen: false,
+      settingsOpen: false,
       mapZoomLevel: "global",
       mapFocusId: null,
       mapError: null,
@@ -669,12 +676,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   setPrimaryView: (primaryView) => {
     get().pause();
-    set({ primaryView, mapOpen: false, mapError: null });
+    set({ primaryView, mapOpen: false, settingsOpen: false, mapError: null });
   },
 
   startReading: () => {
     get().pause();
-    set({ primaryView: "reader", mapOpen: false, mapError: null });
+    set({ primaryView: "reader", mapOpen: false, settingsOpen: false, mapError: null });
   },
 
   toggleStructureCollapsed: () => set((state) => ({ structureCollapsed: !state.structureCollapsed })),
@@ -683,7 +690,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const state = get();
     if (!state.doc || state.privacyReview) return;
     state.pause();
-    set({ structureDrawerOpen: true, mapOpen: false, mapError: null });
+    set({ structureDrawerOpen: true, mapOpen: false, settingsOpen: false, mapError: null });
   },
 
   closeStructureDrawer: () => set({ structureDrawerOpen: false }),
@@ -694,6 +701,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     state.pause();
     set({
       mapOpen: true,
+      settingsOpen: false,
       mapZoomLevel: "global",
       mapFocusId: state.playingId ?? state.activeId ?? state.viewItems[0]?.id ?? null,
       mapError: null,
@@ -701,6 +709,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   closeMap: () => set({ mapOpen: false, mapError: null }),
+
+  openSettings: () => {
+    const state = get();
+    if (state.privacyReview) return;
+    set({ settingsOpen: true, mapOpen: false, structureDrawerOpen: false, mapError: null });
+  },
+
+  closeSettings: () => set({ settingsOpen: false }),
 
   setMapZoom: (mapZoomLevel, focusId) => set((state) => ({
     mapZoomLevel,
@@ -734,7 +750,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   setActive: (id) => {
     get().pause();
-    set({ activeId: id, playingId: null, primaryView: "reader", structureDrawerOpen: false, mapOpen: false, mapError: null });
+    set({ activeId: id, playingId: null, primaryView: "reader", structureDrawerOpen: false, mapOpen: false, settingsOpen: false, mapError: null });
   },
 
   gotoIndex: (i) => {
@@ -818,7 +834,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             }
             return new Promise<PrivacyConsent | null>((resolve) => {
               pendingPrivacyReviewer = resolve;
-              set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false, mapOpen: false, mapError: null });
+              set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false, mapOpen: false, settingsOpen: false, mapError: null });
             });
           },
         });
