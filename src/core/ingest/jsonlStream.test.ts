@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseClaudeCodeJsonlChunks, StreamCancelledError } from "./jsonlStream";
+import { parseJsonlChunks, StreamCancelledError, UnknownSourceError } from "./jsonlStream";
 import { buildSessionDocumentFromFiles, buildSessionDocumentFromParsedFiles } from "@/core/pipeline";
 import { r4MainSession, r4SubagentSession } from "@/fixtures";
 
@@ -18,11 +18,11 @@ function assistantLine(text: string): string {
   });
 }
 
-describe("parseClaudeCodeJsonlChunks", () => {
+describe("parseJsonlChunks", () => {
   it("preserves a UTF-8 code point split across chunks", async () => {
     const bytes = new TextEncoder().encode(`${assistantLine("繁體🙂文字")}\n`);
     const emojiStart = bytes.findIndex((value, index) => value === 0xf0 && bytes[index + 1] === 0x9f);
-    const result = await parseClaudeCodeJsonlChunks(chunksOf([
+    const result = await parseJsonlChunks(chunksOf([
       bytes.slice(0, emojiStart + 2),
       bytes.slice(emojiStart + 2),
     ]));
@@ -34,7 +34,7 @@ describe("parseClaudeCodeJsonlChunks", () => {
   it("preserves JSONL records split across arbitrary chunks", async () => {
     const input = `${assistantLine("first")}\r\n${assistantLine("second")}\n`;
     const bytes = new TextEncoder().encode(input);
-    const result = await parseClaudeCodeJsonlChunks(chunksOf([
+    const result = await parseJsonlChunks(chunksOf([
       bytes.slice(0, 7),
       bytes.slice(7, 91),
       bytes.slice(91),
@@ -46,7 +46,7 @@ describe("parseClaudeCodeJsonlChunks", () => {
 
   it("reports malformed line numbers without losing later records", async () => {
     const input = `${assistantLine("first")}\n{broken-json}\n${assistantLine("third")}\n`;
-    const result = await parseClaudeCodeJsonlChunks(chunksOf([new TextEncoder().encode(input)]));
+    const result = await parseJsonlChunks(chunksOf([new TextEncoder().encode(input)]));
 
     expect(result.parsed.events.map((event) => event.text)).toEqual(["first", "third"]);
     expect(result.parsed.warnings).toContain("第 2 行 JSON 解析失敗，已略過。");
@@ -54,7 +54,7 @@ describe("parseClaudeCodeJsonlChunks", () => {
 
   it("adds the source path to streamed malformed-line warnings", async () => {
     const input = `${assistantLine("first")}\n{broken-json}\n`;
-    const streamed = await parseClaudeCodeJsonlChunks(chunksOf([new TextEncoder().encode(input)]));
+    const streamed = await parseJsonlChunks(chunksOf([new TextEncoder().encode(input)]));
     const result = buildSessionDocumentFromParsedFiles([
       { path: "subagents/agent-broken.jsonl", parsed: streamed.parsed, inputBytes: streamed.inputBytes },
     ]);
@@ -66,8 +66,8 @@ describe("parseClaudeCodeJsonlChunks", () => {
     const mainBytes = new TextEncoder().encode(r4MainSession);
     const subagentBytes = new TextEncoder().encode(r4SubagentSession);
     const [main, subagent] = await Promise.all([
-      parseClaudeCodeJsonlChunks(chunksOf([mainBytes.slice(0, 37), mainBytes.slice(37)])),
-      parseClaudeCodeJsonlChunks(chunksOf([subagentBytes.slice(0, 51), subagentBytes.slice(51)])),
+      parseJsonlChunks(chunksOf([mainBytes.slice(0, 37), mainBytes.slice(37)])),
+      parseJsonlChunks(chunksOf([subagentBytes.slice(0, 51), subagentBytes.slice(51)])),
     ]);
     const streamed = buildSessionDocumentFromParsedFiles([
       { path: "main.jsonl", parsed: main.parsed, inputBytes: main.inputBytes },
@@ -86,9 +86,31 @@ describe("parseClaudeCodeJsonlChunks", () => {
     const input = new TextEncoder().encode(`${assistantLine("first")}\n${assistantLine("second")}\n`);
     const chunks = chunksOf([input.slice(0, 20), input.slice(20)]);
 
-    await expect(parseClaudeCodeJsonlChunks(chunks, {
+    await expect(parseJsonlChunks(chunks, {
       isCancelled: () => cancelled,
       onProgress: () => { cancelled = true; },
     })).rejects.toBeInstanceOf(StreamCancelledError);
+  });
+
+  it("throws UnknownSourceError when no registered adapter recognizes the content", async () => {
+    const input = new TextEncoder().encode(`${JSON.stringify({ nothing: "recognizable", here: true })}\n`);
+    await expect(parseJsonlChunks(chunksOf([input]))).rejects.toBeInstanceOf(UnknownSourceError);
+  });
+
+  it("throws UnknownSourceError for a completely blank stream (no line ever detectable)", async () => {
+    const input = new TextEncoder().encode("   \n\n\t\n");
+    await expect(parseJsonlChunks(chunksOf([input]))).rejects.toBeInstanceOf(UnknownSourceError);
+  });
+
+  it("detects the source from the first non-empty line even when it arrives split across chunks, and replays any blank lead lines", async () => {
+    const input = `\n  \n${assistantLine("first")}\n${assistantLine("second")}\n`;
+    const bytes = new TextEncoder().encode(input);
+    // Split mid-way through the first real (non-blank) line so detection must wait for it to complete.
+    const splitPoint = input.indexOf(assistantLine("first")) + 10;
+    const result = await parseJsonlChunks(chunksOf([bytes.slice(0, splitPoint), bytes.slice(splitPoint)]));
+
+    expect(result.parsed.events.map((event) => event.text)).toEqual(["first", "second"]);
+    // 2 blank lead lines + 2 real lines.
+    expect(result.lineCount).toBe(4);
   });
 });

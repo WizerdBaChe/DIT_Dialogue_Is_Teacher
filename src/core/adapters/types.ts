@@ -48,6 +48,12 @@ export interface ParseResult {
   warnings: string[];
 }
 
+/** 逐行累積解析器，供 streaming 路徑使用；`parse()` 內部可直接以此組合實作。 */
+export interface LineAccumulator {
+  pushLine(line: string): void;
+  finish(): ParseResult;
+}
+
 /** 來源 Adapter 介面。 */
 export interface SourceAdapter {
   id: SourceId;
@@ -55,4 +61,6 @@ export interface SourceAdapter {
   canParse(raw: string): boolean;
   /** 將原始輸入解析為中介事件流。實作須容錯，不得因單行損壞而整體拋例外。 */
   parse(raw: string): ParseResult;
+  /** 建立一個新的逐行累積解析器，供 streaming 路徑逐 chunk 餵入。 */
+  createAccumulator(): LineAccumulator;
 }

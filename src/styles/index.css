@@ -44,6 +44,9 @@
 
   /* LS-INV-1：全站字級唯一旋鈕。1 = R5 GN-09 之前的原始倍率。 */
   --ui-scale: 1;
+  /* R7A-05：header 主導覽字級旋鈕。<720 維持雙列基線不套用；720/900/1280 三個既有 @container
+     斷點各覆寫一次，每級的值是該級最窄邊界、English 下的實測安全上限 (R7_BASELINE_2026-07-23.md)。 */
+  --chrome-scale: 1;
   --fs-3xs: calc(9.5px * var(--ui-scale));
   --fs-2xs: calc(10.5px * var(--ui-scale));
   --fs-xs: calc(11px * var(--ui-scale));
@@ -100,7 +103,7 @@ body {
   background: var(--bg-header);
   border-bottom: 1px solid var(--rule-strong);
   min-height: 56px;
-  padding: 8px 18px;
+  padding: 4px 18px;
   display: grid;
   grid-template-columns: auto auto max-content 1fr auto auto;
   align-items: center;
@@ -108,7 +111,7 @@ body {
   z-index: 10;
 }
 .brand { min-width: 0; }
-.brand h1 { font-family: var(--font-serif); font-size: calc(18px * var(--ui-scale)); color: var(--text-main); font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
+.brand h1 { font-family: var(--font-serif); font-size: calc(var(--fs-lg) * var(--chrome-scale)); line-height: 1.2; color: var(--text-main); font-weight: 600; letter-spacing: 0.01em; white-space: nowrap; }
 .brand-short { display: none; }
 .control { display: flex; align-items: center; gap: 8px; }
 .header-spacer { min-width: 0; }
@@ -118,44 +121,107 @@ body {
   overflow: visible; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
 }
 .workspace-tab {
-  flex: 0 0 auto; min-height: 34px; padding: 5px 14px; border: 0; border-bottom: 2px solid transparent;
-  background: transparent; color: var(--text-muted); font-size: calc(12px * var(--ui-scale)); cursor: pointer;
+  flex: 0 0 auto; min-height: 40px; padding: 5px 14px; border: 0; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--text-muted); font-size: calc(var(--fs-sm) * var(--chrome-scale)); cursor: pointer;
   white-space: nowrap;
 }
 .workspace-tab:hover { color: var(--text-main); background: var(--bg-hover); }
 .workspace-tab.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); font-weight: 600; }
 .workspace-tab:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
-/* 教學講解 / 講解來源：D-R65-02 移入設定匣「教學講解」fieldset，不再佔用 header 軌道。 */
-.settings-group select#hdr-provider { max-width: 16ch; padding-right: 2rem; }
+.header .btn { font-size: calc(var(--fs-sm) * var(--chrome-scale)); }
+/* 教學講解 / 講解來源：D-R65-02 移入設定對話框「教學講解」fieldset，不再佔用 header 軌道。 */
+.settings-panel-group select#hdr-provider { max-width: 16ch; padding-right: 2rem; }
 .replay-control { gap: 4px; }
-.compact-action { width: 30px; padding-left: 0; padding-right: 0; }
-.compact-replay { min-width: 54px; }
+.compact-action { width: calc(30px * var(--chrome-scale)); padding-left: 0; padding-right: 0; }
+.compact-replay { min-width: calc(54px * var(--chrome-scale)); }
+
+/* R7A-05：三級旋鈕，鍵在既有 720/900/1280 @container 斷點；<720 沿用上面 :root 的 1（雙列基線）。
+   套用在 .header（容器 .app-shell 的子孫，非容器本身）：把自訂屬性設在查詢容器自己身上
+   （或 :root 這種祖先）在部分瀏覽器不會生效——container query 只保證能可靠地影響「容器的子孫」。
+   刻意只用 min-width、不配對 max-width：容器的 inline-size 常有小數（例如 899.33px），
+   min/max 各自取整的一對條件會漏掉這種小數落點，兩邊都不命中；只用遞增的 min-width，
+   後面命中的規則覆蓋前面的（源碼順序 + 相同特異度），沒有縫隙。 */
+@container dit-app (min-width: 720px) {
+  .header { --chrome-scale: 1.1; }
+}
+@container dit-app (min-width: 900px) {
+  .header { --chrome-scale: 1.2; }
+}
+@container dit-app (min-width: 1280px) {
+  .header { --chrome-scale: 1.5; }
+}
 .settings-toggle-btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .settings-toggle-btn.active { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 
-.settings-tray {
-  flex-shrink: 0; max-height: 45dvh; overflow-y: auto; overscroll-behavior: contain;
-  background: var(--bg-card); border-bottom: 1px solid var(--rule-strong);
+/* 設定對話框 (2026-07-23 設計改版，見 docs/DESIGN_R7_SETTINGS_DIALOG_v0.1.md)。
+   取代原本內嵌在 header 下方、橫向 flow 排列的 settings tray——三輪修正（等分 grid → flex-grow+basis
+   → flex-grow+max-width → 拿掉 grow 改內容決定寬度）都還是同一個模型的變體：一排寬度不一的群組要
+   塞進一行、靠斷點換行，換行位置與留白永遠是視窗寬度的函數。改成對話框後，群組垂直往下排，
+   對話框寬度是設計者選的常數，不再有「這一行湊不湊得滿」這個變數，橫向排版類缺陷整類消失。
+   結構沿用 .session-map-dialog 已驗收的 <dialog> 慣例：原生 dialog、置中、backdrop、
+   <720 全螢幕，不重新發明。 */
+.settings-dialog {
+  width: min(560px, 92vw); max-width: none; height: auto; max-height: min(84dvh, 780px); padding: 0;
+  inset: 0; margin: auto; border: 1px solid var(--rule-strong); background: var(--bg-header); color: var(--text-main);
+  /* <dialog> 的 UA 預設是 overflow:auto；height:auto + max-height 讓內容量夠高時 shell 的
+     max-height 與 dialog 自己的 max-height 是兩個獨立算出的值，只要有 1px 級的誤差（例如
+     border-box 的邊框），dialog 自己就會多冒出一條幾乎滾不動的外層捲軸，跟 .settings-dialog-body
+     的內層捲軸重複。乾脆關掉 dialog 自身的 overflow——唯一該捲動的區域交給 body 自己管。 */
+  overflow: hidden;
 }
-.settings-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 12px; padding: 14px 18px;
+.settings-dialog[open] { display: block; }
+.settings-dialog::backdrop { background: rgb(28 26 23 / 0.52); }
+.settings-dialog[data-modal-fallback="true"] { position: fixed; inset: 8dvh 6vw; z-index: 100; }
+.settings-dialog-shell { display: flex; flex-direction: column; max-height: min(84dvh, 780px); overflow: hidden; }
+.settings-dialog-header {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--rule-strong);
 }
-.settings-group { min-width: 0; margin: 0; padding: 0 12px 10px; border: 1px solid var(--rule); }
-.settings-group legend {
-  padding: 0 6px; color: var(--text-dark); font-family: var(--font-sans); font-size: calc(10px * var(--ui-scale));
-  font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-}
-.settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 3px; }
-.session-load-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.settings-actions > label:not(.btn):not(.toggle) { color: var(--text-dark); font-size: calc(11px * var(--ui-scale)); font-weight: 600; }
-.settings-tray .disclaimer { padding: 8px 18px; border-top: 1px solid var(--rule); }
-.settings-tray .ollama-panel { padding: 12px 18px; }
+.settings-dialog-header h2 { margin: 0; font-family: var(--font-serif); font-size: var(--fs-xl); font-weight: 600; }
+.settings-dialog-close { flex-shrink: 0; }
+.settings-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 18px 18px; }
 
-.export-privacy-note { margin: 6px 0 0; color: var(--text-muted); font-size: calc(11px * var(--ui-scale)); line-height: 1.5; }
+/* 每個群組是一張獨立卡片（GitHub Settings 的 Subhead＋群組容器參考，只借布局語彙），
+   彼此靠 margin-bottom 隔開，不再靠 border-top 細線分隔——一眼就能看出組界（R7.5 W5/RC-5）。 */
+.settings-panel-group {
+  /* flow-root：瀏覽器原生 fieldset/legend 算繪會讓 legend 橫跨（straddle）fieldset 自己的
+     border-top 中線（這是 spec 行為，不是這裡的 bug）；下面把 legend 浮動使其跳出這個特例算繪，
+     這裡改用 flow-root 建立新 BFC 把浮動的 legend 正確收進本身高度，讓白框完整包住標題文字。 */
+  display: flow-root; width: 100%; margin: 0 0 12px; padding: 12px 14px;
+  background: var(--bg-card); border: 1px solid var(--rule); border-radius: 4px;
+}
+.settings-panel-group legend {
+  float: left; padding: 0 0 6px; margin-bottom: 6px; width: 100%; color: var(--text-dark);
+  font-family: var(--font-sans); font-size: var(--fs-base); font-weight: 600; border-bottom: 1px solid var(--rule);
+}
+/* legend 是浮動元素，緊接其後、自身建立 BFC 的區塊（如 display:flex 的 .settings-actions）
+   不會自動換行到浮動框下方，而是被擠進浮動框旁剩餘的窄縫裡（寬度可能塌縮成 0，視覺上跑到卡片外）。
+   強制 legend 之後第一個元素 clear，讓其落回浮動框下方。 */
+.settings-panel-group legend + * { clear: both; }
+.settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+/* R7A-02（沿用）: 多控制項的教學講解群組用 label / control 兩軌 grid，四段語意各自成列。
+   對話框內固定單欄寬度，控制欄用 minmax(0, 1fr) 撐滿可用寬——這裡不會重演舊版的死白問題，
+   因為對話框寬度是設計常數，不是「先讓群組長多寬、控制欄再撐滿群組」這種互相依賴的鏈。 */
+.settings-actions.rows {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 10px; align-items: center;
+}
+.settings-actions.rows > .row-span { grid-column: 1 / -1; }
+.settings-actions.rows .cache-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.session-load-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.settings-actions > label:not(.btn):not(.toggle) { color: var(--text-dark); font-size: var(--fs-xs); font-weight: 600; }
+/* 選項說明：常駐顯示一行小字，只掛在非自明的控制項下面 (批次講解模式／快取清除／M 快捷鍵)。 */
+.option-hint { margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
+/* R7.5-INV-4：帶邊框裝飾元素的水平 padding 不得覆寫為 0；改為與卡片一致的內距，
+   讓 provider 面板落在卡片節奏內（W3 已移除色條，這裡不再有貼字風險）。 */
+.settings-dialog-body .disclaimer { padding: 14px; border-top: 1px solid var(--rule); }
+.settings-dialog-body .ollama-panel { padding: 14px; }
+
+.export-privacy-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
 .export-actions { padding-top: 3px; }
 .export-done { display: block; margin-top: 4px; }
-.settings-group .error-banner { margin: 6px 0 0; padding: 8px 10px; font-size: calc(12px * var(--ui-scale)); }
+/* R7A-06: 12px 階梯外，就近取 --fs-sm(12.5px) */
+.settings-panel-group .error-banner { margin: 6px 0 0; padding: 8px 10px; font-size: var(--fs-sm); }
 
 select, button, input, textarea { font-family: var(--font-sans); }
 select {
@@ -174,7 +240,8 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .btn.primary { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 .btn.primary:hover { background: var(--accent-primary); color: #fff; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--rule); color: var(--text-dark); background: transparent; }
-.toggle { display: flex; align-items: center; gap: 6px; font-family: var(--font-sans); font-size: calc(12px * var(--ui-scale)); color: var(--text-muted); cursor: pointer; user-select: none; }
+/* R7A-06: 12px 階梯外，就近取 --fs-sm(12.5px)；.toggle 只在設定匣使用 */
+.toggle { display: flex; align-items: center; gap: 6px; font-family: var(--font-sans); font-size: var(--fs-sm); color: var(--text-muted); cursor: pointer; user-select: none; }
 .toggle input, .ol-check input { accent-color: var(--accent-primary); }
 
 .file-btn { position: relative; overflow: hidden; }
@@ -189,10 +256,6 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .disclaimer.none { color: var(--text-muted); }
 .disclaimer.ollama { color: var(--success); border-bottom-color: var(--rule); }
 .disclaimer.cloud { color: var(--accent-secondary); border-bottom: 1px solid var(--accent-secondary); background: rgba(138, 106, 47, 0.06); }
-/* 左規標示責任層級：雲端(會外傳)較重。 */
-.disclaimer { border-left: 3px solid transparent; }
-.disclaimer.cloud { border-left-color: var(--accent-secondary); }
-.disclaimer.ollama { border-left-color: var(--success); }
 
 /* ---- Ollama / Cloud 面板 ---- */
 .ollama-panel {
@@ -240,8 +303,8 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 }
 .ol-input::placeholder { color: var(--text-dark); }
 
-/* 雲端面板：以左規 + 暖色標示「會外傳」的來源。 */
-.cloud-panel { background: rgba(138, 106, 47, 0.05); border-left: 3px solid var(--accent-secondary); border-bottom-color: var(--rule); }
+/* 雲端面板：以暖色背景與 .disclaimer.cloud 的文字/背景標示「會外傳」的來源，不再靠色條。 */
+.cloud-panel { background: rgba(138, 106, 47, 0.05); border-bottom-color: var(--rule); }
 .batch-control { display: inline-flex; align-items: stretch; }
 .batch-control select {
   max-width: 132px;
@@ -250,10 +313,10 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   background: var(--bg-card);
   color: var(--text-main);
   padding: 5px 6px;
-  font-size: calc(11px * var(--ui-scale));
+  font-size: var(--fs-xs);
 }
 .batch-control .btn { border-top-left-radius: 0; border-bottom-left-radius: 0; }
-.cache-status { color: var(--success); font-size: calc(11px * var(--ui-scale)); white-space: nowrap; }
+.cache-status { color: var(--success); font-size: var(--fs-xs); white-space: nowrap; }
 .storage-notice { padding: 8px 28px; border-bottom: 1px solid var(--danger); color: var(--danger); background: rgba(154, 48, 48, 0.06); }
 
 .privacy-review {
@@ -636,12 +699,15 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .notice-dismiss:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
 
 /* ---- Span card：無框，靠留白 + 底部細線分區，無陰影 ---- */
-/* LS-INV-4/LS-07：badges 與 layer-title 改真 grid 兩軌，不再用絕對定位 + 固定 padding-right 佔位。 */
+/* LS-INV-4/LS-07：badges 與 layer-title 改真 grid 兩軌，不再用絕對定位 + 固定 padding-right 佔位。
+   R7-INV-2（R7A-03）：badges 軌道不得再吃固定比例——第二軌改 minmax(0, auto)，實際寬度由
+   .badges 的內容（含 max-width 上限）決定；第一軌保 --measure-min 下限，0 badge 的卡幾乎滿版。 */
 .layer-card {
   background: transparent; border: none; border-bottom: 1px solid var(--rule);
   border-left: 3px solid transparent; padding: 22px 4px 22px 20px; margin-bottom: 6px;
   transition: border-color 0.2s, background 0.2s;
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 45%); column-gap: 12px; align-items: start;
+  display: grid; grid-template-columns: minmax(min(100%, var(--measure-min)), 1fr) minmax(0, auto);
+  column-gap: 12px; align-items: start;
   container-type: inline-size; container-name: layer-card;
 }
 .layer-card.highlighted { border-left-color: var(--accent-primary); background: var(--accent-tint); }
@@ -651,9 +717,10 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .layer-card.error.playing { background: rgba(138, 106, 47, 0.07); }
 
 .layer-card > *:not(.badges):not(.layer-title) { grid-column: 1 / -1; }
-.badges { grid-column: 2; grid-row: 1; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-self: start; }
+.badges { grid-column: 2; grid-row: 1; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-self: start; max-width: 22ch; }
 .badge {
-  font-family: var(--font-sans); font-size: calc(10px * var(--ui-scale)); padding: 1px 7px; border-radius: 2px;
+  font-family: var(--font-sans); font-size: var(--fs-2xs); /* R7A-06: 10px 階梯外，就近取 --fs-2xs(10.5px) */
+  padding: 1px 7px; border-radius: 2px;
   border: 1px solid var(--rule-strong); background: transparent; color: var(--text-muted);
   white-space: nowrap; text-transform: uppercase; letter-spacing: 0.07em;
 }
@@ -662,15 +729,17 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .badge.decision { border-color: var(--decision); color: var(--decision); }
 .badge.retry, .badge.error { border-color: var(--danger); color: var(--danger); }
 
-.layer-title { grid-column: 1; grid-row: 1; font-family: var(--font-serif); font-size: calc(17px * var(--ui-scale)); font-weight: 600; line-height: 1.4; margin-bottom: 10px; display: flex; align-items: baseline; gap: 10px; }
+.layer-title { grid-column: 1; grid-row: 1; font-family: var(--font-serif); font-size: var(--fs-lg); font-weight: 600; line-height: 1.4; margin-bottom: 10px; display: flex; align-items: baseline; gap: 10px; }
 .layer-title .kind {
-  font-family: var(--font-sans); font-size: calc(9.5px * var(--ui-scale)); color: var(--text-dark); text-transform: uppercase; letter-spacing: 0.1em;
+  font-family: var(--font-sans); font-size: var(--fs-3xs); color: var(--text-dark); text-transform: uppercase; letter-spacing: 0.1em;
   border: 1px solid var(--rule-strong); border-radius: 2px; padding: 1px 6px; flex-shrink: 0; align-self: center; font-weight: 600;
 }
 .layer-title .title-text { min-width: 0; overflow-wrap: break-word; }
 
-/* 容器（layer-card 本身）< 520px：badges 落到標題下一列，兩軌合併成單欄。 */
-@container layer-card (max-width: 519px) {
+/* 容器（layer-card 本身）< 460px：badges 落到標題下一列，兩軌合併成單欄。
+   R7A-03 重算：--measure-min(32ch≈272px) + kind chip(≈60px) + gap(12px) + badges 最小可接受寬(≈100px)
+   ≈ 444px，取整 460px（原 519px 是為舊版 45% 固定軌算的，不再適用）。 */
+@container layer-card (max-width: 459px) {
   .layer-card { grid-template-columns: minmax(0, 1fr); }
   .badges { grid-column: 1; grid-row: 2; justify-content: flex-start; margin-bottom: 8px; }
   .layer-title { grid-column: 1; grid-row: 1; flex-wrap: wrap; }
@@ -688,14 +757,16 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .thinking.collapsed .thinking-body { display: none; }
 
 /* ---- IO block (foldable) ---- */
-.io-block { background: var(--bg-sunken); border: 1px solid var(--rule); font-family: var(--font-mono); font-size: calc(11.5px * var(--ui-scale)); color: var(--text-muted); margin-bottom: 12px; overflow: hidden; border-radius: 2px; }
+/* R7A-06: 11.5px 階梯外，就近取 --fs-xs(11px) */
+.io-block { background: var(--bg-sunken); border: 1px solid var(--rule); font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); margin-bottom: 12px; overflow: hidden; border-radius: 2px; }
 .io-head {
   padding: 6px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
   color: var(--text-dark); border-bottom: 1px solid var(--rule); font-family: var(--font-sans);
-  text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(10.5px * var(--ui-scale)); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--fs-2xs); font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.io-head .chev { flex: none; margin-left: auto; font-size: calc(9px * var(--ui-scale)); transition: transform 0.2s; }
+/* R7A-06: 9px 階梯外，就近取 --fs-3xs(9.5px) */
+.io-head .chev { flex: none; margin-left: auto; font-size: var(--fs-3xs); transition: transform 0.2s; }
 .io-block.collapsed .io-head { border-bottom: none; }
 .io-block.collapsed .chev { transform: rotate(-90deg); }
 .io-body { padding: 10px 12px; white-space: pre-wrap; line-height: 1.65; max-height: 280px; overflow: auto; overflow-wrap: anywhere; }
@@ -855,10 +926,9 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .settings-toggle-btn { justify-self: end; padding: 5px 8px; }
   .workspace-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; border-left: 0; border-right: 0; }
   .workspace-tab { flex: 1 0 auto; min-height: 34px; padding: 4px 12px; }
-  .settings-tray { max-height: 45dvh; }
-  .settings-grid { grid-template-columns: 1fr; gap: 10px; padding: 12px 10px; }
-  .settings-group { padding-left: 9px; padding-right: 9px; }
-  .settings-tray .disclaimer, .settings-tray .ollama-panel, .storage-notice, .annotate-progress { padding-left: 10px; padding-right: 10px; }
+  .settings-dialog { width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; }
+  .settings-dialog-shell { max-height: 100dvh; }
+  .storage-notice, .annotate-progress { padding-left: 10px; padding-right: 10px; }
   .session-load-status { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 9px 10px; }
   .session-load-bar { grid-column: 1 / -1; grid-row: 2; }
   .session-load-copy span { white-space: normal; }
@@ -901,7 +971,6 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .reader-minimap { right: 12px; bottom: 12px; }
 }
 
-.settings-tray { background: var(--bg-header); }
 .overview-view { background: var(--bg-reader); }
 .structure-drawer { background: var(--bg-structure); }
 .annotate-progress, .ollama-panel { background: var(--bg-footer); }

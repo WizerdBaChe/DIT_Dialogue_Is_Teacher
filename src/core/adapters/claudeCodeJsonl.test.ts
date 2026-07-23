@@ -55,6 +55,44 @@ describe("claudeCodeJsonlAdapter — fault tolerance", () => {
   });
 });
 
+describe("claudeCodeJsonlAdapter — source-injected preamble strip (R7.5 W6/AN-1)", () => {
+  it("drops a purely-injected slash-command user message — no user_text card at all", () => {
+    const raw = JSON.stringify({
+      type: "user",
+      uuid: "u1",
+      parentUuid: null,
+      sessionId: "s1",
+      message: { role: "user", content: "<command-name>/compact</command-name>\n<command-message>Compacted</command-message>\n<command-args></command-args>" },
+    });
+    const result = claudeCodeJsonlAdapter.parse(raw);
+    expect(result.events.filter((e) => e.kind === "user_text")).toHaveLength(0);
+  });
+
+  it("strips a <system-reminder> preamble and keeps only the real text (array content block)", () => {
+    const raw = JSON.stringify({
+      type: "user",
+      uuid: "u1",
+      parentUuid: null,
+      sessionId: "s1",
+      message: { role: "user", content: [{ type: "text", text: "<system-reminder>\nbackground task notice\n</system-reminder>\nactual follow-up question" }] },
+    });
+    const result = claudeCodeJsonlAdapter.parse(raw);
+    expect(result.events).toEqual([expect.objectContaining({ kind: "user_text", text: "actual follow-up question" })]);
+  });
+
+  it("does not touch tool_result blocks", () => {
+    const raw = JSON.stringify({
+      type: "user",
+      uuid: "u1",
+      parentUuid: null,
+      sessionId: "s1",
+      message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "<not-a-real-tag>output text</not-a-real-tag>" }] },
+    });
+    const result = claudeCodeJsonlAdapter.parse(raw);
+    expect(result.events).toEqual([expect.objectContaining({ kind: "tool_result", text: "<not-a-real-tag>output text</not-a-real-tag>" })]);
+  });
+});
+
 describe("buildSessionDocument — fault tolerance at pipeline level", () => {
   it("throws a clean PipelineError (not a raw exception) for a completely empty file", () => {
     expect(() => buildSessionDocument("")).toThrow(PipelineError);

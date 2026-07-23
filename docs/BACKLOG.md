@@ -2,6 +2,34 @@
 
 > 已決定但尚未實作的項目。最高優先在上。對應討論：2026-06-25。
 
+## 📌 2026-07-23 R7 Part B 收尾新增
+
+- [ ] **Codex 子代理協作事件的專屬視覺呈現**：R7B-00／R7B-05 用真實樣本發現 Codex 已有
+  `inter_agent_communication_metadata`／`event_msg/sub_agent_activity`／`response_item/agent_message`
+  等子代理協作事件（§B1／B4.2 撰寫時的樣本沒有），本輪刻意只讓它們落入通用的寬容收納
+  （聚合成「型別 ×N」warning，卡片顯示「未知事件：X」），沒有比照 Claude Code `isSidechain` 的
+  子代理群組視覺。是否要做、怎麼對映到 DIT 既有的「子代理」概念，留給下一輪評估
+  （見 [R7B_BASELINE_2026-07-23.md](R7B_BASELINE_2026-07-23.md) 觀察 2）。
+- [ ] **Codex adapter 真實樣本驗證擴大到 ≥5 份檔案**：PSM §9.1 開放問題 3 要求擴到 ≥5 份真實檔案、
+  偏離 >10% 即停工回報；R7B-05 本輪只驗證了 3 份（§B1 原樣本＋兩份新樣本）。第三份樣本的巢狀事件
+  配對率量到 73%，逐筆核對後確認落差成因是 `context_compacted`（歷史壓縮）讓原始呼叫消失，屬於
+  資料限制、非邏輯缺陷，判斷不需要為此停工——但門檻確實沒有補滿，若有更多 Codex 樣本應優先拿來驗證。
+
+## 📌 2026-07-23 R7 Part A 收尾新增
+
+- [ ] **全站 `--fs-*` 字級階梯對齊**：R6.5 LS-01 建立了 `--fs-3xs`～`--fs-2xl` 九階，但當時只把
+  `--ui-scale` 這個「單一旋鈕」貫徹到全站，字級的「比例階梯」本身仍是虛設——全站 100 餘處字級仍是
+  各自的行內字面值（`calc(Npx * var(--ui-scale))`），彼此不對齊九階。R7A-06 只在本輪觸及的
+  header／settings／layer-card／io-head 選擇器內收斂（見
+  [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) A1.6／R7-INV-5），
+  刻意不擴大範圍。全站清掃需要新一輪逐選擇器核對（哪些該精確對齊、哪些是刻意的階梯外特例），
+  獨立排程，不得順手夾帶。
+- [ ] **`@container` 成對 min/max 斷點的縫隙稽核**：R7A-05 施工時發現 `.app-shell` 量到的
+  container inline-size 可能是小數（如 899.33px），會讓成對的 `(min-width:720px) and
+  (max-width:899px)` 型斷點漏接，靜默落回基準值。已用 spawn_task 提醒稽核 `index.css` 內其他既有
+  的成對 min/max 斷點（如品牌短名切換、Session 地圖 dialog 尺寸）是否有同樣的縫隙；本輪只修了
+  R7A-05 新增的三級 `--chrome-scale`，其餘既有斷點未動。
+
 ## 📌 2026-07-20 盤點（R5.5 合約定稿時）
 
 **狀態校正**——下列舊段落已被後續輪次完成或取代，僅留作歷史，不得再作為施工依據：
@@ -31,24 +59,31 @@
   觸碰 Reader／Sidebar DOM 數量的卡片都應在真實瀏覽器（而非本沙盒的合成檔案載入）重新量測，不能沿用此輪
   沙盒內數字作為唯一證據。
 
-## 📌 2026-07-21 R7 候選：多來源接入（Codex adapter）— 使用者已同意排程方向
+## 📌 2026-07-21 R7 候選：多來源接入（Codex adapter）— ✅ 2026-07-23 施工完成，待 ACCEPTANCE.md §23 UAT
 
 > 完整設計分析與 Codex 格式實測證據見 [DESIGN_R7_MULTI_SOURCE_v0.1.md](DESIGN_R7_MULTI_SOURCE_v0.1.md)（pre-PSM 草稿）；本段只記排程與範圍。
+> 施工結果見 `PROGRESS.md` 的「R7 Part B」段落與 `docs/R7B_BASELINE_2026-07-23.md`；
+> 施工中發現的新候選項移至本文件開頭「2026-07-23 R7 Part B 收尾新增」。
 
 **排程順序（使用者 2026-07-21 拍板）**：R5.5 UAT 收尾 → R6（範圍不變：匯出＋多 session 型別保鮮）→ **R7 多來源輪**。R6 期間不擴範圍；唯一順手事項是型別保鮮不得把 Claude 專屬假設寫進快照渲染器（SA-INV-5 常數同源已在擋）。
 
 **R7 範圍（同一輪打包，爆炸半徑同在 ingest／normalize 層，一次設計、一個回歸面）**：
 
-- [ ] `SourceAdapter` 介面補增量 accumulator（如 `createAccumulator()`），修正 `jsonlStream.ts` 寫死 `ClaudeCodeJsonlAccumulator` 的耦合——否則 50 MiB streaming 路徑永遠 Claude 專屬。
-- [ ] Adapter 未知型別寬容收納（自上方 2026-07-20 清單移入）。
-- [ ] Session 標題 fallback（自上方 2026-07-20 清單移入；Codex 無 `ai-title`，此為接入前置條件）。
-- [ ] Codex jsonl adapter 本體（來源樣本：`~/.codex/sessions/**/rollout-*.jsonl`，2026-07-21 已對照實際資料評估，`RawEvent` 抽象覆蓋率約八成）。
+- [x] `SourceAdapter` 介面補增量 accumulator（如 `createAccumulator()`），修正 `jsonlStream.ts` 寫死 `ClaudeCodeJsonlAccumulator` 的耦合——否則 50 MiB streaming 路徑永遠 Claude 專屬。（R7B-01）
+- [x] Adapter 未知型別寬容收納（自上方 2026-07-20 清單移入）。（R7B-02）
+- [x] Session 標題 fallback（自上方 2026-07-20 清單移入；Codex 無 `ai-title`，此為接入前置條件）。（R7B-03）
+- [x] Codex jsonl adapter 本體（來源樣本：`~/.codex/sessions/**/rollout-*.jsonl`，2026-07-21 已對照實際資料評估，`RawEvent` 抽象覆蓋率約八成）。（R7B-04）
 
-**R7 開工前需使用者拍板的三個決策點**（寫進該輪 PSM 問題定義）：
+**R7 開工前需使用者拍板的三個決策點**（寫進該輪 PSM 問題定義）——**皆已拍板並實作**：
 
 1. 雙層去重策略：Codex 對同一內容記 `response_item/*`（模型層）與 `event_msg/*`（UI 層）兩份；預設建議以 `response_item` 為主幹、`event_msg` 只補缺（如明文 `agent_reasoning`）。
+   → 拍板成立，見 B4.2 白名單表格與 `codexJsonl.ts` 實作。
 2. `turn_id` 對映到 DIT 的哪個結構層（群組？或新概念）；Codex 為扁平流，無 `parentUuid`／`isSidechain`。
+   → 拍板為**不新增結構層**（呼應 R7-INV-6），Codex session 呈現為扁平序列；`turn_id` 只用於
+   R7B-04 的巢狀事件配對範圍限定，不是持久的 DIT 結構概念。
 3. `patch_apply_end` 等高價值事件（含完整檔案變更＋成功旗標）是進寬容收納的「未分類」，還是升格為一級 kind。
+   → 拍板為**併入既有 exec 呼叫**（不升格新 kind，零契約變更）：`changes` 併入 `tool_use.toolInput`，
+   `success`／`stdout`／`stderr` 併入既有 `tool_result` 文字；配對失敗才降級為 `unknown`。
 
 **已知資料源限制（非 adapter 可修，UI 需接受降級）**：Codex `response_item/reasoning` 為 `encrypted_content` 且 summary 常為空，◇ 思考 span 在 Codex 來源將稀疏、碎片化；工具參數為字串（JS 碼／JSON 字串），adapter 需 parse 或包裝。
 
