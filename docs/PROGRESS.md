@@ -2,6 +2,58 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R7 Part B — 多來源接入（Codex Adapter）｜2026-07-23｜🔄 施工完成，待使用者 UAT（ACCEPTANCE.md §23）
+
+依 [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) Part B 施工，
+順序 R7B-00 → R7B-05（R7B-06 即本段落）。Part A UAT（§21／§21.1）通過後依 PSM §9.3 建議直接開工，
+未另做 workflow-checkpoint（使用者於同一輪對話內直接指示「跟 Part B 的實作一起進行」）。
+
+- [x] **R7B-00 樣本基線與型別普查**（commit `9fe110e`）：用 §B1 沒看過的兩份真實樣本（17.6 MB 純
+  對話樣本、含子代理協作事件的最新樣本）核對 §B1 三處核心推翻是否仍成立——皆成立。新增兩項觀察：
+  大檔案不代表工具呼叫密集；Codex 新增了子代理協作事件（`inter_agent_communication_metadata` 等），
+  落入既有寬容收納路徑，不阻塞施工。詳見 [R7B_BASELINE_2026-07-23.md](R7B_BASELINE_2026-07-23.md)。
+- [x] **R7B-01 accumulator 介面與 streaming 偵測**（commit `c8b638f`）：`SourceAdapter` 補
+  `createAccumulator()`；`jsonlStream.ts` 的 `parseClaudeCodeJsonlChunks`（寫死呼叫 Claude Code
+  parser）改名並改寫為 `parseJsonlChunks`，靠 `detectAdapter` 動態選擇來源，偵測不到丟出
+  `UnknownSourceError`（R7-INV-9：不得默默退回 Claude Code）。這條路徑原本是唯一還沒 adapter-agnostic
+  的——同步管線（`buildSessionDocumentFromFiles`）其實早就用 `detectAdapter` 逐檔偵測了。
+- [x] **R7B-02 型別白名單與寬容收納**（commit `539b16a`）：新檔 `src/core/adapters/codexJsonl.ts`，
+  照 §B4.2 白名單表格逐型別分派（message／reasoning／tool_use／tool_result／noise types），未進
+  registry（避免半成品搶先接管偵測）。白名單外一律聚合為「型別 ×N」warning，不逐行洗版。
+- [x] **R7B-03 Session 標題 fallback**（commit `fd2581b`）：放在 normalizer（非 adapter），取第一個
+  `user_text` 的第一行，剝除 `#` 標頭附件區塊，截斷 48 字元；所有來源共用，Claude Code 缺 `ai-title`
+  時也受益（一併解決 2026-07-20 BACKLOG 那條同名候選項）。
+- [x] **R7B-04 Codex adapter 本體**（commit `6736c03`）：`tools.<name>(...)` 正則抽取真實工具名（抽不到
+  才退回 "exec" ＋ warning）；`patch_apply_end`／`mcp_tool_call_end`／`web_search_end` 就近向前配對
+  回既有 exec 呼叫；`turn_aborted`／`thread_rolled_back`／`context_compacted` 各出一則自我解釋的標記
+  事件；`codexJsonlAdapter` 註冊進 registry；`summarizeParams` 補 `{raw: ...}` 單鍵特化。
+- [x] **R7B-05 真實樣本回歸**（commit `573f31e`、`3852c3f`）：用三份真實 Codex 樣本跑完整 adapter，
+  發現並修正兩個真實缺陷：
+  1. 標題 fallback 沒處理 Codex 的 `<recommended_plugins>`／`<INSTRUCTIONS>` 這類 XML 包裹前言（且
+     收尾標籤常跟下一段標頭黏在同一行），兩份樣本原本顯示成字面上的 `<recommended_plugins>`；
+     改用整段正則比對取代逐行狀態機後安全落回既有佔位字串。
+  2. 巢狀事件配對只看「最近一個相容呼叫」，沒用到 spec 要求的 `turn_id`，是真實的防禦性缺口
+     （多執行緒／子代理協作時可能誤配到別的 turn）；補上後用新測試證明「先關較早開的呼叫」這種
+     非 LIFO 情境能正確配對。核對一個表面看像 bug 的配對落差（19/26，73%）後確認落差成因是
+     `context_compacted`（歷史壓縮）讓原始呼叫從事件流中消失，屬於資料限制，不是邏輯缺陷。
+     **誠實記錄**：PSM §9.1 要求 ≥5 份檔案驗證，本輪只測了 3 份，未達門檻。
+- [x] **R7B-06 文件與帳本**（本段落＋ACCEPTANCE.md §23＋BACKLOG.md 更新）。
+
+`npm.cmd test`：36 檔／228 項全綠（Part B 新增 25 案例：`codexJsonl.test.ts` 18 項、
+`normalizer.test.ts` 8 項、`parts.test.ts` 新增 3 項）；`npm.cmd run typecheck`、`npm.cmd run build`
+（含快照 target）皆 exit 0。
+
+**已知薄弱處（誠實記錄，非隱藏）**：
+- Codex 子代理協作事件（`sub_agent_activity` 等）目前只落入通用寬容收納，沒有比照 Claude Code
+  `isSidechain` 的專屬子代理視覺——刻意的範圍縮減，見 BACKLOG「Codex 子代理事件視覺呈現」候選項。
+- 真實樣本驗證數（3 份）未達 PSM §9.1 要求的 ≥5 份門檻。
+- `tools.<name>(` 是 Codex 內部包裝格式、非公開契約，未來版本可能改變格式；R7-INV-8 的退路
+  （降級為 "exec" ＋ warning）是唯一防線，這代表工具名抽取的準確率本質上會隨 Codex 版本衰減
+  （PSM §9.2(d) 已預見此點）。
+- `event_msg` 白名單是封閉式設計，Codex 新增高價值型別時不會自動被 DIT 採用（PSM §9.2(e)）。
+
+**續接指引**：等待使用者於 `ACCEPTANCE.md §23` 完成真實環境 UAT（尤其自己的 Codex session 實際載入）。
+
 ## R7 Part A — 設定對話框復原、UAT 通過與補充修正｜2026-07-23｜✅ 使用者確認通過（ACCEPTANCE.md §21／§21.1），補充回報進行中（§22）
 
 上一輪因 usage limit 中斷、留在 `feat/r7-layout-multisource` 工作目錄內未提交的設定對話框實作
