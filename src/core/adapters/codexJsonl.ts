@@ -2,8 +2,8 @@
  * CodexJsonlAdapter
  * 解析 Codex CLI 的 session transcript (`~/.codex/sessions/**\/rollout-*.jsonl`)。
  *
- * 已驗證的真實格式 (見 docs/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md Part B，
- * 與 docs/R7B_BASELINE_2026-07-23.md 的額外樣本核對)：
+ * 已驗證的真實格式 (見 docs/rounds/r7-multi-source-and-layout/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md Part B，
+ * 與 docs/rounds/r7-multi-source-and-layout/R7B_BASELINE_2026-07-23.md 的額外樣本核對)：
  * - 每行一個 `{ timestamp, type, payload }` 信封；`type` 為頂層分類，`payload.type` 才是細分。
  * - 沒有 Claude Code 式的 `uuid`／`parentUuid` 巢狀鏈；`response_item/custom_tool_call` 與
  *   `response_item/function_call` 用同一個 `call_id` 給自己與對應的 `_output`，兩者以此配對即可，

@@ -9,12 +9,13 @@
 
 | 文件 | 用途 |
 |---|---|
+| [`docs/README.md`](docs/README.md) | `docs/` 目錄索引——每輪設計/驗收文件按 `docs/rounds/rN-主題/` 分類，新增一輪時先看這份決定放哪裡 |
 | `docs/RPD_DIT_v0.1.md` | 最初的需求與決策文件（D-1～D-5），改動核心方向前先回去看這份 |
 | `docs/architecture.md` | 架構與資料流的權威說明（本文件的架構章節是它的精簡版） |
 | `docs/PROGRESS.md` | 逐里程碑的開發紀錄，新進度往上加 |
 | `docs/BACKLOG.md` | 已決定但還沒做的事項，待辦來源 |
 | `docs/ACCEPTANCE.md` | 實機驗收清單，改完功能對照這份手測 |
-| `docs/REVIEW_2026-06-25.md` | 系統工程自我檢查（後端/前端 checklist），下次大改動建議重跑一輪 |
+| `docs/misc/REVIEW_2026-06-25.md` | 系統工程自我檢查（後端/前端 checklist），下次大改動建議重跑一輪 |
 | **本文件** | 開發者的單一入口：環境、架構、慣例、目前進度、下一步 |
 
 ---
@@ -169,7 +170,7 @@ Span Tree schema 草案在 `docs/RPD_DIT_v0.1.md` 附錄，實際型別定義以
 | **npm audit（dev-only）** | esbuild/vite 中度漏洞，僅影響本機 dev server，不影響 production 產物 | 根治需升 vite@8（破壞性），暫不升 |
 | **單節點講解無逐字進度** | 進度條目前是「節點層級」(done/total)，非單節點內 token 速率 | 要做需改 Ollama streaming，已記 backlog |
 
-詳細的系統工程自我檢查（含已修掉的 3 個韌性缺口：Ollama 逾時、檔案讀取錯誤、輸入過大警告）見 `docs/REVIEW_2026-06-25.md`。
+詳細的系統工程自我檢查（含已修掉的 3 個韌性缺口：Ollama 逾時、檔案讀取錯誤、輸入過大警告）見 `docs/misc/REVIEW_2026-06-25.md`。
 
 ---
 

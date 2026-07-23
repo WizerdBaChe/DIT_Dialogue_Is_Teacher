@@ -4,7 +4,7 @@
 
 狀態：**使用者已拍板方向（樹列維持 span 層符號、skeleton 圖例只放 Map、重播改名逐步瀏覽）；可依施工卡實作**
 
-定位：本文件是 [PSM_R5_GUIDED_NAVIGATION_v1.0.md](PSM_R5_GUIDED_NAVIGATION_v1.0.md) 的補充合約，只修正 GN-01～GN-10 已交付內容中「偏離已批准語意」與「文案陳舊」的部分。R5 合約的全部 BR、INV、狀態機與 §11 既有契約在本輪繼續有效；本文件新增的規範以 SA-INV 編號，與其不衝突。
+定位：本文件是 [PSM_R5_GUIDED_NAVIGATION_v1.0.md](../r5-guided-navigation/PSM_R5_GUIDED_NAVIGATION_v1.0.md) 的補充合約，只修正 GN-01～GN-10 已交付內容中「偏離已批准語意」與「文案陳舊」的部分。R5 合約的全部 BR、INV、狀態機與 §11 既有契約在本輪繼續有效；本文件新增的規範以 SA-INV 編號，與其不衝突。
 
 範圍裁定（使用者 2026-07-20）：
 

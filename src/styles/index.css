@@ -153,7 +153,7 @@ body {
 .settings-toggle-btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .settings-toggle-btn.active { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 
-/* 設定對話框 (2026-07-23 設計改版，見 docs/DESIGN_R7_SETTINGS_DIALOG_v0.1.md)。
+/* 設定對話框 (2026-07-23 設計改版，見 docs/rounds/r7-multi-source-and-layout/DESIGN_R7_SETTINGS_DIALOG_v0.1.md)。
    取代原本內嵌在 header 下方、橫向 flow 排列的 settings tray——三輪修正（等分 grid → flex-grow+basis
    → flex-grow+max-width → 拿掉 grow 改內容決定寬度）都還是同一個模型的變體：一排寬度不一的群組要
    塞進一行、靠斷點換行，換行位置與留白永遠是視窗寬度的函數。改成對話框後，群組垂直往下排，

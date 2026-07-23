@@ -56,7 +56,7 @@
 - Phase: Phase 3 – 認知模式（魚骨）+ 系統檢查
 - Status: completed（已交付，待使用者實機驗收）
 - Date: 2026-06-25
-- Detail: docs/REVIEW_2026-06-25.md
+- Detail: docs/misc/REVIEW_2026-06-25.md
 
 ## Goals
 - 實作橫向魚骨「認知學習模式」，吃後端 skeleton；對照 backend/frontend 檢查清單做系統檢查。
@@ -71,7 +71,7 @@
 - src/core/view/fishbone.ts, src/components/FishboneView.tsx: 魚骨視圖。
 - src/store/sessionStore.ts, src/components/Header.tsx, src/App.tsx: viewMode 切換。
 - src/core/llm/ollama.ts, src/components/Header.tsx, src/core/pipeline.ts: 韌性修正。
-- docs/REVIEW_2026-06-25.md, docs/ACCEPTANCE.md, docs/BACKLOG.md, docs/PROGRESS.md: 檢查報告/驗收單/待辦/進度。
+- docs/misc/REVIEW_2026-06-25.md, docs/ACCEPTANCE.md, docs/BACKLOG.md, docs/PROGRESS.md: 檢查報告/驗收單/待辦/進度。
 
 ## Open Questions / TODO
 - 目前所屬 phase：Phase 3 已完成交付，**正處於等待使用者實機驗收的邊界**；驗收結果決定下一步。
@@ -169,7 +169,7 @@
 - Phase: Phase 7 – R5 Large-Session Foundation and Guided Navigation Contract
 - Status: completed
 - Date: 2026-07-19
-- Detail: docs/PSM_R5_GUIDED_NAVIGATION_v1.0.md
+- Detail: docs/rounds/r5-guided-navigation/PSM_R5_GUIDED_NAVIGATION_v1.0.md
 
 ## Goals
 - Make 50 MiB sessions load responsively with bounded rendering, preserve exact R4 ordering and linkage, and correct the workspace navigation model before further UI implementation.
@@ -182,13 +182,13 @@
 - Enter every built-in, loaded, or reset session through Overview; use an optional Reader Minimap and a modal Session Map for global orientation and explicit jumps.
 - Keep the visible Map launcher as the non-keyboard path; `M` is enabled by default but disabled in editable targets and blocking modals, and users can turn the shortcut off.
 - Reuse the current React/SVG stack with deterministic semantic zoom and strict mount caps; add no map or tab library.
-- Treat `docs/PSM_R5_GUIDED_NAVIGATION_v1.0.md` as the sole normative contract and execute GN-01 through GN-08 sequentially as separate vertical commits.
+- Treat `docs/rounds/r5-guided-navigation/PSM_R5_GUIDED_NAVIGATION_v1.0.md` as the sole normative contract and execute GN-01 through GN-08 sequentially as separate vertical commits.
 
 ## Changes
-- docs/PSM_R5_GUIDED_NAVIGATION_v1.0.md: added the user-approved sole-source contract with 8 business rules, 18 invariants, exact responsive layouts, state transitions, component boundaries, performance caps, 8 complete work cards, and final UAT.
+- docs/rounds/r5-guided-navigation/PSM_R5_GUIDED_NAVIGATION_v1.0.md: added the user-approved sole-source contract with 8 business rules, 18 invariants, exact responsive layouts, state transitions, component boundaries, performance caps, 8 complete work cards, and final UAT.
 - references/DIT-context.md: added canonical definitions for Primary View, Overview, Session Origin, Structure Sidebar, Current Position, Minimap, Session Map, Map Landmark, Map Cluster, and Semantic Zoom.
 - references/DIT-tickets.md: kept T-005 in progress and recorded contract approval without claiming product implementation.
-- docs/PSM_R5_GUIDED_WORKSPACE_REMEDIATION_v0.2.md and docs/CONCEPT_R5_GAMEFUL_NAVIGATION_v0.1.md: retained as non-normative design provenance superseded by the v1.0 contract.
+- docs/rounds/r5-guided-navigation/PSM_R5_GUIDED_WORKSPACE_REMEDIATION_v0.2.md and docs/rounds/r5-guided-navigation/CONCEPT_R5_GAMEFUL_NAVIGATION_v0.1.md: retained as non-normative design provenance superseded by the v1.0 contract.
 
 ## Open Questions / TODO
 - Start the next session by reading this phase log and `references/DIT-context.md`, then load the v1.0 contract and T-005 only; do not reconstruct requirements from superseded UX documents.

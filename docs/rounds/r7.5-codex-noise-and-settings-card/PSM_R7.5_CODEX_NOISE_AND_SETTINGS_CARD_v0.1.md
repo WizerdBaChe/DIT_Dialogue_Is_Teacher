@@ -4,9 +4,9 @@
 - 狀態：**草案，待使用者核准後施工**。ops-relaxation：**L0（最嚴格，全流程、每步驗證）**。
 - 文件角色：**唯一施工依據（sole-source）**。本文件自我完備，不把規範內容外包給已被取代／封存的檔案。
 - 上游依據（已拍板、本文件不重寫）：
-  - [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) Part B（Codex adapter 架構、R7-INV 不變式）
-  - [DESIGN_R7_SETTINGS_DIALOG_v0.1.md](DESIGN_R7_SETTINGS_DIALOG_v0.1.md)（設定對話框互動模型）
-  - [ACCEPTANCE.md](ACCEPTANCE.md) §22／§23（本輪回報來源）
+  - [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](../r7-multi-source-and-layout/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) Part B（Codex adapter 架構、R7-INV 不變式）
+  - [DESIGN_R7_SETTINGS_DIALOG_v0.1.md](../r7-multi-source-and-layout/DESIGN_R7_SETTINGS_DIALOG_v0.1.md)（設定對話框互動模型）
+  - [ACCEPTANCE.md](../../ACCEPTANCE.md) §22／§23（本輪回報來源）
 
 ---
 
@@ -165,7 +165,7 @@ M1、M2 無相依可平行；但 M1 內 W1→W6 有序、M2 內 W3→W4→W5 須
 
 ### M0 — 量測基線（施工前）
 - **目的**：把 §2 的 before 數字固化為文件，供 M1 前後對照。
-- **交付**：`docs/R7.5_BASELINE_2026-07-23.md`，含 14 檔逐檔（env-inject 卡數／sub-agent 噪音卡數）與最大樣本的事件組成表（即 §2 數據）。
+- **交付**：`docs/rounds/r7.5-codex-noise-and-settings-card/R7.5_BASELINE_2026-07-23.md`，含 14 檔逐檔（env-inject 卡數／sub-agent 噪音卡數）與最大樣本的事件組成表（即 §2 數據）。
 - **驗收**：使用者確認基線數字可復現（載入 `019f8b53-07c…` session，肉眼可見大量「未知事件」卡）。
 
 ---
