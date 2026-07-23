@@ -6,6 +6,7 @@
 import type { ParseResult } from "@/core/adapters/types";
 import type { RawEvent } from "@/core/adapters/types";
 import { reportFallback } from "@/core/diagnostics";
+import { stripInjectedPreamble } from "@/core/text/preamble";
 import {
   SCHEMA_VERSION,
   type SessionDocument,
@@ -57,43 +58,6 @@ function summarize(ev: RawEvent): string {
   }
 }
 
-const HEADER_LINE_RE = /^#[^\n]*\n?/;
-const HEADER_CONTINUATION_RE = /^(?:[ \t]+[^\n]*\n?|[-*][ \t][^\n]*\n?|\d+[.)][ \t][^\n]*\n?|[ \t]*\n)/;
-const XML_BLOCK_RE = /^<([A-Za-z_][\w-]*)>[\s\S]*?<\/\1>/;
-/** 安全上限，避免病態輸入 (標籤永不閉合等) 造成無限迴圈；真實訊息不會疊這麼多層。 */
-const STRIP_ITERATION_LIMIT = 50;
-
-/**
- * 剝除合成的附件／系統前言區塊，直到遇到真正的一般文字行為止：
- * - 以 `#` 開頭的標頭行，及其後續縮排／清單內容（如 Codex 的
- *   「# Files mentioned by the user」附件展開）。
- * - `<tag>...</tag>` 這類 XML 包裹區塊（如 Codex 環境注入的
- *   `<recommended_plugins>`／`<INSTRUCTIONS>` 前言），即使收尾標籤跟下一段
- *   標頭黏在同一行（`</recommended_plugins># AGENTS.md instructions`）也能正確處理，
- *   因為是對整段文字做正則比對，不是逐行狀態機。
- * 找不到對應收尾標籤／不再匹配任何一種區塊時就停止，不猜測、保留原文。
- */
-function stripSyntheticPreambleBlocks(text: string): string {
-  let result = text.replace(/^\s+/, "");
-  for (let i = 0; i < STRIP_ITERATION_LIMIT; i += 1) {
-    const xmlMatch = XML_BLOCK_RE.exec(result);
-    if (xmlMatch) {
-      result = result.slice(xmlMatch[0].length).replace(/^\s+/, "");
-      continue;
-    }
-    const headerMatch = HEADER_LINE_RE.exec(result);
-    if (headerMatch) {
-      let rest = result.slice(headerMatch[0].length);
-      let contMatch: RegExpExecArray | null;
-      while ((contMatch = HEADER_CONTINUATION_RE.exec(rest))) rest = rest.slice(contMatch[0].length);
-      result = rest.replace(/^\s+/, "");
-      continue;
-    }
-    break;
-  }
-  return result;
-}
-
 const FALLBACK_TITLE_MAX_LENGTH = 48;
 
 /** 規則式 session 標題 fallback（無 `ai-title`／等價欄位時使用，所有來源共用）。 */
@@ -101,7 +65,7 @@ function deriveFallbackTitle(events: RawEvent[]): string | undefined {
   const firstUserText = events.find((event) => event.kind === "user_text" && event.text?.trim());
   if (!firstUserText?.text) return undefined;
 
-  const stripped = stripSyntheticPreambleBlocks(firstUserText.text);
+  const stripped = stripInjectedPreamble(firstUserText.text);
   const firstLine = stripped
     .split(/\r?\n/)
     .map((l) => l.replace(/\s+/g, " ").trim())
