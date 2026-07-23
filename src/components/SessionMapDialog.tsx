@@ -94,7 +94,12 @@ export function SessionMapDialog(): ReactNode {
         dialog.dataset.modalFallback = "true";
       }
     } else if (!mapOpen && dialog.open) {
-      dialog.close();
+      try {
+        dialog.close();
+      } catch {
+        dialog.removeAttribute("open");
+        delete dialog.dataset.modalFallback;
+      }
     }
   }, [mapOpen]);
   const currentViewItemId = playingId ?? activeId;
