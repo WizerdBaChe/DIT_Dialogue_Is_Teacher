@@ -1,4 +1,40 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+dist-*/
+releases/
+*.tsbuildinfo
+
+# Local-only / scratch
 archive/
 .tmp/
+
+# Test / coverage
+coverage/
+.vitest-cache/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
