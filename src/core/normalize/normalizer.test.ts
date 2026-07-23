@@ -56,4 +56,22 @@ describe("normalize — session title fallback (R7B-03, B4.6)", () => {
     const doc = normalize(parsed([{ kind: "user_text", text, raw: {} }]));
     expect(doc.session.title).toBe("未命名 session");
   });
+
+  it("strips a Codex-style <tag>...</tag> preamble even when its closing tag runs into the next header on the same line (R7B-05 real-sample finding)", () => {
+    const text = [
+      "<recommended_plugins>",
+      "Here is a list of plugins that are available but not installed.",
+      "",
+      "- GitHub (github@openai-curated-remote)",
+      "- Slack (slack@openai-curated-remote)",
+      "</recommended_plugins># AGENTS.md instructions",
+      "",
+      "<INSTRUCTIONS>",
+      "some imported project instructions",
+      "</INSTRUCTIONS>",
+      "Please fix the flaky login test",
+    ].join("\n");
+    const doc = normalize(parsed([{ kind: "user_text", text, raw: {} }]));
+    expect(doc.session.title).toBe("Please fix the flaky login test");
+  });
 });
