@@ -9,7 +9,7 @@
   等子代理協作事件（§B1／B4.2 撰寫時的樣本沒有），本輪刻意只讓它們落入通用的寬容收納
   （聚合成「型別 ×N」warning，卡片顯示「未知事件：X」），沒有比照 Claude Code `isSidechain` 的
   子代理群組視覺。是否要做、怎麼對映到 DIT 既有的「子代理」概念，留給下一輪評估
-  （見 [R7B_BASELINE_2026-07-23.md](R7B_BASELINE_2026-07-23.md) 觀察 2）。
+  （見 [R7B_BASELINE_2026-07-23.md](rounds/r7-multi-source-and-layout/R7B_BASELINE_2026-07-23.md) 觀察 2）。
 - [ ] **Codex adapter 真實樣本驗證擴大到 ≥5 份檔案**：PSM §9.1 開放問題 3 要求擴到 ≥5 份真實檔案、
   偏離 >10% 即停工回報；R7B-05 本輪只驗證了 3 份（§B1 原樣本＋兩份新樣本）。第三份樣本的巢狀事件
   配對率量到 73%，逐筆核對後確認落差成因是 `context_compacted`（歷史壓縮）讓原始呼叫消失，屬於
@@ -21,7 +21,7 @@
   `--ui-scale` 這個「單一旋鈕」貫徹到全站，字級的「比例階梯」本身仍是虛設——全站 100 餘處字級仍是
   各自的行內字面值（`calc(Npx * var(--ui-scale))`），彼此不對齊九階。R7A-06 只在本輪觸及的
   header／settings／layer-card／io-head 選擇器內收斂（見
-  [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) A1.6／R7-INV-5），
+  [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](rounds/r7-multi-source-and-layout/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) A1.6／R7-INV-5），
   刻意不擴大範圍。全站清掃需要新一輪逐選擇器核對（哪些該精確對齊、哪些是刻意的階梯外特例），
   獨立排程，不得順手夾帶。
 - [ ] **`@container` 成對 min/max 斷點的縫隙稽核**：R7A-05 施工時發現 `.app-shell` 量到的
@@ -61,8 +61,8 @@
 
 ## 📌 2026-07-21 R7 候選：多來源接入（Codex adapter）— ✅ 2026-07-23 施工完成，待 ACCEPTANCE.md §23 UAT
 
-> 完整設計分析與 Codex 格式實測證據見 [DESIGN_R7_MULTI_SOURCE_v0.1.md](DESIGN_R7_MULTI_SOURCE_v0.1.md)（pre-PSM 草稿）；本段只記排程與範圍。
-> 施工結果見 `PROGRESS.md` 的「R7 Part B」段落與 `docs/R7B_BASELINE_2026-07-23.md`；
+> 完整設計分析與 Codex 格式實測證據見 [DESIGN_R7_MULTI_SOURCE_v0.1.md](rounds/r7-multi-source-and-layout/DESIGN_R7_MULTI_SOURCE_v0.1.md)（pre-PSM 草稿）；本段只記排程與範圍。
+> 施工結果見 `PROGRESS.md` 的「R7 Part B」段落與 `docs/rounds/r7-multi-source-and-layout/R7B_BASELINE_2026-07-23.md`；
 > 施工中發現的新候選項移至本文件開頭「2026-07-23 R7 Part B 收尾新增」。
 
 **排程順序（使用者 2026-07-21 拍板）**：R5.5 UAT 收尾 → R6（範圍不變：匯出＋多 session 型別保鮮）→ **R7 多來源輪**。R6 期間不擴範圍；唯一順手事項是型別保鮮不得把 Claude 專屬假設寫進快照渲染器（SA-INV-5 常數同源已在擋）。
@@ -120,7 +120,7 @@
 - [ ] 雲端階段再加斷路器 / 重試策略（後端 6.6 / 6.7）。
 - [ ] **npm audit（dev-only）**：esbuild ≤0.24.2 / vite ≤6.4.2（GHSA-67mh-4wv8-2f99）。僅影響本地 dev server，
       不影響 production 產物。唯一根治是升 vite@8（破壞性）。風險低，暫不升；待之後需要時再做 vite 大版升級 + 回歸測試。
-- 已修：Ollama 逾時、檔案讀取錯誤、輸入過大軟警告（見 docs/REVIEW_2026-06-25.md）；
+- 已修：Ollama 逾時、檔案讀取錯誤、輸入過大軟警告（見 docs/misc/REVIEW_2026-06-25.md）；
       錯誤卡邊框、Ollama 引導面板、卡片大小字去重（2026-06-26 驗收回饋，見 docs/PROGRESS.md M3）。
 
 ## 🛠 後端 / 資料

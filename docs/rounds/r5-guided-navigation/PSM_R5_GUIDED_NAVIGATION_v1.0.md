@@ -530,7 +530,7 @@ MAX_MOUNTED_DETAIL_RIBS = 120;
 
 ### GN-07 — 50 MiB Session 的工作台與地圖維持有界渲染且無既有效能回歸
 - Severity/Confidence: blocker / medium-high；既有 50 MiB benchmark 與 DOM 數字可作同機基線，最終數值必須以真實 run 更新。
-- Objects: 修改 `scripts/render-r5-benchmark.mjs`, `docs/R5_BENCHMARK_2026-07-19.md`（新增本次實跑 section，不覆寫舊證據）；視量測結果最小修改 `src/core/view/sessionMap.ts`, `src/components/ReaderMinimap.tsx`, `src/components/SessionMapDialog.tsx`, `src/styles/index.css`；不得順手重構其他模組。
+- Objects: 修改 `scripts/render-r5-benchmark.mjs`, `docs/rounds/r5-guided-navigation/R5_BENCHMARK_2026-07-19.md`（新增本次實跑 section，不覆寫舊證據）；視量測結果最小修改 `src/core/view/sessionMap.ts`, `src/components/ReaderMinimap.tsx`, `src/components/SessionMapDialog.tsx`, `src/styles/index.css`；不得順手重構其他模組。
 - Why: 同時掛載 Sidebar、Reader、Minimap 或 Map modal 可能重新增加 DOM／首開延遲，綠色 unit tests不能證明畫面效能。
 - Change: 擴充 benchmark schema記錄 closed Reader、global/section/detail map 的 total elements、mounted tree/reader/map/list targets、open latency、overflow與selection drift；用現有 deterministic fixture跑 production preview；若超標，優先降低 projection／overscan或合併非互動 SVG path，不改 PIM 語意；保留舊 benchmark section作對照。
 - Blast radius: 只允許有界渲染與 CSS 調整；不得變更 labels、cluster membership、jump target、load pipeline、worker或annotation。

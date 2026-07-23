@@ -1,6 +1,6 @@
 /** 設定對話框 (取代原本內嵌於 header 下方的 settings tray)。結構仿 SessionMapDialog 的既有慣例：
  *  原生 <dialog>、showModal/close 由 store 的 settingsOpen 驅動、Escape 關閉、開啟時 focus 標題、
- *  關閉時 focus 還給觸發按鈕。詳見 docs/DESIGN_R7_SETTINGS_DIALOG_v0.1.md。 */
+ *  關閉時 focus 還給觸發按鈕。詳見 docs/rounds/r7-multi-source-and-layout/DESIGN_R7_SETTINGS_DIALOG_v0.1.md。 */
 import { useLayoutEffect, useEffect, useRef, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import type { ProviderId } from "@/types/spanTree";

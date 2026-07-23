@@ -1,7 +1,7 @@
 # DIT R7 Implementation Kickoff Prompt
 
 > Copy the block below as the opening message of the R7 implementation session.
-> Keep in sync with `docs/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md` — the PSM always wins on conflict.
+> Keep in sync with `docs/rounds/r7-multi-source-and-layout/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md` — the PSM always wins on conflict.
 
 ---
 
@@ -12,10 +12,10 @@ comments, commit messages, and all machine-read content are English only.
 
 ## Read first, in this order
 
-1. `docs/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md` — **the sole construction contract for this round.**
+1. `docs/rounds/r7-multi-source-and-layout/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md` — **the sole construction contract for this round.**
    §0 execution discipline, §A1/§B1 root causes and measured evidence, §A3/§B3 invariants,
    §A4/§B4 technical schemes, §A5/§B5 the 15 cards, §A7/§B7 the user UAT lists.
-2. `docs/PSM_R6.5_LAYOUT_SCALE_REMEDIATION_v0.1.md` — LS-INV-1..8, inherited and non-negotiable.
+2. `docs/rounds/r6.5-layout-scale/PSM_R6.5_LAYOUT_SCALE_REMEDIATION_v0.1.md` — LS-INV-1..8, inherited and non-negotiable.
 3. `docs/ACCEPTANCE.md` §20 (R6.5, user-passed) — the accepted baseline you must not regress.
 4. `docs/architecture.md` — as-built structure.
 

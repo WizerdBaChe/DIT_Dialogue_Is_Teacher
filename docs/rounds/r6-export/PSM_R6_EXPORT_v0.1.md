@@ -1,9 +1,9 @@
 # PSM — R6 匯出（FR-8）與 SessionLibrary 型別保鮮 v0.1
 
 狀態：**已簽核，可施工**（使用者 2026-07-21 核可 D-R6-01～07 與本文件卡片結構）。
-定位：本文件是 [PSM_DIT_v1.0.md](PSM_DIT_v1.0.md) §3.2「R6 — 匯出（FR-8）與多 session」與 **ADR-013**（匯出格式＝JSON＋靜態 HTML 快照，2026-07-04 使用者拍板）的施工合約，
-且為本輪**唯一施工依據**（sole-source）。[PSM_R5_GUIDED_NAVIGATION_v1.0.md](PSM_R5_GUIDED_NAVIGATION_v1.0.md) §11 既有契約與
-[PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md](PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md) 的 SA-INV-1～5 全部繼續有效；本輪新增規範以 **EX-INV** 編號。
+定位：本文件是 [PSM_DIT_v1.0.md](../../PSM_DIT_v1.0.md) §3.2「R6 — 匯出（FR-8）與多 session」與 **ADR-013**（匯出格式＝JSON＋靜態 HTML 快照，2026-07-04 使用者拍板）的施工合約，
+且為本輪**唯一施工依據**（sole-source）。[PSM_R5_GUIDED_NAVIGATION_v1.0.md](../r5-guided-navigation/PSM_R5_GUIDED_NAVIGATION_v1.0.md) §11 既有契約與
+[PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md](../r5.5-semantic-alignment/PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md) 的 SA-INV-1～5 全部繼續有效；本輪新增規範以 **EX-INV** 編號。
 
 ---
 

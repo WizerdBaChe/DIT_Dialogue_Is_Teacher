@@ -1,6 +1,6 @@
 /**
  * 匯出資料契約 (FR-8 / R6)。
- * 對應文件：docs/PSM_R6_EXPORT_v0.1.md §4.2
+ * 對應文件：docs/rounds/r6-export/PSM_R6_EXPORT_v0.1.md §4.2
  */
 import type { Annotation, SessionDocument } from "@/types/spanTree";
 

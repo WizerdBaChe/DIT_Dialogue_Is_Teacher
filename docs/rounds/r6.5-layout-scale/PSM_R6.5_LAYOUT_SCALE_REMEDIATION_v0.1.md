@@ -2,13 +2,13 @@
 
 狀態：**施工完成，待使用者 UAT**（D-R65-01～04 已由使用者於 2026-07-22 裁定；D-R65-05～06 pending）。
 LS-00～LS-11 已依 §5 順序完成，證據見 [R6.5_BASELINE_2026-07-22.md](R6.5_BASELINE_2026-07-22.md)、
-[PROGRESS.md](PROGRESS.md) R6.5 段落、[ACCEPTANCE.md](ACCEPTANCE.md) §20。
-定位：本文件是 R5 UAT（[ACCEPTANCE.md](ACCEPTANCE.md) §1／§4／§13／§15／§19 標記「有問題」者）與使用者
+[PROGRESS.md](../../PROGRESS.md) R6.5 段落、[ACCEPTANCE.md](../../ACCEPTANCE.md) §20。
+定位：本文件是 R5 UAT（[ACCEPTANCE.md](../../ACCEPTANCE.md) §1／§4／§13／§15／§19 標記「有問題」者）與使用者
 2026-07-22 追加回報的**唯一施工依據**（sole-source）。
 
-繼承且不得失守：[PSM_R5_GUIDED_NAVIGATION_v1.0.md](PSM_R5_GUIDED_NAVIGATION_v1.0.md) §11 既有契約、
-[PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md](PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md) SA-INV-1～5、
-[PSM_R6_EXPORT_v0.1.md](PSM_R6_EXPORT_v0.1.md) EX-INV-1～4。本輪新增規範以 **LS-INV** 編號。
+繼承且不得失守：[PSM_R5_GUIDED_NAVIGATION_v1.0.md](../r5-guided-navigation/PSM_R5_GUIDED_NAVIGATION_v1.0.md) §11 既有契約、
+[PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md](../r5.5-semantic-alignment/PSM_R5.5_SEMANTIC_ALIGNMENT_v0.1.md) SA-INV-1～5、
+[PSM_R6_EXPORT_v0.1.md](../r6-export/PSM_R6_EXPORT_v0.1.md) EX-INV-1～4。本輪新增規範以 **LS-INV** 編號。
 
 > **本輪的性質**：這不是「調整幾個數值」。使用者明確要求「從根本思考設計上的缺陷來統一調整，
 > 針對不同狀態的排版要完全重排而不是微調」。下列 11 個症狀收斂到 **3 個上游設計缺陷 + 2 個孤立缺陷**，
