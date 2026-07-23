@@ -5,8 +5,9 @@
 import type { SourceAdapter } from "./types";
 import type { SourceId } from "@/types/spanTree";
 import { claudeCodeJsonlAdapter } from "./claudeCodeJsonl";
+import { codexJsonlAdapter } from "./codexJsonl";
 
-const registry: SourceAdapter[] = [claudeCodeJsonlAdapter];
+const registry: SourceAdapter[] = [claudeCodeJsonlAdapter, codexJsonlAdapter];
 
 /** 依 id 取得指定 adapter。 */
 export function getAdapter(id: SourceId): SourceAdapter | undefined {

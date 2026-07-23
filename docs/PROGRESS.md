@@ -2,6 +2,174 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
+## R7 Part B — 多來源接入（Codex Adapter）｜2026-07-23｜🔄 施工完成，待使用者 UAT（ACCEPTANCE.md §23）
+
+依 [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) Part B 施工，
+順序 R7B-00 → R7B-05（R7B-06 即本段落）。Part A UAT（§21／§21.1）通過後依 PSM §9.3 建議直接開工，
+未另做 workflow-checkpoint（使用者於同一輪對話內直接指示「跟 Part B 的實作一起進行」）。
+
+- [x] **R7B-00 樣本基線與型別普查**（commit `9fe110e`）：用 §B1 沒看過的兩份真實樣本（17.6 MB 純
+  對話樣本、含子代理協作事件的最新樣本）核對 §B1 三處核心推翻是否仍成立——皆成立。新增兩項觀察：
+  大檔案不代表工具呼叫密集；Codex 新增了子代理協作事件（`inter_agent_communication_metadata` 等），
+  落入既有寬容收納路徑，不阻塞施工。詳見 [R7B_BASELINE_2026-07-23.md](R7B_BASELINE_2026-07-23.md)。
+- [x] **R7B-01 accumulator 介面與 streaming 偵測**（commit `c8b638f`）：`SourceAdapter` 補
+  `createAccumulator()`；`jsonlStream.ts` 的 `parseClaudeCodeJsonlChunks`（寫死呼叫 Claude Code
+  parser）改名並改寫為 `parseJsonlChunks`，靠 `detectAdapter` 動態選擇來源，偵測不到丟出
+  `UnknownSourceError`（R7-INV-9：不得默默退回 Claude Code）。這條路徑原本是唯一還沒 adapter-agnostic
+  的——同步管線（`buildSessionDocumentFromFiles`）其實早就用 `detectAdapter` 逐檔偵測了。
+- [x] **R7B-02 型別白名單與寬容收納**（commit `539b16a`）：新檔 `src/core/adapters/codexJsonl.ts`，
+  照 §B4.2 白名單表格逐型別分派（message／reasoning／tool_use／tool_result／noise types），未進
+  registry（避免半成品搶先接管偵測）。白名單外一律聚合為「型別 ×N」warning，不逐行洗版。
+- [x] **R7B-03 Session 標題 fallback**（commit `fd2581b`）：放在 normalizer（非 adapter），取第一個
+  `user_text` 的第一行，剝除 `#` 標頭附件區塊，截斷 48 字元；所有來源共用，Claude Code 缺 `ai-title`
+  時也受益（一併解決 2026-07-20 BACKLOG 那條同名候選項）。
+- [x] **R7B-04 Codex adapter 本體**（commit `6736c03`）：`tools.<name>(...)` 正則抽取真實工具名（抽不到
+  才退回 "exec" ＋ warning）；`patch_apply_end`／`mcp_tool_call_end`／`web_search_end` 就近向前配對
+  回既有 exec 呼叫；`turn_aborted`／`thread_rolled_back`／`context_compacted` 各出一則自我解釋的標記
+  事件；`codexJsonlAdapter` 註冊進 registry；`summarizeParams` 補 `{raw: ...}` 單鍵特化。
+- [x] **R7B-05 真實樣本回歸**（commit `573f31e`、`3852c3f`）：用三份真實 Codex 樣本跑完整 adapter，
+  發現並修正兩個真實缺陷：
+  1. 標題 fallback 沒處理 Codex 的 `<recommended_plugins>`／`<INSTRUCTIONS>` 這類 XML 包裹前言（且
+     收尾標籤常跟下一段標頭黏在同一行），兩份樣本原本顯示成字面上的 `<recommended_plugins>`；
+     改用整段正則比對取代逐行狀態機後安全落回既有佔位字串。
+  2. 巢狀事件配對只看「最近一個相容呼叫」，沒用到 spec 要求的 `turn_id`，是真實的防禦性缺口
+     （多執行緒／子代理協作時可能誤配到別的 turn）；補上後用新測試證明「先關較早開的呼叫」這種
+     非 LIFO 情境能正確配對。核對一個表面看像 bug 的配對落差（19/26，73%）後確認落差成因是
+     `context_compacted`（歷史壓縮）讓原始呼叫從事件流中消失，屬於資料限制，不是邏輯缺陷。
+     **誠實記錄**：PSM §9.1 要求 ≥5 份檔案驗證，本輪只測了 3 份，未達門檻。
+- [x] **R7B-06 文件與帳本**（本段落＋ACCEPTANCE.md §23＋BACKLOG.md 更新）。
+
+`npm.cmd test`：36 檔／228 項全綠（Part B 新增 25 案例：`codexJsonl.test.ts` 18 項、
+`normalizer.test.ts` 8 項、`parts.test.ts` 新增 3 項）；`npm.cmd run typecheck`、`npm.cmd run build`
+（含快照 target）皆 exit 0。
+
+**已知薄弱處（誠實記錄，非隱藏）**：
+- Codex 子代理協作事件（`sub_agent_activity` 等）目前只落入通用寬容收納，沒有比照 Claude Code
+  `isSidechain` 的專屬子代理視覺——刻意的範圍縮減，見 BACKLOG「Codex 子代理事件視覺呈現」候選項。
+- 真實樣本驗證數（3 份）未達 PSM §9.1 要求的 ≥5 份門檻。
+- `tools.<name>(` 是 Codex 內部包裝格式、非公開契約，未來版本可能改變格式；R7-INV-8 的退路
+  （降級為 "exec" ＋ warning）是唯一防線，這代表工具名抽取的準確率本質上會隨 Codex 版本衰減
+  （PSM §9.2(d) 已預見此點）。
+- `event_msg` 白名單是封閉式設計，Codex 新增高價值型別時不會自動被 DIT 採用（PSM §9.2(e)）。
+
+**續接指引**：等待使用者於 `ACCEPTANCE.md §23` 完成真實環境 UAT（尤其自己的 Codex session 實際載入）。
+
+## R7 Part A — 設定對話框復原、UAT 通過與補充修正｜2026-07-23｜✅ 使用者確認通過（ACCEPTANCE.md §21／§21.1），補充回報進行中（§22）
+
+上一輪因 usage limit 中斷、留在 `feat/r7-layout-multisource` 工作目錄內未提交的設定對話框實作
+（`SettingsDialog.tsx` 等 8 檔＋2 新檔），本輪復原並完成：
+
+- [x] **找到並修正中斷點**（commit `781d462`／`bdebeef`）：`SettingsDialog.tsx` 的 `onClose` 誤留一個
+  不存在的 `restoreFocus()`（抄 `SessionMapDialog.tsx` 慣例時的殘留呼叫，焦點還原其實已經在
+  `useLayoutEffect` 的關閉分支處理）。移除後 `tsc`／`npm test`（194 項）／`npm run build` 全綠。
+  對照 §6 施工清單逐項核對：store 互斥、Header 拆除、新元件、App 掛載、CSS、測試搬遷、locale 字串
+  全部到位；M 快捷鍵守門用 `dialog[open]:not(#session-map-dialog)` 這個更通用的寫法，已涵蓋設定
+  對話框，比設計稿原案的硬寫 `!settingsOpen` 更好。
+- [x] **PSM 文件同步**（commit `8f90243`）：A4.1／R7A-01／R7A-02 標註「已被對話框取代」，
+  原文保留作歷史記錄，不佔用既有的 R7A-06 卡號（那是字級 token 化卡，已存在）。
+- [x] **ACCEPTANCE.md §21.1**（commit `a6d3c77`）：補上設定對話框專屬 UAT 清單（開關機制、
+  尺寸、群組排列、option-hint、focus 管理、與地圖/結構互斥、M 快捷鍵防穿透、快照模式守門）。
+- [x] **使用者於 2026-07-23 完成 §21＋§21.1 UAT，全數確認通過。**
+
+UAT 通過後，使用者回報三項補充問題，本輪一併處理（見 ACCEPTANCE.md §22 待驗收清單）：
+
+- [x] **設定對話框重複捲軸**：根因是 `<dialog>` 原生 `overflow:auto` 預設，加上
+  `height:auto`＋`max-height` 讓 dialog 與內部 shell 各自算出的高度上限有 1px 級誤差
+  （border-box 邊框造成），使 dialog 自己也變成一個捲動容器，跟 `.settings-dialog-body`
+  的內層捲軸重複。比對已驗收的 `.session-map-dialog`（用固定 `height` 而非 `auto+max-height`，
+  且 shell 本身就 `overflow:hidden`）確認是同一類問題的變體；修法是在 `.settings-dialog`／
+  `.settings-dialog-shell` 都補上 `overflow:hidden`，只留 body 一層捲動。
+- [x] **Session 地圖／設定對話框補上點 backdrop 關閉**：原設計（DESIGN 文件 §7 問題 4）刻意排除，
+  使用者確認兩個對話框既有功能都正常後裁定加回。實作：`onClick` 檢查
+  `event.target === dialogRef.current`（backdrop 不是可命中的子節點，點在 backdrop 上時
+  click 事件的 target 就是 `<dialog>` 元素本身；點在內容上 target 永遠是子元素），與既有
+  `onCancel`／`onClose` 邏輯互不干擾，兩個對話框做法一致。`SessionMapDialog.test.tsx`／
+  `SettingsDialog.test.tsx` 各補一案例：點 shell 內容不關閉、點 dialog 元素本身會關閉。
+  DESIGN 文件已記錄此裁定反轉，見該文件 §7 問題 4 附註。
+- [x] **50 MiB fixture 內重複字串的疑慮，判斷為測試資料設計、非解析缺陷**：`scripts/
+  generate-r5-fixture.mjs:37,101` 明文寫死重複字串純為撐大檔案體積；核對使用者提供的真實 Codex
+  大檔案樣本（`C:\Users\gunda\.codex\sessions\2026\07\08\` 下 17.6 MB 那份）確認真實大檔案也會有
+  大段重複內容（session resume 時的壓縮摘要逐字重出），但那是有意義的長篇敘述，跟 fixture 的
+  字元級重複不是同一類問題，也不需要特殊處理。**裁定不加防呆／偵測邏輯，忠實保留**：收合態已有
+  A4.3 的值驅動摘要規則擋住畫面，展開態是使用者主動查看原始資料，不存在「使用者誤以為程式出錯」
+  的風險。詳細推理見 ACCEPTANCE.md §22。
+
+`npm.cmd test`：34 檔／196 項全綠（本輪新增 2 案例）；`npm.cmd run typecheck`、`npm.cmd run build`
+（含快照 target）皆 exit 0。
+
+**續接指引**：`feat/r7-layout-multisource` 上 Part A 全部完成並通過 UAT（含本輪補充修正，
+待 ACCEPTANCE.md §22 使用者重新確認捲軸／backdrop 兩項視覺行為）。下一步是 **Part B（多來源接入・
+Codex adapter，R7B-00～06）**——PSM 文件已標記 build-ready，B1 已用真實 16.3 MB Codex 樣本驗證過
+三處設計文件推翻的細節，理論上規格清楚，但施工前建議先對照使用者最新提供的
+`C:\Users\gunda\.codex\sessions\2026\07\` 樣本再次核實（尤其檔案更大、時間更近的樣本）。
+
+## R7 Part A — 版面收尾｜2026-07-23｜✅ 施工完成，使用者 UAT 已通過（ACCEPTANCE.md §21）
+
+分支 `feat/r7-layout-multisource`（自已含 R6+R6.5 的 `main` 切出）。依
+[PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) 施工，順序
+R7A-00 → R7A-07 → （之後）R7B-00 → R7B-06。
+
+- [x] **R7A-00 量測基線**（commit `69a61a6`）：[docs/R7_BASELINE_2026-07-23.md](R7_BASELINE_2026-07-23.md)。
+  第 5 項（×1.5 模擬）觸發文件明訂的停工條件——740 寬 English 下原案常數 1.5 讓 header 衝到
+  68px 且 tabs 溢位 92px，比 PSM 原假設的「1280 English 最緊」更緊。已停工回報使用者，
+  使用者裁定「不降單一倍率，改依解析度分級」。
+- [x] **D-R7-03 重新裁定**（commit `1075a39`）：改 `--chrome-scale` 為三級 container-query
+  斷點（沿用既有 720/900/1280 邊界），每級取該級最窄邊界 English 下實測安全上限：
+  720–899→1.1、900–1279→1.2、≥1280→1.5；`<720` 雙列 header 不套用本旋鈕，沿用 R6.5 基線。
+  A4.4／R7A-05 卡片文字已同步修訂，見 PSM 文件。
+- [x] **R7A-01 設定匣需求導向配置**（commit `061f4d1`）：`.settings-grid` 改 flex-wrap，
+  五組 fieldset 加 `g-*` class；1280 下語言組 168px（≤200 達標）、教學講解組 464px（≥440 達標）；
+  390 無水平溢位；`npm.cmd test` 181 項全綠。
+- [x] **R7A-02 教學講解群組內部分層**（commit `7c6b720`）：`.settings-actions.rows` 兩軌 grid，
+  四列語意（來源／顯示開關／批次講解／快取清除）各自成列；1280 與 390 皆無水平溢位；測試 182 項全綠。
+- [x] **R7A-03 layer-card badges 軌道內容驅動**（commit `695374b`）：第二軌 `minmax(0,45%)` 改
+  `minmax(0,auto)`，`.badges` 加 `max-width:22ch`，`@container` 解除點 519px→459px；瀏覽器實測
+  0 badge 卡 `.layer-title` 佔卡寬 95.8%（達標 ≥0.95）、1-2 badge 卡 87-92%（達標 ≥0.80）；
+  390 寬確認斷點觸發單欄。**未完成**：`npm run benchmark:r5` 50MiB fixture 效能量測（需要手動產生
+  fixture＋瀏覽器自動化跑完整 R5 情境，本次 session 未執行，下一輪或使用者驗收前需補跑）。
+- [x] **R7A-04 IOBlock 摘要語意分流**（commit `8895e3b`）：新增 `summarizeParams`（值導向、60 字元上限、
+  逐型別格式化），`summarizeCollapsedIOText` 跳過空行／純結構符號行；`IOBlock` 新增 `structured?` prop；
+  `SpanCard` 傳入 `structured={span.tool.params}`；locales 新增 `collapsedParamsSummary`（zh+en）；
+  `parts.test.ts` 新增 7 案例（含既有回歸）；瀏覽器實測收合態顯示「參數 · 1 項 ·
+  file_path: src/TodoList.jsx」，展開後仍是完整 pretty JSON；`npm.cmd test` 189 項全綠。
+- [x] **R7A-05 header chrome 尺度分級旋鈕**（commit `13a23aa`）：三級 `--chrome-scale`
+  （1.1／1.2／1.5）套用在 `.header`；施工中發現並修正兩個 container query 陷阱（自訂屬性設在
+  容器本身或 `:root` 不生效、成對 min/max 有小數縫隙），已記入 PSM A4.4 附註；已用 spawn_task
+  提醒稽核專案內其他既有的成對 min/max 斷點。瀏覽器實測 720/899/1000/1280/1706 五個邊界（English
+  最壞情境）header 皆 56px、tabs 皆無溢位；390 維持雙列基線（chrome-scale=1，不受影響）；
+  `npm.cmd test` 189 項全綠。
+- [x] **R7A-06 觸及範圍字級 token 化**（commit `b50a7a3`）：R7A-01～05 觸及的選擇器（settings-group
+  legend、settings-actions label、export-privacy-note、error-banner、toggle、cache-status、
+  batch-control select、badge、layer-title、layer-title .kind、io-block、io-head、io-head .chev）
+  改引用 `--fs-*`；階梯外的值就近取最相近階並在該行加註（≤0.5px 差異）；`grep -c "var(--fs-" ` = 16；
+  瀏覽器實測 computed font-size 與文件記載差異一致，無非預期變化。
+- [x] **R7A-07 文件、驗收單與帳本**（本次提交）：ACCEPTANCE.md §21 寫入 Part A UAT 清單；
+  BACKLOG.md 登記「全站 `--fs-*` 階梯對齊」與「`@container` 成對 min/max 縫隙稽核」兩項；
+  `git diff --check` exit 0。
+
+- [x] **UAT 回饋修正 1／2：settings-group `max-width` 補上限**（commit `31323e2`，**已被下一項取代**）：
+  使用者在 1920px 寬螢幕回報教學講解組視覺上仍吃掉不成比例的空間。第一次診斷把根因定位在
+  `--group-grow` 沒有上限，用 `max-width` 幫每組加天花板止血（教學講解 594px→519px）。
+  使用者當場指出這仍是治標——「setting grid 再怎麼調整、group 再怎麼縮小，都只是局部問題」，
+  要求找根本設計方案，見下一項。
+- [x] **UAT 回饋修正 2／2：拿掉 flex-grow，改純內容決定寬度**（commit `0dd2c8b`，PSM A4.1 已二次修訂）：
+  真正的根因是 `flex-grow` 這個工具語意本身就選錯——「把剩餘列寬硬分給我」對固定寬度的控制項無意義，
+  死白只是從組間搬到組內。改為 `flex: 0 1 auto`，每組寬度＝瀏覽器量測的內容固有寬度（`max-content`），
+  不再有任何手填的猜測像素值；教學講解組內部的控制欄也從 `1fr`（會撐到群組寬度，跟外層同一個問題
+  換層皮重演）改 `max-content`。1920 下教學講解組從 594px（原始問題）→519px（第一次補丁）→**351px
+  （這次，等於實際內容需求）**；`batch-control` 內部不再有死白（寬度精確等於 select+按鈕總和）；
+  390/740/1280/1920 四寬度皆無溢位；`g-*` class 保留作語意標記，不再帶寬度數值。R7A-01/02 的
+  PSM 卡片文字與驗收數字已同步更新（原「教學講解組 ≥440px」驗收數字本身就是撐大的產物，已標註淘汰）。
+
+**Part A 全部 7 張卡片（R7A-00～07）已完成，等待使用者在真實環境完成 ACCEPTANCE.md §21 的 UAT。**
+依 PSM §0/§9.3，Part A 完成、Part B 開工前建議做一次 workflow-checkpoint；Part B（R7B-00～06，
+Codex 多來源接入）尚未開始，不得在 Part A UAT 通過前開工。
+
+**續接指引**：若中斷於此，下一位／下一輪從 `feat/r7-layout-multisource` 分支的
+`git log --oneline -20` 對照本段落 checkbox 可確認 Part A 全部完成；下一步是**等使用者跑完
+ACCEPTANCE.md §21**，UAT 通過後才能開始 R7B-00（Part B 硬性前置量測卡）。若 §21 UAT 發現「有問題」
+項目，比照 R6.5 §20 的模式：先回報，不自行判斷是否要回頭改 Part A 的卡片。
+
 ## R6.5 — 版面與尺度系統修正｜2026-07-22｜✅ 使用者確認通過（見 ACCEPTANCE.md §20）
 
 依 [PSM_R6.5_LAYOUT_SCALE_REMEDIATION_v0.1.md](PSM_R6.5_LAYOUT_SCALE_REMEDIATION_v0.1.md) 施工，於現有分支

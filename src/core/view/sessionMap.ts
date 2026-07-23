@@ -524,6 +524,23 @@ export function resolveCurrentSpineTargetId(
   return station?.id ?? null;
 }
 
+/**
+ * 選取的目標若是支線／子代理／聚合節點（不畫在主線上），視覺中心該掛在哪個主線站。
+ * 與 resolveCurrentSpineTargetId 同一套邏輯，只是輸入從 viewItemId 換成已知的站序，
+ * 讓 SessionMapGraphic 的取景/捲動能對齊到正確的主線節點，而不是誤配到「你在這裡」。
+ */
+export function resolveStationSpineId(
+  projection: SessionMapProjection,
+  stationIndex: number | null,
+): string | null {
+  if (stationIndex === null) return null;
+  const spine = projection.targets.filter(isSpineTarget);
+  const station = spine.find((target) => (
+    target.type === "landmark" && target.parentStationId === null && target.stationIndex === stationIndex
+  ));
+  return station?.id ?? null;
+}
+
 export function canJumpToMapTarget(target: SessionMapTarget | null, viewItems: ViewItem[]): target is MapLandmark {
   if (!target || target.type !== "landmark") return false;
   return viewItems.some((item) => item.id === target.viewItemId);

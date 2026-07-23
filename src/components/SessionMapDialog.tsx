@@ -14,6 +14,7 @@ import {
   isSpineTarget,
   resolveCurrentSpineTargetId,
   resolveSessionMapSelection,
+  resolveStationSpineId,
   type MapLandmark,
   type MapZoomLevel,
   type SessionMapTarget,
@@ -94,7 +95,12 @@ export function SessionMapDialog(): ReactNode {
         dialog.dataset.modalFallback = "true";
       }
     } else if (!mapOpen && dialog.open) {
-      dialog.close();
+      try {
+        dialog.close();
+      } catch {
+        dialog.removeAttribute("open");
+        delete dialog.dataset.modalFallback;
+      }
     }
   }, [mapOpen]);
   const currentViewItemId = playingId ?? activeId;
@@ -112,6 +118,9 @@ export function SessionMapDialog(): ReactNode {
   const selectedStationIndex = selectedTarget
     ? (selectedTarget.type === "landmark" ? selectedTarget.stationIndex : selectedTarget.firstStationIndex)
     : null;
+  // 選到的目標若是支線/子代理/聚合節點，圖形上不會有它自己的框；改掛到它所屬的主線站，
+  // 否則 selectedId 在圖形裡誰都比不中，捲動效果會退回去對準「你在這裡」而非選取所在的站。
+  const selectedGraphicId = resolveStationSpineId(projection, selectedStationIndex) ?? mapFocusId;
   const canRecenter = mapZoomLevel !== "global"
     && selectedStationIndex !== null
     && selectedStationIndex !== projection.focusStationIndex;
@@ -207,6 +216,11 @@ export function SessionMapDialog(): ReactNode {
         if (useSessionStore.getState().mapOpen) closeMap();
         restoreFocus();
       }}
+      onClick={(event) => {
+        // 點擊 backdrop 時，原生 <dialog> 的 click 事件 target 就是 dialog 元素本身
+        // （backdrop 不是可命中的子節點）；點在 shell 內容上的 target 永遠是某個子元素。
+        if (event.target === dialogRef.current) closeMap();
+      }}
     >
       {mapOpen && <div className="session-map-shell">
         <header className="session-map-header">
@@ -251,7 +265,7 @@ export function SessionMapDialog(): ReactNode {
                 <SessionMapGraphic
                   projection={projection}
                   currentViewItemId={currentViewItemId}
-                  selectedId={selectedTarget?.id ?? mapFocusId}
+                  selectedId={selectedGraphicId}
                   onSelect={selectTarget}
                 />
               </div>

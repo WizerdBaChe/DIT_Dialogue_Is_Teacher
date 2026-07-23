@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { parseClaudeCodeJsonlBlob } from "./jsonlStream";
+import { parseJsonlBlob } from "./jsonlStream";
 import { buildSessionDocumentFromParsedFiles } from "@/core/pipeline";
 import type { ParsedTranscriptFileInput } from "@/core/pipeline";
 import { getFallbackReport, resetFallbackReport } from "@/core/diagnostics";
@@ -42,7 +42,7 @@ async function load(request: SessionWorkerLoadRequest): Promise<void> {
     const parsedFiles: ParsedTranscriptFileInput[] = [];
 
     for (const file of request.files) {
-      const result = await parseClaudeCodeJsonlBlob(file.blob, {
+      const result = await parseJsonlBlob(file.blob, {
         onProgress: ({ bytesRead, lineCount }) => progress({
           phase: "parsing",
           loadedBytes: completedBytes + bytesRead,
