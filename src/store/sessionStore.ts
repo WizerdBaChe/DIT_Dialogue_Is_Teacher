@@ -211,6 +211,8 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     viewItems,
     warnings,
     warningsDismissed: false,
+    // 每次重新發布都重算：有提示就強制彈窗一次，使用者按過確認才會消失 (見 ParseNoticeDialog)。
+    parseNoticeAcknowledged: warnings.length === 0,
     error: null,
     // 使用者自己載入的 session 直接進閱讀；總覽只當作內建範例的著陸頁。
     primaryView: sessionOrigin === "user" ? "reader" : "overview",
@@ -323,6 +325,8 @@ interface SessionState {
   storageNotice: string | null;
   /** 解析提示已被使用者收起；提示內容仍留在 warnings，總覽的則數不受影響。 */
   warningsDismissed: boolean;
+  /** 強制解析提示彈窗是否已被使用者按確認看過；每次重新發布 session 都會重算 (見 ParseNoticeDialog)。 */
+  parseNoticeAcknowledged: boolean;
 
   /** 靜態 HTML 快照模式；true 時隱藏載入／講解／Provider／匯出入口並跳過快取還原 (EX-INV-4)。 */
   snapshotMode: boolean;
@@ -348,6 +352,7 @@ interface SessionState {
   cancelSessionLoad: () => void;
   dismissSessionLoadStatus: () => void;
   dismissWarnings: () => void;
+  acknowledgeParseNotice: () => void;
   dismissError: () => void;
   dismissStorageNotice: () => void;
   dismissRestoreNotice: () => void;
@@ -445,6 +450,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   restoreNotice: null,
   storageNotice: null,
   warningsDismissed: false,
+  parseNoticeAcknowledged: true,
   snapshotMode: false,
 
   annotateProgress: null,
@@ -517,6 +523,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, sessionLoadError: null }),
   dismissWarnings: () => set({ warningsDismissed: true }),
+  acknowledgeParseNotice: () => set({ parseNoticeAcknowledged: true }),
   dismissError: () => set({ error: null }),
   dismissStorageNotice: () => set({ storageNotice: null }),
   dismissRestoreNotice: () => set({ restoreNotice: null }),
@@ -532,6 +539,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       viewItems: [],
       warnings: [],
       warningsDismissed: false,
+      parseNoticeAcknowledged: true,
       error: null,
       sessionLoadProgress: null,
       sessionLoadError: null,

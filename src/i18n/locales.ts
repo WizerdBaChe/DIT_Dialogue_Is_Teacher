@@ -182,6 +182,16 @@ const zhTW = {
     flow: "原始 .jsonl → Adapter → Span Tree → 降噪/分組 → [講解] → 視圖",
   },
 
+  /** 強制彈窗：session 載入後若有解析降級提示，用白話文一次講清楚「這不是壞掉」，須按確認才能關閉。 */
+  parseNotice: {
+    title: "看到幾則奇怪的提示了嗎？",
+    body: "這份紀錄裡，有少數幾個步驟系統沒辦法完全兜起來——常見原因是那段對話被 AI 工具自動壓縮過，原始內容已經不在檔案裡了。這是 AI 工具本身留下紀錄的方式造成的，不是 DIT 壞掉，也不影響你看懂這次任務的主線；那幾步只是被單獨列成一張「看不出上下文」的卡片而已，直接略過繼續看就好。",
+    count: (count: number) => `這次總共有 ${count} 則這樣的提示。`,
+    detailsToggle: "顯示技術細節",
+    detailsHide: "隱藏技術細節",
+    confirm: "我知道了，繼續閱讀",
+  },
+
   card: {
     kindTag: "群組",
     paramsTitle: "參數",
@@ -553,6 +563,15 @@ const en: Messages = {
     infoBody:
       'The raw transcript is parsed, normalized into a Span Tree, and deterministically denoised/grouped into the nodes above. Switch "Notes source" in the settings tray to add per-node teaching, or use step through to go through the whole task.',
     flow: "raw .jsonl → Adapter → Span Tree → denoise/group → [notes] → view",
+  },
+
+  parseNotice: {
+    title: "Seeing some odd-looking notices?",
+    body: "A handful of steps in this transcript couldn't be fully pieced together — usually because that part of the conversation was auto-compacted by the AI tool, so the original content is no longer in the file. That's just how the AI tool itself leaves its trace; it doesn't mean DIT is broken, and it doesn't stop you from understanding the main thread of this task. Those steps just show up as a standalone \"context not available\" card — feel free to skip past them and keep reading.",
+    count: (count: number) => `There ${count === 1 ? "is" : "are"} ${count} such notice${count === 1 ? "" : "s"} this time.`,
+    detailsToggle: "Show technical details",
+    detailsHide: "Hide technical details",
+    confirm: "Got it, keep reading",
   },
 
   card: {
