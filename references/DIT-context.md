@@ -11,3 +11,8 @@
 - **Map Landmark** (2026-07-19): A map target backed by exactly one real ViewItem id and therefore eligible for Reader navigation.
 - **Map Cluster** (2026-07-19): A deterministic visual aggregation of consecutive real items that can refocus or zoom the map but cannot directly navigate to Reader.
 - **Semantic Zoom** (2026-07-19): A map-level transition that changes the categories and aggregation of visible information instead of merely scaling identical graphics.
+- **Endpoint Provider** (2026-07-24): The single pluggable teaching-layer provider that replaces the old `ollama`/`cloud` split and talks to any OpenAI-compatible (or Anthropic-messages) endpoint, driven entirely by the selected Preset's metadata.
+- **Preset** (2026-07-24): A named endpoint configuration plus metadata (kind, transport, needsKey, sendsDataOut, cost, browserReach, modelsProbe) that fully determines the provider panel's UI affordances.
+- **Local Proxy** (2026-07-24): A localhost server (opencode / LiteLLM) that relays DIT's calls to a cloud provider the browser cannot reach directly because of CORS; the API key stays in the proxy, not the browser.
+- **BYOK** (2026-07-24): Bring Your Own Key — the user supplies their own API key to reach a browser-directable cloud (Anthropic) or to configure a Local Proxy.
+- **Config File** (2026-07-24): `dit.config.json`, an app-sibling file fetched at runtime to persist BYOK keys across sessions; it is git-ignored, excluded from `dist/` and exports, and never rendered into the UI.
