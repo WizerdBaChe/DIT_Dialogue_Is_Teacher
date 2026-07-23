@@ -148,7 +148,7 @@ DIT 是純前端的網頁應用，**沒有安裝檔，也不挑作業系統**—
 
 - **瀏覽器**：建議近期版本的 Chrome、Edge、Firefox；Safari 需 15.4 以上（介面用到原生 `<dialog>` 對話框）。不支援舊版 IE / Legacy Edge。
 - **不需要伺服器也能看**：`npm run build` 額外會產出一份**單檔 HTML 快照**（`dist/snapshot.html`，也是「匯出」按鈕產生的檔案），雙擊即可離線開啟，不需要跑 `npm`、不需要網路。
-- **想要完整的 DIT 本體、不只是快照？** 從 [Releases](../../releases) 下載打包好的 zip，解壓後雙擊 `start-dit.bat` 即可——它會在背景開一個只接受本機連線的小型伺服器並自動開啟瀏覽器，不需要安裝 Node.js／Python。（直接雙擊 `index.html` 會是白畫面：瀏覽器基於安全限制擋掉了 ES module，一定要透過 `start-dit.bat` 開。）macOS／Linux 使用者可在同一個資料夾改用 `npx serve .` 或 `python3 -m http.server`。
+- **想要完整的 DIT 本體、不只是快照？** 從 [Releases](../../releases) 下載打包好的 zip，解壓後雙擊 `start-dit.bat` 即可——它會在背景開一個只接受本機連線的小型伺服器並自動開啟瀏覽器，不需要安裝 Node.js／Python。DIT 本體放在解壓後的 `app/` 子資料夾（跟啟動腳本分開放，資料夾看起來乾淨），直接雙擊 `app/index.html` 會是白畫面：瀏覽器基於安全限制擋掉了 ES module，一定要透過 `start-dit.bat` 開。macOS／Linux 使用者可 `cd` 進 `app/` 資料夾後改用 `npx serve .` 或 `python3 -m http.server`。
 - **行動裝置**：目前是桌面優先的版面，手機／平板可以打開但排版未特別優化，屬已知限制。
 
 **可選的本機講解引擎**（不影響 DIT 本體是否能用，只影響「教學講解」這個功能）：
@@ -333,7 +333,7 @@ DIT is a purely front-end web app — **no installer, and it doesn't care about 
 
 - **Browser**: recent versions of Chrome, Edge, or Firefox recommended; Safari needs 15.4+ (the UI uses the native `<dialog>` element). Legacy IE/Edge is not supported.
 - **No server needed to view it**: `npm run build` also produces a **single-file HTML snapshot** (`dist/snapshot.html`, the same file the "Export" button generates) that you can double-click to open offline — no `npm`, no network required.
-- **Want the full DIT app, not just a snapshot?** Download the packaged zip from [Releases](../../releases), unzip it, and double-click `start-dit.bat` — it starts a tiny local-only server in the background and opens your browser automatically, no Node.js/Python install required. (Double-clicking `index.html` directly gives you a blank page: browsers block ES modules for security reasons off `file://`, so it must be opened through `start-dit.bat`.) macOS/Linux users can run `npx serve .` or `python3 -m http.server` from the same folder instead.
+- **Want the full DIT app, not just a snapshot?** Download the packaged zip from [Releases](../../releases), unzip it, and double-click `start-dit.bat` — it starts a tiny local-only server in the background and opens your browser automatically, no Node.js/Python install required. DIT itself lives in the unzipped `app/` subfolder (kept separate from the launcher scripts to keep the top level tidy); double-clicking `app/index.html` directly gives you a blank page — browsers block ES modules for security reasons off `file://`, so it must be opened through `start-dit.bat`. macOS/Linux users can `cd` into `app/` and run `npx serve .` or `python3 -m http.server` instead.
 - **Mobile**: the layout is currently desktop-first; phones/tablets can open it, but the layout isn't specifically optimized — a known limitation.
 
 **Optional local explanation engines** (these don't affect whether DIT itself works — only the "teaching explanation" feature):
