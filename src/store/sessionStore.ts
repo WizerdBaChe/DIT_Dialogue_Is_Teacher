@@ -21,10 +21,22 @@ import {
   DEFAULT_OPENCODE_CONFIG,
   createOpenCodeTransport,
   OPENCODE_AGENT_VERSION,
+  getPreset,
+  checkGenericEndpoint,
+  DEFAULT_GENERIC_TIMEOUT_MS,
+  createGenericTransport,
+  checkAnthropic,
+  DEFAULT_ANTHROPIC_CONFIG,
+  createAnthropicTransport,
+  isGenericChatPreset,
   type OllamaStatus,
   type OpenCodeStatus,
+  type GenericChatPresetId,
+  type EndpointStatus,
+  type AnthropicConfig,
 } from "@/core/llm";
-import { annotateOpenCodeWithPrivacy } from "@/adapters/dit/privacyAdapter";
+import { annotateWithPrivacy } from "@/adapters/dit/privacyAdapter";
+import { loadConfigFile } from "@/core/config/configFile";
 import { defaultPrivacyGateway, PrivacyError, type PrivacyConsent, type PrivacyInspection } from "@/core/privacy";
 import { balancedPrivacyPolicy, strictPrivacyPolicy } from "@/core/privacy/policies";
 import { PROMPT_VERSION } from "@/core/llm/prompt";
@@ -72,6 +84,25 @@ interface CloudConfigState {
   timeoutMs: number;
 }
 
+/** R8: generic OpenAI-chat-compatible preset config (lmstudio/jan/openrouter/groq/custom). */
+export interface GenericPresetConfigState {
+  baseUrl: string;
+  model: string;
+  /** In-memory only by default (R8 §7 tier 2); tier 1 is `dit.config.json` (INV-R8-3). */
+  apiKey: string;
+  timeoutMs: number;
+}
+
+const GENERIC_PRESET_IDS: GenericChatPresetId[] = ["lmstudio", "jan", "openrouter", "groq", "custom"];
+
+const DEFAULT_GENERIC_PRESET_CONFIGS: Record<GenericChatPresetId, GenericPresetConfigState> = {
+  lmstudio: { baseUrl: getPreset("lmstudio").baseUrl, model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
+  jan: { baseUrl: getPreset("jan").baseUrl, model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
+  openrouter: { baseUrl: getPreset("openrouter").baseUrl, model: "meta-llama/llama-3.1-8b-instruct:free", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
+  groq: { baseUrl: getPreset("groq").baseUrl, model: "llama-3.1-8b-instant", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
+  custom: { baseUrl: "", model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
+};
+
 /** 「講解全部」的進度，供 UI 顯示，緩解等待焦慮。null = 未在執行。 */
 export interface AnnotateProgress {
   total: number;
@@ -112,7 +143,7 @@ const REPLAY_INTERVAL_MS = 1600;
 let replayTimer: ReturnType<typeof setInterval> | null = null;
 /** 「講解全部」取消旗標 (模組層級，不入 state 以免每次勾選觸發 re-render)。 */
 let pendingPrivacyReviewer: ((consent: PrivacyConsent | null) => void) | null = null;
-let cloudConsent: { scope: string; consentId: string } | null = null;
+let dataOutConsent: { scope: string; consentId: string } | null = null;
 let cacheLoadGeneration = 0;
 let activeSessionLoad: SessionLoadTask | null = null;
 const annotationJobController = new AnnotationJobController();
@@ -132,6 +163,8 @@ interface CacheConfigState {
   locale: Locale;
   ollamaConfig: OllamaConfigState;
   cloudConfig: CloudConfigState;
+  presetConfigs: Record<GenericChatPresetId, GenericPresetConfigState>;
+  anthropicConfig: AnthropicConfig;
   privacyPolicyId: "balanced" | "strict";
 }
 
@@ -147,11 +180,30 @@ function currentProvenance(state: CacheConfigState): Omit<AnnotationProvenance, 
       privacyPolicyVersion: null,
     };
   }
+  if (state.providerId === "cloud") {
+    const policy = state.privacyPolicyId === "strict" ? strictPrivacyPolicy : balancedPrivacyPolicy;
+    return {
+      providerId: "opencode",
+      modelId: `${state.cloudConfig.providerID}/${state.cloudConfig.modelID}`,
+      promptVersion: `${PROMPT_VERSION}:agent-${OPENCODE_AGENT_VERSION}:${state.cloudConfig.agent}`,
+      locale: state.locale,
+      privacyPolicyId: policy.id,
+      privacyPolicyVersion: policy.version,
+    };
+  }
+  // R8: new presets (anthropic-byok / lmstudio / jan / openrouter / groq / custom). sendsDataOut
+  // presets go through the Privacy Envelope (INV-R8-1), so they carry a privacy policy; the two
+  // local ones (lmstudio/jan) don't, same as ollama.
+  const preset = getPreset(state.providerId as Exclude<typeof state.providerId, "none" | "ollama" | "cloud">);
+  const modelId = state.providerId === "anthropic-byok" ? state.anthropicConfig.model : state.presetConfigs[state.providerId as GenericChatPresetId].model;
+  if (!preset.sendsDataOut) {
+    return { providerId: state.providerId, modelId, promptVersion: PROMPT_VERSION, locale: state.locale, privacyPolicyId: null, privacyPolicyVersion: null };
+  }
   const policy = state.privacyPolicyId === "strict" ? strictPrivacyPolicy : balancedPrivacyPolicy;
   return {
-    providerId: "opencode",
-    modelId: `${state.cloudConfig.providerID}/${state.cloudConfig.modelID}`,
-    promptVersion: `${PROMPT_VERSION}:agent-${OPENCODE_AGENT_VERSION}:${state.cloudConfig.agent}`,
+    providerId: state.providerId,
+    modelId,
+    promptVersion: PROMPT_VERSION,
     locale: state.locale,
     privacyPolicyId: policy.id,
     privacyPolicyVersion: policy.version,
@@ -200,7 +252,7 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
   const snapshotMode = current.snapshotMode;
   current.pause();
   cancelPendingPrivacyReview();
-  cloudConsent = null;
+  dataOutConsent = null;
   const generation = ++cacheLoadGeneration;
   const viewItems = buildViewModel(doc);
   if (import.meta.env.DEV && typeof window !== "undefined") {
@@ -311,6 +363,14 @@ interface SessionState {
   /** OpenCode-backed cloud provider settings and connection status. */
   cloudConfig: CloudConfigState;
   openCodeStatus: OpenCodeStatus | null;
+  /** R8: lmstudio/jan/openrouter/groq/custom — one config + one status per preset. */
+  presetConfigs: Record<GenericChatPresetId, GenericPresetConfigState>;
+  presetStatus: Partial<Record<GenericChatPresetId, EndpointStatus>>;
+  /** R8: Anthropic BYOK (direct browser call, see ADR-031/anthropicProvider.ts). */
+  anthropicConfig: AnthropicConfig;
+  anthropicStatus: EndpointStatus | null;
+  /** R8 §7: whether `dit.config.json` contributed any key at startup (UI hint only). */
+  configFileLoaded: boolean;
   privacyPolicyId: "balanced" | "strict";
   privacyReview: PrivacyReviewState | null;
   annotationRunMode: AnnotationRunMode;
@@ -365,6 +425,12 @@ interface SessionState {
   updateCloudConfig: (patch: Partial<CloudConfigState>) => void;
   setOpenCodeModel: (modelID: string) => void;
   refreshOpenCodeStatus: () => Promise<void>;
+  updatePresetConfig: (id: GenericChatPresetId, patch: Partial<GenericPresetConfigState>) => void;
+  refreshPresetStatus: (id: GenericChatPresetId) => Promise<void>;
+  updateAnthropicConfig: (patch: Partial<AnthropicConfig>) => void;
+  refreshAnthropicStatus: () => Promise<void>;
+  /** R8 §7: best-effort load of `dit.config.json` (tier 1 key persistence); no-op if absent/unreadable. */
+  loadPersistedConfig: () => Promise<void>;
   setPrivacyPolicy: (id: "balanced" | "strict") => void;
   approvePrivacyReview: () => void;
   cancelPrivacyReview: () => void;
@@ -439,6 +505,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   ollamaStatus: null,
   cloudConfig: { ...DEFAULT_OPENCODE_CONFIG },
   openCodeStatus: null,
+  presetConfigs: { ...DEFAULT_GENERIC_PRESET_CONFIGS },
+  presetStatus: {},
+  anthropicConfig: { ...DEFAULT_ANTHROPIC_CONFIG },
+  anthropicStatus: null,
+  configFileLoaded: false,
   privacyPolicyId: "balanced",
   privacyReview: null,
   annotationRunMode: "missing",
@@ -532,7 +603,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     activeSessionLoad?.cancel();
     get().pause();
     cancelPendingPrivacyReview();
-    cloudConsent = null;
+    dataOutConsent = null;
     ++cacheLoadGeneration;
     set({
       doc: null,
@@ -563,13 +634,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   setProvider: (id) => {
-    if (id !== "cloud") {
+    if (id !== "cloud" && id !== get().providerId) {
       cancelPendingPrivacyReview();
-      cloudConsent = null;
+      dataOutConsent = null;
     }
     set({ providerId: id, showAnnotations: id !== "none", annotationErrors: {} });
     if (id === "ollama") void get().refreshOllamaStatus();
     if (id === "cloud") void get().refreshOpenCodeStatus();
+    if (id === "anthropic-byok") void get().refreshAnthropicStatus();
+    if (isGenericChatPreset(id)) void get().refreshPresetStatus(id);
     void refreshCurrentCacheMatches();
   },
 
@@ -591,13 +664,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   updateCloudConfig: (patch) => {
-    cloudConsent = null;
+    dataOutConsent = null;
     set((s) => ({ cloudConfig: { ...s.cloudConfig, ...patch } }));
     void refreshCurrentCacheMatches();
   },
 
   setOpenCodeModel: (modelID) => {
-    cloudConsent = null;
+    dataOutConsent = null;
     set((s) => ({ cloudConfig: { ...s.cloudConfig, modelID } }));
     void refreshCurrentCacheMatches();
   },
@@ -630,9 +703,72 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }));
   },
 
+  updatePresetConfig: (id, patch) => {
+    if ("apiKey" in patch) dataOutConsent = null;
+    set((s) => ({ presetConfigs: { ...s.presetConfigs, [id]: { ...s.presetConfigs[id], ...patch } } }));
+    void refreshCurrentCacheMatches();
+    if ("baseUrl" in patch || "apiKey" in patch) void get().refreshPresetStatus(id);
+  },
+
+  refreshPresetStatus: async (id) => {
+    const preset = getPreset(id);
+    const config = get().presetConfigs[id];
+    set((s) => ({ presetStatus: { ...s.presetStatus, [id]: { state: "checking", baseUrl: config.baseUrl, model: config.model, models: s.presetStatus[id]?.models ?? [], message: "Checking…" } } }));
+    const status = await checkGenericEndpoint(preset, config);
+    // Auto-pick a model once we learn what's available, so the user isn't stuck on an empty select.
+    if (!config.model && status.models.length > 0) {
+      set((s) => ({ presetConfigs: { ...s.presetConfigs, [id]: { ...s.presetConfigs[id], model: status.models[0] } } }));
+    }
+    set((state) => ({
+      presetStatus: { ...state.presetStatus, [id]: status },
+      annotationErrors: status.state === "ready" ? {} : state.annotationErrors,
+    }));
+  },
+
+  updateAnthropicConfig: (patch) => {
+    if ("apiKey" in patch) dataOutConsent = null;
+    set((s) => ({ anthropicConfig: { ...s.anthropicConfig, ...patch } }));
+    void refreshCurrentCacheMatches();
+    if ("apiKey" in patch) void get().refreshAnthropicStatus();
+  },
+
+  refreshAnthropicStatus: async () => {
+    const config = get().anthropicConfig;
+    set({ anthropicStatus: { state: "checking", baseUrl: config.baseUrl, model: config.model, models: [], message: "Checking…" } });
+    const status = await checkAnthropic(config);
+    set((state) => ({
+      anthropicStatus: status,
+      annotationErrors: status.state === "ready" ? {} : state.annotationErrors,
+    }));
+  },
+
+  loadPersistedConfig: async () => {
+    const fileConfig = await loadConfigFile();
+    if (!fileConfig) return;
+    set((s) => {
+      const presetConfigs = { ...s.presetConfigs };
+      let anthropicConfig = s.anthropicConfig;
+      for (const [id, key] of Object.entries(fileConfig.keys ?? {})) {
+        if (!key) continue;
+        if (id === "anthropic-byok") anthropicConfig = { ...anthropicConfig, apiKey: key };
+        else if (GENERIC_PRESET_IDS.includes(id as GenericChatPresetId)) {
+          const presetId = id as GenericChatPresetId;
+          presetConfigs[presetId] = { ...presetConfigs[presetId], apiKey: key };
+        }
+      }
+      if (fileConfig.custom?.baseUrl) presetConfigs.custom = { ...presetConfigs.custom, baseUrl: fileConfig.custom.baseUrl };
+      if (fileConfig.custom?.model) presetConfigs.custom = { ...presetConfigs.custom, model: fileConfig.custom.model };
+      return { presetConfigs, anthropicConfig, configFileLoaded: true };
+    });
+    // "local-proxy" isn't a valid ProviderId this round (the opencode path keeps id "cloud", see ADR-032).
+    if (fileConfig.activePreset && (fileConfig.activePreset as string) !== "local-proxy") {
+      get().setProvider(fileConfig.activePreset as ProviderId);
+    }
+  },
+
   setPrivacyPolicy: (privacyPolicyId) => {
     if (pendingPrivacyReviewer) return;
-    cloudConsent = null;
+    dataOutConsent = null;
     set({ privacyPolicyId });
     void refreshCurrentCacheMatches();
   },
@@ -645,7 +781,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!reviewer || !review) return;
     const consentId = `consent_${crypto.randomUUID()}`;
     const { doc, cloudConfig, privacyPolicyId } = get();
-    cloudConsent = {
+    dataOutConsent = {
       scope: `${doc?.session.id ?? "none"}\0${cloudConfig.baseUrl}\0${cloudConfig.providerID}\0${cloudConfig.modelID}\0${privacyPolicyId}`,
       consentId,
     };
@@ -666,7 +802,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     activeSessionLoad?.cancel();
     get().pause();
     cancelPendingPrivacyReview();
-    cloudConsent = null;
+    dataOutConsent = null;
     set({ providerId: "none", showAnnotations: true, ollamaStatus: null, openCodeStatus: null, annotateProgress: null, privacyReview: null, sessionLoadProgress: null, sessionLoadError: null });
     get().loadFromText(sampleSession, "sample");
   },
@@ -828,24 +964,51 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const oc = get().ollamaConfig;
       const context = { sessionTitle: doc.session.title, prevSummary: prev, locale: get().locale };
       let ann: Annotation | null;
+      const privacyReviewer = (scope: string) => async (inspection: PrivacyInspection): Promise<PrivacyConsent | null> => {
+        if (dataOutConsent?.scope === scope) return { consentId: dataOutConsent.consentId };
+        if (pendingPrivacyReviewer) {
+          throw new PrivacyError("PRIVACY_DETECTOR_FAILED", "Another privacy review is already in progress; no data was sent.");
+        }
+        return new Promise<PrivacyConsent | null>((resolve) => {
+          pendingPrivacyReviewer = resolve;
+          set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false, mapOpen: false, settingsOpen: false, mapError: null });
+        });
+      };
+
       if (providerId === "cloud") {
         const cloud = get().cloudConfig;
-        const scope = `${doc.session.id}\0${cloud.baseUrl}\0${cloud.providerID}\0${cloud.modelID}\0${get().privacyPolicyId}`;
-        ann = await annotateOpenCodeWithPrivacy(span, context, {
+        const scope = `cloud\0${doc.session.id}\0${cloud.baseUrl}\0${cloud.providerID}\0${cloud.modelID}\0${get().privacyPolicyId}`;
+        ann = await annotateWithPrivacy(span, context, {
           gateway: defaultPrivacyGateway,
           transport: createOpenCodeTransport(cloud),
           privacyRequest: { policyId: get().privacyPolicyId },
-          reviewer: async (inspection) => {
-            if (cloudConsent?.scope === scope) return { consentId: cloudConsent.consentId };
-            if (pendingPrivacyReviewer) {
-              throw new PrivacyError("PRIVACY_DETECTOR_FAILED", "Another privacy review is already in progress; no data was sent.");
-            }
-            return new Promise<PrivacyConsent | null>((resolve) => {
-              pendingPrivacyReviewer = resolve;
-              set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false, mapOpen: false, settingsOpen: false, mapError: null });
-            });
-          },
+          reviewer: privacyReviewer(scope),
         });
+      } else if (providerId === "anthropic-byok") {
+        const anthropic = get().anthropicConfig;
+        if (!anthropic.apiKey.trim()) throw new Error("An Anthropic API key is required.");
+        const scope = `anthropic-byok\0${doc.session.id}\0${anthropic.baseUrl}\0${anthropic.model}\0${get().privacyPolicyId}`;
+        ann = await annotateWithPrivacy(span, context, {
+          gateway: defaultPrivacyGateway,
+          transport: createAnthropicTransport(anthropic),
+          privacyRequest: { policyId: get().privacyPolicyId },
+          reviewer: privacyReviewer(scope),
+        });
+      } else if (isGenericChatPreset(providerId)) {
+        const preset = getPreset(providerId);
+        const config = get().presetConfigs[providerId];
+        if (preset.needsKey && !config.apiKey.trim()) throw new Error("An API key is required for this endpoint.");
+        if (preset.sendsDataOut) {
+          const scope = `${providerId}\0${doc.session.id}\0${config.baseUrl}\0${config.model}\0${get().privacyPolicyId}`;
+          ann = await annotateWithPrivacy(span, context, {
+            gateway: defaultPrivacyGateway,
+            transport: createGenericTransport(providerId, preset, config),
+            privacyRequest: { policyId: get().privacyPolicyId },
+            reviewer: privacyReviewer(scope),
+          });
+        } else {
+          ann = await getProvider(providerId, { generic: config }).annotate(span, context);
+        }
       } else {
         const provider = getProvider(providerId, {
           ollama: {

@@ -20,6 +20,9 @@ coverage/
 .env.*
 !.env.example
 
+# R8: runtime-fetched BYOK config (INV-R8-3); dit.config.example.json stays tracked
+dit.config.json
+
 # Logs
 *.log
 npm-debug.log*

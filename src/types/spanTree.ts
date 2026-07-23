@@ -30,7 +30,21 @@ export type SpanTag = "retry" | "error" | "decision" | "milestone";
 export type GroupKind = "edit-loop" | "retry" | "subagent" | "verbose";
 
 /** 教學講解層的來源 Provider。 */
-export type ProviderId = "none" | "ollama" | "cloud";
+/**
+ * "cloud" denotes the OpenCode-backed local-proxy path (kept as-is, see ADR-032 in the R8 PSM
+ * doc); the new R8 presets are additive. A full `local-proxy`/`cloud` rename is deferred to a
+ * future round once the local-proxy transport ambiguity is resolved.
+ */
+export type ProviderId =
+  | "none"
+  | "ollama"
+  | "cloud"
+  | "lmstudio"
+  | "jan"
+  | "anthropic-byok"
+  | "openrouter"
+  | "groq"
+  | "custom";
 
 /** 由 LLM Annotator 產生的教學講解，可選。 */
 export interface Annotation {

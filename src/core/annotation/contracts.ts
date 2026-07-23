@@ -1,6 +1,6 @@
 import type { Annotation } from "@/types/spanTree";
 
-export type AnalysisProviderId = "ollama" | "opencode";
+export type AnalysisProviderId = "ollama" | "opencode" | "lmstudio" | "jan" | "anthropic-byok" | "openrouter" | "groq" | "custom";
 export type AnnotationRunMode = "missing" | "failed" | "all";
 
 export interface AnnotationProvenance {

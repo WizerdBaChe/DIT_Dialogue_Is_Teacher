@@ -1,0 +1,14 @@
+{
+  "_comment": "Copy this file to dit.config.json (same folder as index.html) to persist BYOK keys across sessions. dit.config.json is git-ignored and never bundled into dist/ or a release zip (INV-R8-3) — only this .example file is. Requires opening DIT via a local HTTP server (e.g. scripts/start-dit.ps1); a plain file:// open cannot read it and falls back to pasting the key each session.",
+  "activePreset": "anthropic-byok",
+  "keys": {
+    "anthropic-byok": "sk-ant-...",
+    "openrouter": "sk-or-...",
+    "groq": "gsk_...",
+    "custom": "..."
+  },
+  "custom": {
+    "baseUrl": "",
+    "model": ""
+  }
+}

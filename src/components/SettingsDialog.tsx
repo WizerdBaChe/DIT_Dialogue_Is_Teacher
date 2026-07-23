@@ -8,10 +8,11 @@ import { useT, useLocale, LOCALE_ORDER, LOCALE_NATIVE_NAME } from "@/i18n";
 import { Disclaimer } from "./Disclaimer";
 import { OllamaPanel } from "./OllamaPanel";
 import { CloudPanel } from "./CloudPanel";
+import { EndpointPanel } from "./EndpointPanel";
 import { SessionLoadActions } from "./SessionLoadActions";
 import { ExportControls } from "./ExportControls";
 
-const PROVIDERS: ProviderId[] = ["none", "ollama", "cloud"];
+const PROVIDERS: ProviderId[] = ["none", "ollama", "lmstudio", "jan", "cloud", "anthropic-byok", "openrouter", "groq", "custom"];
 
 export function SettingsDialog(): ReactNode {
   const t = useT();
@@ -176,6 +177,7 @@ export function SettingsDialog(): ReactNode {
                 <Disclaimer />
                 <OllamaPanel />
                 <CloudPanel />
+                <EndpointPanel />
               </>
             )}
 
