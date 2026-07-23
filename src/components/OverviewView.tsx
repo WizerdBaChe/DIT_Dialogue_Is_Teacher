@@ -30,6 +30,14 @@ export function OverviewView(): ReactNode {
         {error && <NoticeBanner tone="error" onDismiss={dismissError}>{error}</NoticeBanner>}
         <div className="empty-state overview-empty">
           <h2>{t.main.emptyTitle}</h2>
+          <p>
+            {t.main.emptyBodyPrefix}
+            <code>{t.main.emptyPathClaude}</code>
+            {t.main.emptyPathJoiner}
+            <code>{t.main.emptyPathCodex}</code>
+            {t.main.emptyPathSuffix2}
+            {t.main.emptyBodySuffix}
+          </p>
           <SessionLoadActions labels="overview" />
         </div>
       </main>

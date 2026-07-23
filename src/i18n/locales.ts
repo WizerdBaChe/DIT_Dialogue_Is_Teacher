@@ -25,6 +25,7 @@ const zhTW = {
     tagline: "把 agent 執行軌跡轉成「可學習」的節點",
     modeGroupLabel: "檢視模式",
     loadFile: "載入 .jsonl",
+    loadFileTitle: "Claude Code 通常在 ~/.claude/projects/<專案>/*.jsonl；Codex CLI 通常在 ~/.codex/sessions/rollout-*.jsonl",
     loadFolder: "載入 Session 資料夾",
     loadFolderTitle: "同時讀取主檔與 subagents/*.jsonl",
     reset: "重置",
@@ -170,10 +171,13 @@ const zhTW = {
   },
 
   main: {
-    emptyTitle: "載入一個 Claude Code session",
-    emptyBodyPrefix: "點右上「載入 .jsonl」選擇 ",
-    emptyPath: "~/.claude/projects/<專案>/*.jsonl",
-    emptyBodySuffix: " 中的任一 session，DIT 會把它整理成可學習的節點。也可載入內建範例先看效果。",
+    emptyTitle: "載入一個 Claude Code 或 Codex session",
+    emptyBodyPrefix: "點右上「載入 .jsonl」，選擇 ",
+    emptyPathClaude: "~/.claude/projects/<專案>/*.jsonl",
+    emptyPathJoiner: "（Claude Code）或 ",
+    emptyPathCodex: "~/.codex/sessions/rollout-*.jsonl",
+    emptyPathSuffix2: "（Codex CLI）",
+    emptyBodySuffix: " 中的任一 session，DIT 會自動判斷來源、整理成可學習的節點。也可載入內建範例先看效果。",
     warnings: (warnings: string[]) =>
       `解析提示（${warnings.length}）：${warnings.slice(0, 3).join("；")}${warnings.length > 3 ? " …" : ""}`,
     infoTitle: "這是怎麼來的",
@@ -408,6 +412,7 @@ const en: Messages = {
     tagline: "Turn an agent's execution trace into learnable nodes",
     modeGroupLabel: "View mode",
     loadFile: "Load .jsonl",
+    loadFileTitle: "Claude Code: usually ~/.claude/projects/<project>/*.jsonl; Codex CLI: usually ~/.codex/sessions/rollout-*.jsonl",
     loadFolder: "Load session folder",
     loadFolderTitle: "Read the main transcript and subagents/*.jsonl together",
     reset: "Reset",
@@ -553,10 +558,13 @@ const en: Messages = {
   },
 
   main: {
-    emptyTitle: "Load a Claude Code session",
+    emptyTitle: "Load a Claude Code or Codex session",
     emptyBodyPrefix: 'Click "Load .jsonl" at the top right and pick any session under ',
-    emptyPath: "~/.claude/projects/<project>/*.jsonl",
-    emptyBodySuffix: "; DIT will organize it into learnable nodes. You can also load the built-in sample first.",
+    emptyPathClaude: "~/.claude/projects/<project>/*.jsonl",
+    emptyPathJoiner: "(Claude Code) or ",
+    emptyPathCodex: "~/.codex/sessions/rollout-*.jsonl",
+    emptyPathSuffix2: "(Codex CLI)",
+    emptyBodySuffix: "; DIT will detect the source automatically and organize it into learnable nodes. You can also load the built-in sample first.",
     warnings: (warnings: string[]) =>
       `Parse notes (${warnings.length}): ${warnings.slice(0, 3).join("; ")}${warnings.length > 3 ? " …" : ""}`,
     infoTitle: "Where this comes from",
