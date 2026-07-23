@@ -212,6 +212,11 @@ export function SessionMapDialog(): ReactNode {
         if (useSessionStore.getState().mapOpen) closeMap();
         restoreFocus();
       }}
+      onClick={(event) => {
+        // 點擊 backdrop 時，原生 <dialog> 的 click 事件 target 就是 dialog 元素本身
+        // （backdrop 不是可命中的子節點）；點在 shell 內容上的 target 永遠是某個子元素。
+        if (event.target === dialogRef.current) closeMap();
+      }}
     >
       {mapOpen && <div className="session-map-shell">
         <header className="session-map-header">
