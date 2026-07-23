@@ -217,6 +217,28 @@ body {
 .settings-dialog-body .disclaimer { padding: 14px; border-top: 1px solid var(--rule); }
 .settings-dialog-body .ollama-panel { padding: 14px; }
 
+/* 強制解析提示彈窗 (ParseNoticeDialog)：跟 .settings-dialog 同一套 <dialog> 慣例，
+   但刻意不給關閉鈕、不接 backdrop 點擊——只有讀完文字按確認鈕才能關掉。 */
+.parse-notice-dialog {
+  width: min(480px, 92vw); max-width: none; height: auto; max-height: min(84dvh, 620px); padding: 0;
+  inset: 0; margin: auto; border: 1px solid var(--rule-strong); background: var(--bg-header); color: var(--text-main);
+  overflow: hidden;
+}
+.parse-notice-dialog[open] { display: block; }
+.parse-notice-dialog::backdrop { background: rgb(28 26 23 / 0.6); }
+.parse-notice-dialog[data-modal-fallback="true"] { position: fixed; inset: 8dvh 6vw; z-index: 100; }
+.parse-notice-dialog-shell { display: flex; flex-direction: column; max-height: min(84dvh, 620px); overflow-y: auto; padding: 20px 22px; gap: 10px; }
+.parse-notice-dialog-shell h2 { margin: 0; font-family: var(--font-serif); font-size: var(--fs-xl); font-weight: 600; }
+.parse-notice-body { margin: 0; line-height: 1.65; color: var(--text-main); }
+.parse-notice-count { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); }
+.parse-notice-details-toggle { align-self: flex-start; }
+.parse-notice-details {
+  margin: 0; padding: 10px 12px; max-height: 160px; overflow-y: auto;
+  background: var(--bg-card); border: 1px solid var(--rule); border-radius: 4px;
+  font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.6;
+}
+.parse-notice-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+
 .export-privacy-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
 .export-actions { padding-top: 3px; }
 .export-done { display: block; margin-top: 4px; }
