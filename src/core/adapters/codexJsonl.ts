@@ -26,10 +26,17 @@
  *   配對失敗降級為獨立 `unknown` 事件＋warning，不得猜測歸屬。
  * - `turn_aborted`／`thread_rolled_back`／`context_compacted` 各出一則自我解釋的 `unknown` 事件，
  *   插在原時序位置；被中斷/撤回的原始步驟本身照常呈現（§B4.5）。
+ * - Codex 官方的 auto-review（Guardian Approval）審查子代理會把「先前歷史全文轉述＋JSON 裁決」
+ *   以一般 `response_item/message`（role=user 轉述、role=assistant 裁決）記錄進同一個 rollout
+ *   檔案。這不是零內容 metadata（有真實的 allow/deny/escalate 裁決），也不是白名單前言（不是
+ *   `<tag>` 包裹），故不落入既有兩種淨化路徑：改以「轉述文字的已知簽名句 + 緊接著的下一則
+ *   assistant 訊息」配對，各自精簡成一則自我解釋的標記卡（沿用 turn_aborted 的既有慣例），裁決
+ *   結果原樣顯示、不隱藏；並在 `finish()` 累計一則聚合 warning（見 R7.5 §W8）。
  *
  * 容錯原則：單行 JSON 解析失敗只記 warning 並跳過，絕不整體拋例外。
  */
 import type { SourceAdapter, ParseResult, RawEvent } from "./types";
+import { stripInjectedPreamble } from "@/core/text/preamble";
 
 /** `custom_tool_call.name` 恆為 "exec"；真實工具名藏在 input 的 `tools.<name>(...)` 呼叫裡。 */
 const EXEC_TOOL_NAME_RE = /tools\.([A-Za-z_][\w]*)\s*\(/;
@@ -40,6 +47,35 @@ function isPairableExecToolName(name: string): boolean {
 
 function asStringOrUndefined(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+/** Codex auto-review 審查子代理轉述先前歷史的固定開頭（首輪／增量輪共用前綴）。 */
+const AUTO_REVIEW_DUMP_PREFIX = "The following is the Codex agent history";
+
+function isAutoReviewDump(text: string): boolean {
+  return text.trim().startsWith(AUTO_REVIEW_DUMP_PREFIX);
+}
+
+const AUTO_REVIEW_OUTCOME_LABELS: Record<string, string> = {
+  allow: "允許",
+  deny: "拒絕",
+  escalate: "升級為人工確認",
+};
+
+/** 裁決訊息恆為短 JSON（`{"outcome":"allow"}` 之類）；解析不出來就不裝作看懂，退回當一般內容處理。 */
+function parseAutoReviewOutcome(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{") || trimmed.length > 200) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== "object") return undefined;
+  const outcome = (parsed as { outcome?: unknown }).outcome;
+  if (typeof outcome !== "string") return undefined;
+  return AUTO_REVIEW_OUTCOME_LABELS[outcome] ?? `未知結果代碼 "${outcome}"`;
 }
 
 interface PendingExecCall {
@@ -111,6 +147,16 @@ export class CodexJsonlAccumulator {
   /** 尚未收到 patch_apply_end／mcp_tool_call_end／web_search_end 的相容 exec 呼叫，依開啟順序排列。 */
   private readonly pendingExecCallOrder: PendingExecCall[] = [];
   private readonly pendingExecCallsByCallId = new Map<string, PendingExecCall>();
+  /** 已知零內容的子代理協調 metadata 筆數（R7-INV-7 v2／§3.2）：靜默丟棄，不落卡片，只計入聚合診斷。 */
+  private droppedNoiseCount = 0;
+  /** Codex auto-review 審查子代理精簡成標記卡的筆數（含轉述與裁決兩種），供 finish() 聚合成一次性提示。 */
+  private autoReviewNoiseCount = 0;
+  /** 剛遇到 auto-review 轉述，下一則 assistant 訊息若是裁決 JSON 就配對精簡；不是的話當一般內容處理。 */
+  private awaitingAutoReviewVerdict = false;
+
+  private dropKnownNoise(): void {
+    this.droppedNoiseCount += 1;
+  }
 
   private recordUnknown(type: string): void {
     this.unknownTypeCounts.set(type, (this.unknownTypeCounts.get(type) ?? 0) + 1);
@@ -191,6 +237,11 @@ export class CodexJsonlAccumulator {
       return;
     }
 
+    if (topType === "inter_agent_communication_metadata") {
+      this.dropKnownNoise();
+      return;
+    }
+
     if (topType) this.recordUnknown(topType);
   }
 
@@ -202,7 +253,32 @@ export class CodexJsonlAccumulator {
       case "message": {
         const role = payload?.role;
         if (role === "developer") return; // 系統提示注入，非對話內容。
-        const text = flattenTextBlocks(payload?.content);
+        const flattened = flattenTextBlocks(payload?.content);
+
+        if (role !== "assistant" && isAutoReviewDump(flattened)) {
+          this.autoReviewNoiseCount += 1;
+          this.awaitingAutoReviewVerdict = true;
+          this.pushEvent({
+            kind: "unknown",
+            timestamp,
+            text: "Codex 自動核准審查（auto-review）：機器轉述先前歷史供裁決用，無教學價值，已精簡顯示",
+            raw: payload,
+          });
+          return;
+        }
+
+        if (role === "assistant" && this.awaitingAutoReviewVerdict) {
+          this.awaitingAutoReviewVerdict = false;
+          const outcome = parseAutoReviewOutcome(flattened);
+          if (outcome) {
+            this.autoReviewNoiseCount += 1;
+            this.pushEvent({ kind: "unknown", timestamp, text: `Codex 自動核准審查結果：${outcome}`, raw: payload });
+            return;
+          }
+          // 不是預期的裁決 JSON，不裝作看懂，落回一般內容處理（下方）。
+        }
+
+        const text = stripInjectedPreamble(flattened);
         if (!text.trim()) return;
         this.pushEvent({
           kind: role === "assistant" ? "assistant_text" : "user_text",
@@ -291,8 +367,8 @@ export class CodexJsonlAccumulator {
       }
 
       case "agent_message":
-        // 子代理間通訊；本卡刻意不建立專屬呈現 (見 R7B_BASELINE_2026-07-23.md 觀察 2)。
-        this.recordUnknown(`response_item/${subType}`);
+        // 子代理間通訊，零可讀內容；本輪靜默丟棄 + 聚合診斷 (R7-INV-7 v2，見 R7.5 §3.2)。
+        this.dropKnownNoise();
         return;
 
       default:
@@ -396,6 +472,12 @@ export class CodexJsonlAccumulator {
       return;
     }
 
+    if (subType === "sub_agent_activity") {
+      // 生命週期訊號，零可讀內容；本輪靜默丟棄 + 聚合診斷 (R7-INV-7 v2，見 R7.5 §3.2)。
+      this.dropKnownNoise();
+      return;
+    }
+
     if (NO_EVENT_EVENT_MSG_TYPES.has(subType)) return;
 
     this.recordUnknown(`event_msg/${subType}`);
@@ -408,6 +490,16 @@ export class CodexJsonlAccumulator {
         type === "__parse_error__"
           ? `${count} 行 JSON 解析失敗，已略過。`
           : `未知型別 "${type}" ×${count}，已寬容收納。`,
+      );
+    }
+    if (this.droppedNoiseCount > 0) {
+      warnings.push(
+        `略過 ${this.droppedNoiseCount} 筆子代理協調事件（inter_agent_communication_metadata／sub_agent_activity／agent_message，無可呈現內容）。`,
+      );
+    }
+    if (this.autoReviewNoiseCount > 0) {
+      warnings.push(
+        `偵測到 ${this.autoReviewNoiseCount} 筆 Codex 自動核准審查（auto-review）記錄，內容多為機器轉述歷史與 JSON 裁決，通常無教學價值；已在原時序位置精簡為標記卡，原始資料未被刪除。`,
       );
     }
     if (this.events.length === 0) warnings.push("未從輸入中解析出任何可呈現的事件。");
