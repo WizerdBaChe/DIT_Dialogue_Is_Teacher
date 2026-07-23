@@ -4,6 +4,14 @@
 狀態：**已核准，2026-07-23 開始施工**。§7 四題使用者全部選擇「照草案」：對話框
 `min(560px,92vw) × min(84dvh,780px)`；§5 三個選項說明（批次講解模式、快取清除、M 快捷鍵）；
 說明文字常駐顯示；關閉僅 Escape＋✕，不支援點背景。
+
+> **§7 問題 4 已於同日 UAT 通過後改判。** 原裁定「不支援點背景關閉」是在對話框功能尚未落地前的
+> 保守選擇；使用者在確認開關／Escape／✕／互斥等既有功能都正常後，回頭要求補上點擊 backdrop
+> 關閉，並比照套用到 Session 地圖（原本就沒有這項設計，一併新增）。做法：偵測原生 `click` 事件的
+> `event.target === dialogRef.current`（backdrop 不是可命中的子節點，只有點在 backdrop 上
+> `target` 才會是 `<dialog>` 元素本身）。這是加一個獨立的 `onClick` 條件、不動 `onCancel`／
+> `onClose` 既有邏輯，兩個對話框做法一致，見 `SettingsDialog.tsx`／`SessionMapDialog.tsx` 對應
+> commit，驗收見 ACCEPTANCE.md §22。
 背景：取代 R7A-01／R7A-02 的「設定匣」（`.settings-tray` 內橫向 flex-wrap 排列的 5 個群組）。
 三輪修正（等分 grid → flex-grow+basis → flex-grow+max-width → 拿掉 grow 改內容決定寬度）後，
 使用者判斷：只要還是「橫向塞進一行、靠斷點換行」這個模型，就永遠在跟像素打架。改用大部分 app

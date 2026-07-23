@@ -2,7 +2,56 @@
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。
 
-## R7 Part A — 版面收尾｜2026-07-23｜🔄 施工完成，待使用者 UAT（ACCEPTANCE.md §21）
+## R7 Part A — 設定對話框復原、UAT 通過與補充修正｜2026-07-23｜✅ 使用者確認通過（ACCEPTANCE.md §21／§21.1），補充回報進行中（§22）
+
+上一輪因 usage limit 中斷、留在 `feat/r7-layout-multisource` 工作目錄內未提交的設定對話框實作
+（`SettingsDialog.tsx` 等 8 檔＋2 新檔），本輪復原並完成：
+
+- [x] **找到並修正中斷點**（commit `781d462`／`bdebeef`）：`SettingsDialog.tsx` 的 `onClose` 誤留一個
+  不存在的 `restoreFocus()`（抄 `SessionMapDialog.tsx` 慣例時的殘留呼叫，焦點還原其實已經在
+  `useLayoutEffect` 的關閉分支處理）。移除後 `tsc`／`npm test`（194 項）／`npm run build` 全綠。
+  對照 §6 施工清單逐項核對：store 互斥、Header 拆除、新元件、App 掛載、CSS、測試搬遷、locale 字串
+  全部到位；M 快捷鍵守門用 `dialog[open]:not(#session-map-dialog)` 這個更通用的寫法，已涵蓋設定
+  對話框，比設計稿原案的硬寫 `!settingsOpen` 更好。
+- [x] **PSM 文件同步**（commit `8f90243`）：A4.1／R7A-01／R7A-02 標註「已被對話框取代」，
+  原文保留作歷史記錄，不佔用既有的 R7A-06 卡號（那是字級 token 化卡，已存在）。
+- [x] **ACCEPTANCE.md §21.1**（commit `a6d3c77`）：補上設定對話框專屬 UAT 清單（開關機制、
+  尺寸、群組排列、option-hint、focus 管理、與地圖/結構互斥、M 快捷鍵防穿透、快照模式守門）。
+- [x] **使用者於 2026-07-23 完成 §21＋§21.1 UAT，全數確認通過。**
+
+UAT 通過後，使用者回報三項補充問題，本輪一併處理（見 ACCEPTANCE.md §22 待驗收清單）：
+
+- [x] **設定對話框重複捲軸**：根因是 `<dialog>` 原生 `overflow:auto` 預設，加上
+  `height:auto`＋`max-height` 讓 dialog 與內部 shell 各自算出的高度上限有 1px 級誤差
+  （border-box 邊框造成），使 dialog 自己也變成一個捲動容器，跟 `.settings-dialog-body`
+  的內層捲軸重複。比對已驗收的 `.session-map-dialog`（用固定 `height` 而非 `auto+max-height`，
+  且 shell 本身就 `overflow:hidden`）確認是同一類問題的變體；修法是在 `.settings-dialog`／
+  `.settings-dialog-shell` 都補上 `overflow:hidden`，只留 body 一層捲動。
+- [x] **Session 地圖／設定對話框補上點 backdrop 關閉**：原設計（DESIGN 文件 §7 問題 4）刻意排除，
+  使用者確認兩個對話框既有功能都正常後裁定加回。實作：`onClick` 檢查
+  `event.target === dialogRef.current`（backdrop 不是可命中的子節點，點在 backdrop 上時
+  click 事件的 target 就是 `<dialog>` 元素本身；點在內容上 target 永遠是子元素），與既有
+  `onCancel`／`onClose` 邏輯互不干擾，兩個對話框做法一致。`SessionMapDialog.test.tsx`／
+  `SettingsDialog.test.tsx` 各補一案例：點 shell 內容不關閉、點 dialog 元素本身會關閉。
+  DESIGN 文件已記錄此裁定反轉，見該文件 §7 問題 4 附註。
+- [x] **50 MiB fixture 內重複字串的疑慮，判斷為測試資料設計、非解析缺陷**：`scripts/
+  generate-r5-fixture.mjs:37,101` 明文寫死重複字串純為撐大檔案體積；核對使用者提供的真實 Codex
+  大檔案樣本（`C:\Users\gunda\.codex\sessions\2026\07\08\` 下 17.6 MB 那份）確認真實大檔案也會有
+  大段重複內容（session resume 時的壓縮摘要逐字重出），但那是有意義的長篇敘述，跟 fixture 的
+  字元級重複不是同一類問題，也不需要特殊處理。**裁定不加防呆／偵測邏輯，忠實保留**：收合態已有
+  A4.3 的值驅動摘要規則擋住畫面，展開態是使用者主動查看原始資料，不存在「使用者誤以為程式出錯」
+  的風險。詳細推理見 ACCEPTANCE.md §22。
+
+`npm.cmd test`：34 檔／196 項全綠（本輪新增 2 案例）；`npm.cmd run typecheck`、`npm.cmd run build`
+（含快照 target）皆 exit 0。
+
+**續接指引**：`feat/r7-layout-multisource` 上 Part A 全部完成並通過 UAT（含本輪補充修正，
+待 ACCEPTANCE.md §22 使用者重新確認捲軸／backdrop 兩項視覺行為）。下一步是 **Part B（多來源接入・
+Codex adapter，R7B-00～06）**——PSM 文件已標記 build-ready，B1 已用真實 16.3 MB Codex 樣本驗證過
+三處設計文件推翻的細節，理論上規格清楚，但施工前建議先對照使用者最新提供的
+`C:\Users\gunda\.codex\sessions\2026\07\` 樣本再次核實（尤其檔案更大、時間更近的樣本）。
+
+## R7 Part A — 版面收尾｜2026-07-23｜✅ 施工完成，使用者 UAT 已通過（ACCEPTANCE.md §21）
 
 分支 `feat/r7-layout-multisource`（自已含 R6+R6.5 的 `main` 切出）。依
 [PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md](PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md) 施工，順序
