@@ -163,11 +163,16 @@ body {
 .settings-dialog {
   width: min(560px, 92vw); max-width: none; height: auto; max-height: min(84dvh, 780px); padding: 0;
   inset: 0; margin: auto; border: 1px solid var(--rule-strong); background: var(--bg-header); color: var(--text-main);
+  /* <dialog> 的 UA 預設是 overflow:auto；height:auto + max-height 讓內容量夠高時 shell 的
+     max-height 與 dialog 自己的 max-height 是兩個獨立算出的值，只要有 1px 級的誤差（例如
+     border-box 的邊框），dialog 自己就會多冒出一條幾乎滾不動的外層捲軸，跟 .settings-dialog-body
+     的內層捲軸重複。乾脆關掉 dialog 自身的 overflow——唯一該捲動的區域交給 body 自己管。 */
+  overflow: hidden;
 }
 .settings-dialog[open] { display: block; }
 .settings-dialog::backdrop { background: rgb(28 26 23 / 0.52); }
 .settings-dialog[data-modal-fallback="true"] { position: fixed; inset: 8dvh 6vw; z-index: 100; }
-.settings-dialog-shell { display: flex; flex-direction: column; max-height: min(84dvh, 780px); }
+.settings-dialog-shell { display: flex; flex-direction: column; max-height: min(84dvh, 780px); overflow: hidden; }
 .settings-dialog-header {
   flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 14px 18px; border-bottom: 1px solid var(--rule-strong);
