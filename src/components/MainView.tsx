@@ -48,7 +48,10 @@ export function MainView(): ReactNode {
           <h2>{t.main.emptyTitle}</h2>
           <p>
             {t.main.emptyBodyPrefix}
-            <code>{t.main.emptyPath}</code>
+            <code>{t.main.emptyPathClaude}</code>
+            {t.main.emptyPathJoiner}
+            <code>{t.main.emptyPathCodex}</code>
+            {t.main.emptyPathSuffix2}
             {t.main.emptyBodySuffix}
           </p>
         </div>

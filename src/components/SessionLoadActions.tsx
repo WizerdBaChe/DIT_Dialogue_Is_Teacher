@@ -28,7 +28,7 @@ export function SessionLoadActions({ labels = "header", className = "" }: Sessio
 
   return (
     <div className={`session-load-actions ${className}`.trim()}>
-      <label className="btn file-btn">
+      <label className="btn file-btn" title={t.header.loadFileTitle}>
         {copy.loadFile}
         <input type="file" accept=".jsonl,.json,.txt" multiple onChange={onFiles} />
       </label>
