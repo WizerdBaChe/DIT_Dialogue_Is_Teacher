@@ -13,9 +13,17 @@
  * - `custom_tool_call.name` 恆為 `"exec"`；真實工具名藏在 `input` 的 `tools.<name>(...)` 呼叫裡，
  *   用正則抽取，抽不到才退回 `"exec"`（§B4.3，R7-INV-8：推測失敗必須降級＋warning，不得裝作正確）。
  * - `patch_apply_end`／`mcp_tool_call_end`／`web_search_end` 的 `call_id` 是 `exec-<uuid>`，
- *   跟 `custom_tool_call` 的 `call_XXXX` 不同命名空間，不能用 id 對映；改以「工具名相容且尚未收到
- *   該類子事件」就近向前配對到最近一個 exec `tool_use`（§B4.4）。配對失敗降級為獨立 `unknown`
- *   事件＋warning，不得猜測歸屬。
+ *   跟 `custom_tool_call` 的 `call_XXXX` 不同命名空間，不能用 id 對映；改以「同一 turn_id、工具名
+ *   相容、且尚未收到該類子事件」就近向前配對到最近一個 exec `tool_use`（§B4.4）。turn_id 取自
+ *   `custom_tool_call.internal_chat_message_metadata_passthrough.turn_id`（子事件則直接在
+ *   payload.turn_id）；任一邊缺 turn_id 時退回純工具名比對——這是防禦性正確性修正（真實多執行緒／
+ *   子代理協作樣本裡，不同 turn 的 exec 呼叫會交錯出現，不限定 turn 可能誤配到別的執行緒），
+ *   不是靠這批樣本量出來的效果：R7B-05 用兩份含子代理事件與大量 compaction 的真實樣本核對時，
+ *   19/26 筆 `patch_apply_end` 配對成功、7 筆降級為獨立事件，**確認過剩下 7 筆並非誤判或配對邏輯
+ *   缺陷**——這些 `patch_apply_end` 對應的 `apply_patch` 呼叫發生在該 session 兩次 `context_compacted`
+ *   （歷史壓縮）**之前**，原始呼叫已被壓縮摘要取代、不在目前事件流中，屬於真實的「原始呼叫不存在」
+ *   情境，此時降級為獨立事件＋warning 正是 R7-INV-8／R7-INV-10 要的行為，不該被「修好」。
+ *   配對失敗降級為獨立 `unknown` 事件＋warning，不得猜測歸屬。
  * - `turn_aborted`／`thread_rolled_back`／`context_compacted` 各出一則自我解釋的 `unknown` 事件，
  *   插在原時序位置；被中斷/撤回的原始步驟本身照常呈現（§B4.5）。
  *
@@ -30,8 +38,13 @@ function isPairableExecToolName(name: string): boolean {
   return name === "apply_patch" || name === "web__run" || name.startsWith("mcp__");
 }
 
+function asStringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 interface PendingExecCall {
   toolName: string;
+  turnId: string | undefined;
   toolUse: RawEvent;
   toolResult: RawEvent | null;
 }
@@ -109,10 +122,20 @@ export class CodexJsonlAccumulator {
     this.events.push(event);
   }
 
-  /** 就近向前找到最近一個「工具名相容且尚未被消耗」的 exec 呼叫；找到即從候選中移除。 */
-  private consumeNearestPendingExec(isCompatible: (toolName: string) => boolean): PendingExecCall | undefined {
+  /**
+   * 就近向前找到最近一個「工具名相容且尚未被消耗」的 exec 呼叫；找到即從候選中移除。
+   * 子事件帶 turn_id 時嚴格限定同一 turn（多執行緒／子代理協作時，不同 turn 的呼叫會交錯，
+   * 不限定 turn 會誤配到別的執行緒——找不到同 turn 的相容呼叫就直接算配對失敗，不跨 turn 退讓）；
+   * 子事件沒有 turn_id 時才退回純工具名比對（沒有範圍可限定，只能盡力而為）。
+   */
+  private consumeNearestPendingExec(
+    isCompatible: (toolName: string) => boolean,
+    turnId: string | undefined,
+  ): PendingExecCall | undefined {
     for (let i = this.pendingExecCallOrder.length - 1; i >= 0; i -= 1) {
-      if (isCompatible(this.pendingExecCallOrder[i].toolName)) {
+      const entry = this.pendingExecCallOrder[i];
+      if (!isCompatible(entry.toolName)) continue;
+      if (turnId ? entry.turnId === turnId : true) {
         return this.pendingExecCallOrder.splice(i, 1)[0];
       }
     }
@@ -215,7 +238,9 @@ export class CodexJsonlAccumulator {
         };
         this.pushEvent(event);
         if (toolName && isPairableExecToolName(toolName) && typeof callId === "string") {
-          const entry: PendingExecCall = { toolName, toolUse: event, toolResult: null };
+          const passthrough = payload?.internal_chat_message_metadata_passthrough as { turn_id?: unknown } | undefined;
+          const turnId = typeof passthrough?.turn_id === "string" ? passthrough.turn_id : undefined;
+          const entry: PendingExecCall = { toolName, turnId, toolUse: event, toolResult: null };
           this.pendingExecCallOrder.push(entry);
           this.pendingExecCallsByCallId.set(callId, entry);
         }
@@ -300,7 +325,7 @@ export class CodexJsonlAccumulator {
     }
 
     if (subType === "patch_apply_end") {
-      const entry = this.consumeNearestPendingExec((name) => name === "apply_patch");
+      const entry = this.consumeNearestPendingExec((name) => name === "apply_patch", asStringOrUndefined(payload?.turn_id));
       if (!entry) {
         this.oneOffWarnings.push(`patch_apply_end 找不到對應的 apply_patch 呼叫，已降級為獨立事件。`);
         this.pushEvent({ kind: "unknown", timestamp, text: "套用修改（找不到對應的呼叫）", raw: payload });
@@ -316,7 +341,7 @@ export class CodexJsonlAccumulator {
     }
 
     if (subType === "mcp_tool_call_end") {
-      const entry = this.consumeNearestPendingExec((name) => name.startsWith("mcp__"));
+      const entry = this.consumeNearestPendingExec((name) => name.startsWith("mcp__"), asStringOrUndefined(payload?.turn_id));
       if (!entry) {
         this.oneOffWarnings.push(`mcp_tool_call_end 找不到對應的 mcp__* 呼叫，已降級為獨立事件。`);
         this.pushEvent({ kind: "unknown", timestamp, text: "MCP 工具呼叫（找不到對應的呼叫）", raw: payload });
@@ -341,7 +366,7 @@ export class CodexJsonlAccumulator {
     }
 
     if (subType === "web_search_end") {
-      const entry = this.consumeNearestPendingExec((name) => name === "web__run");
+      const entry = this.consumeNearestPendingExec((name) => name === "web__run", asStringOrUndefined(payload?.turn_id));
       if (!entry) {
         this.oneOffWarnings.push(`web_search_end 找不到對應的 web__run 呼叫，已降級為獨立事件。`);
         this.pushEvent({ kind: "unknown", timestamp, text: "網頁搜尋（找不到對應的呼叫）", raw: payload });
