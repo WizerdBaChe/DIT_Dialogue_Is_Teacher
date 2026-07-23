@@ -12,6 +12,7 @@
  * 容錯原則 (可自檢)：單行 JSON 解析失敗只記 warning 並跳過，絕不整體拋例外。
  */
 import type { SourceAdapter, ParseResult, RawEvent } from "./types";
+import { stripInjectedPreamble } from "@/core/text/preamble";
 
 interface ContentBlock {
   type?: string;
@@ -120,12 +121,14 @@ export class ClaudeCodeJsonlAccumulator {
         const message = record.message as { content?: unknown } | undefined;
         const content = message?.content;
         if (typeof content === "string") {
-          if (content.trim()) this.events.push({ kind: "user_text", uuid, parentUuid, timestamp, isSidechain, text: content, raw: record });
+          const text = stripInjectedPreamble(content);
+          if (text.trim()) this.events.push({ kind: "user_text", uuid, parentUuid, timestamp, isSidechain, text, raw: record });
         } else if (Array.isArray(content)) {
           for (const block of content as ContentBlock[]) {
             if (!block || typeof block !== "object") continue;
             if (block.type === "text" && block.text?.trim()) {
-              this.events.push({ kind: "user_text", uuid, parentUuid, timestamp, isSidechain, text: block.text, raw: block });
+              const text = stripInjectedPreamble(block.text);
+              if (text.trim()) this.events.push({ kind: "user_text", uuid, parentUuid, timestamp, isSidechain, text, raw: block });
             } else if (block.type === "tool_result") {
               this.events.push({
                 kind: "tool_result",
