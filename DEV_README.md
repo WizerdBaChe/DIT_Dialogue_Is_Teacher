@@ -197,3 +197,55 @@ Span Tree schema 草案在 `docs/RPD_DIT_v0.1.md` 附錄，實際型別定義以
 - **資料流可追蹤**：每個 Span 保留 `raw` 原始事件可回溯；Provider 標註來源；確保「畫面元素來自哪一條原始事件」全程可定位。
 
 改動架構性的東西（新增一層、改契約、換掉某個核心模組）之前，先回去看 `docs/RPD_DIT_v0.1.md` 的決策鎖定（D-1～D-5）有沒有衝突；如果要推翻某個決策，在 RPD 補一筆新的版本紀錄，不要默默改掉。
+
+---
+
+## 9. 打包與發布
+
+DIT 沒有後端、沒有安裝檔、沒有 CI/CD、目前也沒有設定 git remote——「發布」實務上就是「產出 `dist/`，交給某個地方托管或直接分享檔案」。
+
+### 9.1 建置
+
+```bash
+npm run build
+```
+
+實際依序跑 `tsc && vite build && vite build --config vite.snapshot.config.ts`，任一步失敗就會非零結束，適合當 release 前的最後關卡。產出 `dist/`（`.gitignore` 排除，不進版控）：
+
+| 檔案 | 用途 | 能不能單獨拿走 |
+|---|---|---|
+| `dist/index.html` + `dist/assets/*` + `dist/session.worker-*.js` | DIT 本體（App 模式），`<script type="module">` + Worker | **不能單獨拿 index.html**：ES module script 在 `file://`（null origin）會被瀏覽器擋掉，必須整個 `dist/` 目錄一起、透過 HTTP(S) 來源提供服務，見 9.2 |
+| `dist/snapshot.html` | 匯出功能的**範本**（`ExportControls.tsx` 執行期用 `fetch("./snapshot.html")` 抓它，注入使用者當下的 session 資料後供下載）；本身也是 EX-03 build target，是 IIFE、非 module，`file://` 雙擊可直接開 | 必須跟 `dist/index.html` 放在**同一個目錄、同一個相對路徑**下，拿掉它會讓應用內「匯出 HTML」按鈕失敗（`t.export.templateMissing`） |
+
+`npm run build` 用 `emptyOutDir: false` 讓第二個 `vite build`（snapshot target）不清掉第一個的產物——**兩個 build 缺一不可，不能只跑其中一個當作完整發布**。
+
+### 9.2 部署 App 模式（給別人長期用）
+
+`dist/` 是純靜態檔案，任何靜態檔案託管都能用，沒有例外情況：
+
+```bash
+# 本機驗證（發布前一定要跑一次，看到的就是使用者會看到的）
+npm run preview -- --host 127.0.0.1 --port 4173
+
+# 或最簡單的靜態伺服器（不需要 npm 環境的機器上也能跑）
+npx serve dist
+```
+
+正式託管任選其一（皆為純靜態 host，不需要任何 server-side 邏輯）：GitHub Pages、Netlify、Vercel（static）、Cloudflare Pages、或自己的 nginx/Caddy 指到 `dist/` 目錄。**不要**把 `dist/index.html` 從資料夾裡抽出來單獨丟到某處——會漏掉 `assets/`、worker、以及 `snapshot.html` 範本。
+
+### 9.3 分享單一 session（不必部署，給看的人用）
+
+使用者在介面內按「匯出 → HTML」，下載的就是一個帶著資料、可雙擊開啟的獨立檔案（`snapshotMode`，載入/重置/匯出等控制項會自動隱藏）——**這是給終端使用者的功能，不是給你發版用的**，兩者不要混淆：你發布的是「能載入任意 session 的 DIT 本體」；使用者匯出的是「已經處理好、內容固定的一份快照」。
+
+### 9.4 版本號
+
+`package.json` 目前是 `"private": true`，不會被發佈到 npm registry，`version` 欄位純粹是給人看的里程碑標記。沒有 remote、沒有 CI 依賴這個號碼，所以要不要 bump、bump 到多少，純看你想不想在 `git log`/`git tag` 上留一個對應的標記；建議語意：新來源/新講解模式等使用者能感知的功能 → bump minor（`0.x.0`），純內部重構/文件 → 不用動。
+
+### 9.5 已知的跨平台落差（見 README「支援環境」）
+
+DIT 本體（純瀏覽器）行為在 Windows/macOS/Linux 完全一致；唯二會露出「寫死 Windows 語法」的地方都在**面板顯示的複製指令**，不影響功能本身：
+
+- `src/core/runtime/webRuntimeController.ts` 的 `WEB_RUNTIME_START_COMMANDS.ollama` 是 PowerShell 語法（`$env:OLLAMA_ORIGINS="*"; ollama serve`）。
+- 同檔案 `WEB_RUNTIME_START_COMMANDS.opencode` 硬寫 `opencode.cmd`（Windows 專用副檔名）。
+
+目前 README 只在文字上提醒 macOS/Linux 使用者手動替換；如果之後要做「跟著使用者 OS 換文案」，加一個 `navigator.userAgent`/`navigator.platform` 判斷再選字串即可，兩個常數本身已經集中在同一個檔案，改動面很小。
