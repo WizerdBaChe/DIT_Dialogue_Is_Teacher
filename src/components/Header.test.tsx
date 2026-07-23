@@ -10,52 +10,29 @@ afterEach(() => {
 });
 
 describe("Header layout (LS-03, D-R65-02)", () => {
-  it("keeps the provider select out of the header row and moves it into the settings tray", () => {
+  it("keeps the provider select out of the header row (it lives in the settings dialog now)", () => {
     const { container } = render(<Header />);
-
     const header = container.querySelector("header.header");
     expect(header).not.toBeNull();
     expect(header?.querySelector("#hdr-provider")).toBeNull();
-    expect(document.querySelector("#hdr-provider")).toBeNull();
-
-    const settingsToggle = container.querySelector(".settings-toggle-btn") as HTMLButtonElement;
-    fireEvent.click(settingsToggle);
-
-    const tray = document.querySelector("#settings-tray");
-    expect(tray).not.toBeNull();
-    expect(tray?.querySelector("#hdr-provider")).not.toBeNull();
-    expect(header?.querySelector("#hdr-provider")).toBeNull();
   });
 
-  it("keeps workspace tabs directly in the header, not inside the settings tray", () => {
+  it("keeps workspace tabs directly in the header, not inside any settings surface", () => {
     const { container } = render(<Header />);
     const header = container.querySelector("header.header");
     expect(header?.querySelector(".workspace-tabs")).not.toBeNull();
   });
 });
 
-describe("Settings tray group layout (R7A-01, R7-INV-1)", () => {
-  it("tags every settings-group with its content-driven g-* class", () => {
+describe("Settings dialog trigger (R7 settings-dialog redesign)", () => {
+  it("toggles the store's settingsOpen flag instead of rendering an inline tray", () => {
     const { container } = render(<Header />);
-    fireEvent.click(container.querySelector(".settings-toggle-btn") as HTMLButtonElement);
+    const toggle = container.querySelector(".settings-toggle-btn") as HTMLButtonElement;
 
-    const groups = Array.from(document.querySelectorAll(".settings-group"));
-    const groupClasses = groups.map((el) => Array.from(el.classList).find((c) => c.startsWith("g-")));
-    expect(groupClasses).toEqual(["g-session", "g-teaching", "g-language", "g-navigation", "g-export"]);
-  });
-});
-
-describe("Teaching notes group row layout (R7A-02, R7-INV-1)", () => {
-  it("keeps the provider label and select as adjacent children of the same rows grid", () => {
-    const { container } = render(<Header />);
-    fireEvent.click(container.querySelector(".settings-toggle-btn") as HTMLButtonElement);
-
-    const rowsGrid = document.querySelector(".settings-actions.rows");
-    expect(rowsGrid).not.toBeNull();
-    const children = Array.from(rowsGrid?.children ?? []);
-    const labelIndex = children.findIndex((el) => el.getAttribute("for") === "hdr-provider");
-    const selectIndex = children.findIndex((el) => el.id === "hdr-provider");
-    expect(labelIndex).toBeGreaterThanOrEqual(0);
-    expect(selectIndex).toBe(labelIndex + 1);
+    expect(useSessionStore.getState().settingsOpen).toBe(false);
+    fireEvent.click(toggle);
+    expect(useSessionStore.getState().settingsOpen).toBe(true);
+    fireEvent.click(toggle);
+    expect(useSessionStore.getState().settingsOpen).toBe(false);
   });
 });

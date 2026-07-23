@@ -129,8 +129,8 @@ body {
 .workspace-tab.active { color: var(--accent-primary); border-bottom-color: var(--accent-primary); font-weight: 600; }
 .workspace-tab:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
 .header .btn { font-size: calc(var(--fs-sm) * var(--chrome-scale)); }
-/* 教學講解 / 講解來源：D-R65-02 移入設定匣「教學講解」fieldset，不再佔用 header 軌道。 */
-.settings-group select#hdr-provider { max-width: 16ch; padding-right: 2rem; }
+/* 教學講解 / 講解來源：D-R65-02 移入設定對話框「教學講解」fieldset，不再佔用 header 軌道。 */
+.settings-panel-group select#hdr-provider { max-width: 16ch; padding-right: 2rem; }
 .replay-control { gap: 4px; }
 .compact-action { width: calc(30px * var(--chrome-scale)); padding-left: 0; padding-right: 0; }
 .compact-replay { min-width: calc(54px * var(--chrome-scale)); }
@@ -153,57 +153,62 @@ body {
 .settings-toggle-btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .settings-toggle-btn.active { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 
-.settings-tray {
-  flex-shrink: 0; max-height: 45dvh; overflow-y: auto; overscroll-behavior: contain;
-  background: var(--bg-card); border-bottom: 1px solid var(--rule-strong);
+/* 設定對話框 (2026-07-23 設計改版，見 docs/DESIGN_R7_SETTINGS_DIALOG_v0.1.md)。
+   取代原本內嵌在 header 下方、橫向 flow 排列的 settings tray——三輪修正（等分 grid → flex-grow+basis
+   → flex-grow+max-width → 拿掉 grow 改內容決定寬度）都還是同一個模型的變體：一排寬度不一的群組要
+   塞進一行、靠斷點換行，換行位置與留白永遠是視窗寬度的函數。改成對話框後，群組垂直往下排，
+   對話框寬度是設計者選的常數，不再有「這一行湊不湊得滿」這個變數，橫向排版類缺陷整類消失。
+   結構沿用 .session-map-dialog 已驗收的 <dialog> 慣例：原生 dialog、置中、backdrop、
+   <720 全螢幕，不重新發明。 */
+.settings-dialog {
+  width: min(560px, 92vw); max-width: none; height: auto; max-height: min(84dvh, 780px); padding: 0;
+  inset: 0; margin: auto; border: 1px solid var(--rule-strong); background: var(--bg-header); color: var(--text-main);
 }
-/* R7-INV-1 (redesigned 2026-07-23): a flex-grow-and-cap model was tried first (basis + grow +
-   max-width) but that's three hand-tuned numbers fighting each other, and grow's whole point —
-   "stretch to use leftover row space" — is the wrong tool for cards whose content is fixed-width
-   (selects, buttons). It just moves the dead space from between groups to inside them. The actual
-   fix: don't stretch at all. flex-grow:0 makes every group hug its own intrinsic (max-content)
-   width; unused row space simply stays as trailing gutter after the last group in a row, which is
-   normal, unremarkable flex/grid behavior — the same reason a gallery of variously-sized cards
-   doesn't look broken when a row doesn't perfectly fill edge-to-edge. g-* classes stay as semantic
-   markers (still asserted by Header.test.tsx) but no longer carry per-group tuning. */
-.settings-grid {
-  display: flex; flex-wrap: wrap; align-items: flex-start;
-  gap: 12px 14px; padding: 14px 18px;
+.settings-dialog[open] { display: block; }
+.settings-dialog::backdrop { background: rgb(28 26 23 / 0.52); }
+.settings-dialog[data-modal-fallback="true"] { position: fixed; inset: 8dvh 6vw; z-index: 100; }
+.settings-dialog-shell { display: flex; flex-direction: column; max-height: min(84dvh, 780px); }
+.settings-dialog-header {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--rule-strong);
 }
-.settings-group {
-  flex: 0 1 auto;
-  min-width: min(100%, max-content); /* full intrinsic width, or 100% (single column) if that doesn't fit */
-  max-width: 100%;
-  min-height: 0; margin: 0; padding: 0 12px 10px; border: 1px solid var(--rule);
+.settings-dialog-header h2 { margin: 0; font-family: var(--font-serif); font-size: var(--fs-xl); font-weight: 600; }
+.settings-dialog-close { flex-shrink: 0; }
+.settings-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 18px 18px; }
+
+/* 每個群組垂直往下排，彼此靠上下 border 分隔；不再需要 --group-basis / --group-grow / g-* 那套
+   內容驅動寬度系統——對話框本身固定寬度，群組永遠是單欄，沒有「這一欄該多寬」的問題。 */
+.settings-panel-group {
+  display: block; width: 100%; margin: 0; padding: 14px 0; border: 0; border-top: 1px solid var(--rule);
 }
-.settings-group legend {
-  padding: 0 6px; color: var(--text-dark); font-family: var(--font-sans);
+.settings-panel-group:first-child { border-top: 0; padding-top: 10px; }
+.settings-panel-group legend {
+  padding: 0 0 8px; width: 100%; color: var(--text-dark); font-family: var(--font-sans);
   font-size: var(--fs-2xs); /* R7A-06: 10px 階梯外，就近取 --fs-2xs(10.5px) */
   font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
 }
 .settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 3px; }
-/* R7A-02: multi-control groups (teaching notes) use a label/control two-track grid so the four
-   semantic segments (source / display toggle / batch run / cache maintenance) don't get split by wrap.
-   Control column is max-content, not 1fr (2026-07-23 redesign): a 1fr column stretches to whatever
-   width the (now non-stretching) group ends up at, which reintroduces dead space one level down —
-   the select/button inside just sits in a wider cell than it needs. max-content sizes the column to
-   its own widest row instead, so the whole group's width is exactly what its content needs. */
+/* R7A-02（沿用）: 多控制項的教學講解群組用 label / control 兩軌 grid，四段語意各自成列。
+   對話框內固定單欄寬度，控制欄用 minmax(0, 1fr) 撐滿可用寬——這裡不會重演舊版的死白問題，
+   因為對話框寬度是設計常數，不是「先讓群組長多寬、控制欄再撐滿群組」這種互相依賴的鏈。 */
 .settings-actions.rows {
-  display: grid; grid-template-columns: max-content minmax(0, max-content);
+  display: grid; grid-template-columns: max-content minmax(0, 1fr);
   gap: 8px 10px; align-items: center; padding-top: 3px;
 }
 .settings-actions.rows > .row-span { grid-column: 1 / -1; }
 .settings-actions.rows .cache-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .session-load-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .settings-actions > label:not(.btn):not(.toggle) { color: var(--text-dark); font-size: var(--fs-xs); font-weight: 600; }
-.settings-tray .disclaimer { padding: 8px 18px; border-top: 1px solid var(--rule); }
-.settings-tray .ollama-panel { padding: 12px 18px; }
+/* 選項說明：常駐顯示一行小字，只掛在非自明的控制項下面 (批次講解模式／快取清除／M 快捷鍵)。 */
+.option-hint { margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
+.settings-dialog-body .disclaimer { padding: 14px 0; border-top: 1px solid var(--rule); }
+.settings-dialog-body .ollama-panel { padding: 14px 0; }
 
 .export-privacy-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
 .export-actions { padding-top: 3px; }
 .export-done { display: block; margin-top: 4px; }
 /* R7A-06: 12px 階梯外，就近取 --fs-sm(12.5px) */
-.settings-group .error-banner { margin: 6px 0 0; padding: 8px 10px; font-size: var(--fs-sm); }
+.settings-panel-group .error-banner { margin: 6px 0 0; padding: 8px 10px; font-size: var(--fs-sm); }
 
 select, button, input, textarea { font-family: var(--font-sans); }
 select {
@@ -912,10 +917,9 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .settings-toggle-btn { justify-self: end; padding: 5px 8px; }
   .workspace-tabs { grid-column: 1 / -1; grid-row: 2; width: 100%; border-left: 0; border-right: 0; }
   .workspace-tab { flex: 1 0 auto; min-height: 34px; padding: 4px 12px; }
-  .settings-tray { max-height: 45dvh; }
-  .settings-grid { grid-template-columns: 1fr; gap: 10px; padding: 12px 10px; }
-  .settings-group { padding-left: 9px; padding-right: 9px; }
-  .settings-tray .disclaimer, .settings-tray .ollama-panel, .storage-notice, .annotate-progress { padding-left: 10px; padding-right: 10px; }
+  .settings-dialog { width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; }
+  .settings-dialog-shell { max-height: 100dvh; }
+  .storage-notice, .annotate-progress { padding-left: 10px; padding-right: 10px; }
   .session-load-status { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 9px 10px; }
   .session-load-bar { grid-column: 1 / -1; grid-row: 2; }
   .session-load-copy span { white-space: normal; }
@@ -958,7 +962,6 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   .reader-minimap { right: 12px; bottom: 12px; }
 }
 
-.settings-tray { background: var(--bg-header); }
 .overview-view { background: var(--bg-reader); }
 .structure-drawer { background: var(--bg-structure); }
 .annotate-progress, .ollama-panel { background: var(--bg-footer); }

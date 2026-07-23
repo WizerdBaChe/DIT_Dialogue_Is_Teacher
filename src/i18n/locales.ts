@@ -54,6 +54,8 @@ const zhTW = {
     label: "設定區",
     open: "設定",
     close: "關閉設定",
+    dialogTitle: "設定",
+    closeDialog: "關閉",
     sessionGroup: "Session",
     teachingGroup: "教學講解",
     providerGroup: "講解來源",
@@ -61,6 +63,9 @@ const zhTW = {
     navigationGroup: "導航",
     showMinimap: "顯示微縮導航",
     enableMapShortcut: "啟用 M 地圖快捷鍵",
+    batchModeHint: "「未處理」只補缺；「全部」會覆蓋既有講解結果。",
+    cacheClearHint: "清除後下次講解需要重新呼叫 AI，本機快取不會自動恢復。",
+    mapShortcutHint: "開啟後，在一般畫面按 M 鍵可快速開關 Session 地圖。",
   },
 
   workspace: {
@@ -422,6 +427,8 @@ const en: Messages = {
     label: "Settings",
     open: "Settings",
     close: "Close settings",
+    dialogTitle: "Settings",
+    closeDialog: "Close",
     sessionGroup: "Session",
     teachingGroup: "Teaching notes",
     providerGroup: "Notes source",
@@ -429,6 +436,9 @@ const en: Messages = {
     navigationGroup: "Navigation",
     showMinimap: "Show minimap",
     enableMapShortcut: "Enable M map shortcut",
+    batchModeHint: "\"Missing\" only fills gaps; \"All\" overwrites existing notes.",
+    cacheClearHint: "Clearing means the next note has to call the AI again — the local cache won't come back on its own.",
+    mapShortcutHint: "When on, pressing M on the main screen quickly opens or closes the Session Map.",
   },
 
   workspace: {

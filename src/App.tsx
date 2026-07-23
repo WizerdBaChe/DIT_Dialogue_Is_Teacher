@@ -10,6 +10,7 @@ import { SessionLoadStatus } from "@/components/SessionLoadStatus";
 import { Workspace } from "@/components/Workspace";
 import { MapLauncher } from "@/components/MapLauncher";
 import { SessionMapDialog } from "@/components/SessionMapDialog";
+import { SettingsDialog } from "@/components/SettingsDialog";
 
 export default function App(): ReactNode {
   const loadFromText = useSessionStore((s) => s.loadFromText);
@@ -31,6 +32,7 @@ export default function App(): ReactNode {
       <Workspace />
       <MapLauncher />
       <SessionMapDialog />
+      <SettingsDialog />
     </div>
   );
 }

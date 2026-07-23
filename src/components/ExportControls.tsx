@@ -71,7 +71,7 @@ export function ExportControls(): ReactNode {
   };
 
   return (
-    <fieldset className="settings-group g-export">
+    <fieldset className="settings-panel-group">
       <legend>{t.export.group}</legend>
       <div className="settings-actions export-actions">
         <button className="btn" onClick={exportJson} disabled={!doc}>{t.export.json}</button>
