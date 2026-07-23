@@ -63,4 +63,17 @@ describe("R7A-04 summarizeParams (structured param summary)", () => {
   it("skips undefined/function values but still counts every top-level key", () => {
     expect(summarizeParams({ a: 1, skip: undefined, fn: () => {} })).toEqual({ count: 3, preview: "a: 1" });
   });
+
+  it("(R7B-04, §B4.3) shows the value alone with no 'raw:' key prefix when the only key is 'raw'", () => {
+    expect(summarizeParams({ raw: "tools.shell_command({})" })).toEqual({ count: 1, preview: "tools.shell_command({})" });
+  });
+
+  it("(R7B-04) still truncates a long raw value at 32 chars", () => {
+    const long = "x".repeat(40);
+    expect(summarizeParams({ raw: long })).toEqual({ count: 1, preview: `${"x".repeat(32)}…` });
+  });
+
+  it("(R7B-04) does not special-case a multi-key object that happens to include a 'raw' key", () => {
+    expect(summarizeParams({ raw: "x", other: 1 })).toEqual({ count: 2, preview: "raw: x, other: 1" });
+  });
 });

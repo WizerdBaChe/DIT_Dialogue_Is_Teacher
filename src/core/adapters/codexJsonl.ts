@@ -10,14 +10,31 @@
  *   不需要額外的 id 對映。
  * - 型別白名單外一律寬容收納為 `unknown`，warning 依型別聚合成「型別 ×N」，不逐行各自一條
  *   （R7-INV-7：不得靜默丟棄，也不得洗版）。
- * - `patch_apply_end`／`mcp_tool_call_end`／`web_search_end` 這三種巢狀子事件，以及
- *   `turn_aborted`／`thread_rolled_back`／`context_compacted` 這三種生命週期標記，本卡
- *   (R7B-02) 先落白名單但不產生額外內容，實際配對與標記文字由 R7B-04 補齊
- *   （§B4.4／§B4.5），避免兩張卡的邏輯混在一起難以個別驗證。
+ * - `custom_tool_call.name` 恆為 `"exec"`；真實工具名藏在 `input` 的 `tools.<name>(...)` 呼叫裡，
+ *   用正則抽取，抽不到才退回 `"exec"`（§B4.3，R7-INV-8：推測失敗必須降級＋warning，不得裝作正確）。
+ * - `patch_apply_end`／`mcp_tool_call_end`／`web_search_end` 的 `call_id` 是 `exec-<uuid>`，
+ *   跟 `custom_tool_call` 的 `call_XXXX` 不同命名空間，不能用 id 對映；改以「工具名相容且尚未收到
+ *   該類子事件」就近向前配對到最近一個 exec `tool_use`（§B4.4）。配對失敗降級為獨立 `unknown`
+ *   事件＋warning，不得猜測歸屬。
+ * - `turn_aborted`／`thread_rolled_back`／`context_compacted` 各出一則自我解釋的 `unknown` 事件，
+ *   插在原時序位置；被中斷/撤回的原始步驟本身照常呈現（§B4.5）。
  *
  * 容錯原則：單行 JSON 解析失敗只記 warning 並跳過，絕不整體拋例外。
  */
 import type { SourceAdapter, ParseResult, RawEvent } from "./types";
+
+/** `custom_tool_call.name` 恆為 "exec"；真實工具名藏在 input 的 `tools.<name>(...)` 呼叫裡。 */
+const EXEC_TOOL_NAME_RE = /tools\.([A-Za-z_][\w]*)\s*\(/;
+
+function isPairableExecToolName(name: string): boolean {
+  return name === "apply_patch" || name === "web__run" || name.startsWith("mcp__");
+}
+
+interface PendingExecCall {
+  toolName: string;
+  toolUse: RawEvent;
+  toolResult: RawEvent | null;
+}
 
 interface CodexContentBlock {
   type?: string;
@@ -66,19 +83,10 @@ const NO_EVENT_EVENT_MSG_TYPES = new Set([
   "turn_context",
 ]);
 
-/** 白名單內、本卡先不產生內容的巢狀子事件／生命週期標記 (R7B-04 補齊)。 */
-const DEFERRED_TO_R7B04 = new Set([
-  "patch_apply_end",
-  "mcp_tool_call_end",
-  "web_search_end",
-  "turn_aborted",
-  "thread_rolled_back",
-  "context_compacted",
-]);
-
 export class CodexJsonlAccumulator {
   private readonly events: RawEvent[] = [];
   private readonly unknownTypeCounts = new Map<string, number>();
+  private readonly oneOffWarnings: string[] = [];
   private readonly meta: ParseResult["meta"] = {
     source: "codex",
     tool: "codex",
@@ -87,6 +95,9 @@ export class CodexJsonlAccumulator {
   private lineNo = 0;
   /** 相鄰的 event_msg/agent_reasoning 碎片要合併成一個 thinking span (§B1 F-6)。 */
   private lastThinkingFromAgentReasoning: RawEvent | null = null;
+  /** 尚未收到 patch_apply_end／mcp_tool_call_end／web_search_end 的相容 exec 呼叫，依開啟順序排列。 */
+  private readonly pendingExecCallOrder: PendingExecCall[] = [];
+  private readonly pendingExecCallsByCallId = new Map<string, PendingExecCall>();
 
   private recordUnknown(type: string): void {
     this.unknownTypeCounts.set(type, (this.unknownTypeCounts.get(type) ?? 0) + 1);
@@ -96,6 +107,16 @@ export class CodexJsonlAccumulator {
   private pushEvent(event: RawEvent): void {
     this.lastThinkingFromAgentReasoning = null;
     this.events.push(event);
+  }
+
+  /** 就近向前找到最近一個「工具名相容且尚未被消耗」的 exec 呼叫；找到即從候選中移除。 */
+  private consumeNearestPendingExec(isCompatible: (toolName: string) => boolean): PendingExecCall | undefined {
+    for (let i = this.pendingExecCallOrder.length - 1; i >= 0; i -= 1) {
+      if (isCompatible(this.pendingExecCallOrder[i].toolName)) {
+        return this.pendingExecCallOrder.splice(i, 1)[0];
+      }
+    }
+    return undefined;
   }
 
   pushLine(line: string): void {
@@ -180,14 +201,24 @@ export class CodexJsonlAccumulator {
 
       case "custom_tool_call": {
         const callId = payload?.call_id;
-        this.pushEvent({
+        const input = payload?.input;
+        const match = typeof input === "string" ? EXEC_TOOL_NAME_RE.exec(input) : null;
+        const toolName = match?.[1];
+        if (!toolName) this.oneOffWarnings.push(`無法從 exec input 抽出工具名（行 ${this.lineNo}）。`);
+        const event: RawEvent = {
           kind: "tool_use",
           timestamp,
-          toolName: typeof payload?.name === "string" ? payload.name : "exec",
-          toolInput: { raw: payload?.input },
+          toolName: toolName ?? "exec",
+          toolInput: { raw: input },
           toolUseId: typeof callId === "string" ? callId : undefined,
           raw: payload,
-        });
+        };
+        this.pushEvent(event);
+        if (toolName && isPairableExecToolName(toolName) && typeof callId === "string") {
+          const entry: PendingExecCall = { toolName, toolUse: event, toolResult: null };
+          this.pendingExecCallOrder.push(entry);
+          this.pendingExecCallsByCallId.set(callId, entry);
+        }
         return;
       }
 
@@ -218,14 +249,19 @@ export class CodexJsonlAccumulator {
       case "custom_tool_call_output":
       case "function_call_output": {
         const callId = payload?.call_id;
-        this.pushEvent({
+        const event: RawEvent = {
           kind: "tool_result",
           timestamp,
           text: flattenOutput(payload?.output),
           toolUseId: typeof callId === "string" ? callId : undefined,
           isError: false,
           raw: payload,
-        });
+        };
+        this.pushEvent(event);
+        if (typeof callId === "string") {
+          const pending = this.pendingExecCallsByCallId.get(callId);
+          if (pending) pending.toolResult = event;
+        }
         return;
       }
 
@@ -263,14 +299,85 @@ export class CodexJsonlAccumulator {
       return;
     }
 
+    if (subType === "patch_apply_end") {
+      const entry = this.consumeNearestPendingExec((name) => name === "apply_patch");
+      if (!entry) {
+        this.oneOffWarnings.push(`patch_apply_end 找不到對應的 apply_patch 呼叫，已降級為獨立事件。`);
+        this.pushEvent({ kind: "unknown", timestamp, text: "套用修改（找不到對應的呼叫）", raw: payload });
+        return;
+      }
+      entry.toolUse.toolInput = { ...entry.toolUse.toolInput, changes: payload?.changes };
+      if (entry.toolResult) {
+        const success = Boolean(payload?.success);
+        const detail = success ? String(payload?.stdout ?? "") : `[修改失敗] ${String(payload?.stderr ?? "")}`;
+        entry.toolResult.text = [entry.toolResult.text, detail].filter(Boolean).join("\n");
+      }
+      return;
+    }
+
+    if (subType === "mcp_tool_call_end") {
+      const entry = this.consumeNearestPendingExec((name) => name.startsWith("mcp__"));
+      if (!entry) {
+        this.oneOffWarnings.push(`mcp_tool_call_end 找不到對應的 mcp__* 呼叫，已降級為獨立事件。`);
+        this.pushEvent({ kind: "unknown", timestamp, text: "MCP 工具呼叫（找不到對應的呼叫）", raw: payload });
+        return;
+      }
+      const invocation = payload?.invocation as { server?: unknown; tool?: unknown; arguments?: unknown } | undefined;
+      if (invocation?.arguments && typeof invocation.arguments === "object") {
+        entry.toolUse.toolInput = invocation.arguments as Record<string, unknown>;
+      }
+      if (typeof invocation?.server === "string" && typeof invocation?.tool === "string") {
+        entry.toolUse.toolName = `mcp__${invocation.server}__${invocation.tool}`;
+      }
+      if (entry.toolResult) {
+        const result = payload?.result as { Ok?: { content?: unknown } } | undefined;
+        const content = result?.Ok?.content;
+        if (content !== undefined) {
+          const detail = typeof content === "string" ? content : flattenTextBlocks(content);
+          entry.toolResult.text = [entry.toolResult.text, detail].filter(Boolean).join("\n");
+        }
+      }
+      return;
+    }
+
+    if (subType === "web_search_end") {
+      const entry = this.consumeNearestPendingExec((name) => name === "web__run");
+      if (!entry) {
+        this.oneOffWarnings.push(`web_search_end 找不到對應的 web__run 呼叫，已降級為獨立事件。`);
+        this.pushEvent({ kind: "unknown", timestamp, text: "網頁搜尋（找不到對應的呼叫）", raw: payload });
+        return;
+      }
+      entry.toolUse.toolInput = { ...entry.toolUse.toolInput, query: payload?.query };
+      return;
+    }
+
+    if (subType === "turn_aborted") {
+      this.pushEvent({ kind: "unknown", timestamp, text: `此回合被中斷（原因：${String(payload?.reason ?? "未知")}）`, raw: payload });
+      return;
+    }
+
+    if (subType === "thread_rolled_back") {
+      this.pushEvent({
+        kind: "unknown",
+        timestamp,
+        text: `之前 ${String(payload?.num_turns ?? "?")} 個回合已被使用者撤回，以下內容仍保留供對照`,
+        raw: payload,
+      });
+      return;
+    }
+
+    if (subType === "context_compacted") {
+      this.pushEvent({ kind: "unknown", timestamp, text: "對話歷史在此處被壓縮，之後的上下文已重整", raw: payload });
+      return;
+    }
+
     if (NO_EVENT_EVENT_MSG_TYPES.has(subType)) return;
-    if (DEFERRED_TO_R7B04.has(subType)) return; // 白名單內，R7B-04 補實際配對/標記內容。
 
     this.recordUnknown(`event_msg/${subType}`);
   }
 
   finish(): ParseResult {
-    const warnings: string[] = [];
+    const warnings: string[] = [...this.oneOffWarnings];
     for (const [type, count] of this.unknownTypeCounts) {
       warnings.push(
         type === "__parse_error__"

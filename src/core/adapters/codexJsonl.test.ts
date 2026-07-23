@@ -60,7 +60,7 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
 
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toHaveLength(2);
-    expect(result.events[0]).toMatchObject({ kind: "tool_use", toolName: "exec", toolUseId: "call_1" });
+    expect(result.events[0]).toMatchObject({ kind: "tool_use", toolName: "shell_command", toolUseId: "call_1" });
     expect(result.events[1]).toMatchObject({ kind: "tool_result", toolUseId: "call_1", text: "ok", isError: false });
   });
 
@@ -108,14 +108,11 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     expect(result.meta.projectPath).toBe("D:/first");
   });
 
-  it("silently skips noise types and R7B-04-deferred nested/lifecycle events without warnings", () => {
+  it("silently skips noise types (no event, no warning)", () => {
     const raw = [
       line("turn_context", { turn_id: "t1" }),
       line("event_msg", { type: "user_message", message: "dup of response_item" }),
       line("event_msg", { type: "token_count" }),
-      line("event_msg", { type: "patch_apply_end", call_id: "exec-1" }),
-      line("event_msg", { type: "web_search_end", call_id: "exec-2" }),
-      line("event_msg", { type: "turn_aborted", reason: "interrupted" }),
       line("compacted", { replacement_history: [{ type: "message" }] }),
       line("world_state", {}),
     ].join("\n");
@@ -123,6 +120,56 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toHaveLength(0);
     expect(result.warnings).toEqual(["未從輸入中解析出任何可呈現的事件。"]);
+  });
+
+  it("extracts the real exec tool name from the wrapped JS call, falling back to 'exec' with a warning", () => {
+    const raw = [
+      line("response_item", { type: "custom_tool_call", call_id: "call_1", name: "exec", input: "tools.update_plan({plan:[]}); text(r)" }),
+      line("response_item", { type: "custom_tool_call", call_id: "call_2", name: "exec", input: "not a tools.* call at all" }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events[0]).toMatchObject({ toolName: "update_plan" });
+    expect(result.events[1]).toMatchObject({ toolName: "exec" });
+    expect(result.warnings.some((w) => w.includes("無法從 exec input 抽出工具名"))).toBe(true);
+  });
+
+  it("pairs patch_apply_end back into the originating apply_patch exec call (§B4.4)", () => {
+    const raw = [
+      line("response_item", { type: "custom_tool_call", call_id: "call_1", name: "exec", input: "tools.apply_patch({})" }),
+      line("response_item", { type: "custom_tool_call_output", call_id: "call_1", output: [{ type: "input_text", text: "Success." }] }),
+      line("event_msg", { type: "patch_apply_end", call_id: "exec-999", success: true, stdout: "Updated 1 file", changes: { "a.ts": { type: "update" } } }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    const toolUse = result.events.find((e) => e.kind === "tool_use");
+    const toolResult = result.events.find((e) => e.kind === "tool_result");
+    expect(toolUse?.toolInput).toMatchObject({ changes: { "a.ts": { type: "update" } } });
+    expect(toolResult?.text).toBe("Success.\nUpdated 1 file");
+    expect(result.events.filter((e) => e.kind === "unknown")).toHaveLength(0);
+  });
+
+  it("degrades patch_apply_end to a standalone unknown event with a warning when no compatible call is open", () => {
+    const raw = line("event_msg", { type: "patch_apply_end", call_id: "exec-1", success: true });
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].kind).toBe("unknown");
+    expect(result.warnings.some((w) => w.includes("patch_apply_end 找不到對應的"))).toBe(true);
+  });
+
+  it("emits self-explanatory lifecycle marker events for turn_aborted/thread_rolled_back/context_compacted", () => {
+    const raw = [
+      line("event_msg", { type: "turn_aborted", reason: "interrupted" }),
+      line("event_msg", { type: "thread_rolled_back", num_turns: 3 }),
+      line("event_msg", { type: "context_compacted" }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events).toHaveLength(3);
+    expect(result.events.every((e) => e.kind === "unknown")).toBe(true);
+    expect(result.events[0].text).toContain("interrupted");
+    expect(result.events[1].text).toContain("3");
+    expect(result.events[2].text).toContain("壓縮");
   });
 
   it("aggregates unknown types into one warning per type, not one per line (R7-INV-7)", () => {

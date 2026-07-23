@@ -79,6 +79,13 @@ function formatParamValue(value: unknown): string | undefined {
 /** 結構化參數的收合摘要：由物件本身導出，不看序列化文字 (R7-INV-3，A4.3)。 */
 export function summarizeParams(params: Record<string, unknown>): { count: number; preview: string } {
   const keys = Object.keys(params);
+  // Codex adapter 把 exec 的 JS 原文包成 { raw: input }（無法結構化解析時的降級形式，見
+  // codexJsonl.ts）；只有這一個鍵時顯示值本身，不顯示鍵名——不然每張 Codex 操作卡都變成
+  // 「1 項 · raw: …」，鍵名佔掉摘要預算卻零資訊 (§B4.3)。
+  if (keys.length === 1 && keys[0] === "raw") {
+    const formatted = formatParamValue(params.raw);
+    return { count: 1, preview: formatted ?? "" };
+  }
   let preview = "";
   for (const key of keys) {
     const formatted = formatParamValue(params[key]);
