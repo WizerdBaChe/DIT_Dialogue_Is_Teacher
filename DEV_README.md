@@ -203,7 +203,7 @@ Span Tree schema 草案在 `docs/RPD_DIT_v0.1.md` 附錄，實際型別定義以
 
 ## 9. 打包與發布
 
-DIT 沒有後端、沒有安裝檔、沒有 CI/CD、目前也沒有設定 git remote——「發布」實務上就是「產出 `dist/`，交給某個地方托管或直接分享檔案」。
+DIT 沒有後端、沒有安裝檔、沒有 CI/CD；repo 已設定 git remote（GitHub，見 README 或 `git remote -v`），但「發布」實務上仍是「產出 `dist/`，打包成 zip 交給 GitHub Release 或某個地方托管」，不依賴任何 CI。
 
 ### 9.1 建置
 
@@ -215,12 +215,30 @@ npm run build
 
 | 檔案 | 用途 | 能不能單獨拿走 |
 |---|---|---|
-| `dist/index.html` + `dist/assets/*` + `dist/session.worker-*.js` | DIT 本體（App 模式），`<script type="module">` + Worker | **不能單獨拿 index.html**：ES module script 在 `file://`（null origin）會被瀏覽器擋掉，必須整個 `dist/` 目錄一起、透過 HTTP(S) 來源提供服務，見 9.2 |
+| `dist/index.html` + `dist/assets/*` + `dist/session.worker-*.js` | DIT 本體（App 模式），`<script type="module">` + Worker | **不能單獨拿 index.html**：ES module script 在 `file://`（null origin）會被瀏覽器擋掉，必須整個 `dist/` 目錄一起、透過 HTTP(S) 來源提供服務，見 9.3 |
 | `dist/snapshot.html` | 匯出功能的**範本**（`ExportControls.tsx` 執行期用 `fetch("./snapshot.html")` 抓它，注入使用者當下的 session 資料後供下載）；本身也是 EX-03 build target，是 IIFE、非 module，`file://` 雙擊可直接開 | 必須跟 `dist/index.html` 放在**同一個目錄、同一個相對路徑**下，拿掉它會讓應用內「匯出 HTML」按鈕失敗（`t.export.templateMissing`） |
 
 `npm run build` 用 `emptyOutDir: false` 讓第二個 `vite build`（snapshot target）不清掉第一個的產物——**兩個 build 缺一不可，不能只跑其中一個當作完整發布**。
 
-### 9.2 部署 App 模式（給別人長期用）
+### 9.2 給一般使用者：雙擊即用的發布包
+
+`dist/index.html` 是 ES module，`file://` 開不了（見上表），單獨丟一包 `dist/` 給不懂技術的使用者等於「打不開」。解法是打包時額外塞三個檔案，讓使用者不需要自己架 server：
+
+- `scripts/start-dit.bat` — 使用者雙擊的入口，開一個主控台視窗、呼叫下面的 ps1、在伺服器起來後自動開瀏覽器。
+- `scripts/start-dit.ps1` — 純 `System.Net.HttpListener` 寫的本機靜態檔案伺服器，**沒有任何外部依賴**（不需要 Node/Python），只綁定 `127.0.0.1`（不需要系統管理員權限、不會被防火牆規則擋、不會對外網開放）；埠號預設 `4787`，被佔用會自動往上找空的。
+- `scripts/START-HERE.txt` — 給終端使用者看的中英文說明（含「為什麼不能直接雙擊 index.html」與 macOS/Linux 的替代做法）。
+
+一鍵重新產生發布包（會自動跑 build + test，任一步失敗就中止，不會打包出壞的 release）：
+
+```bash
+scripts\package-release.bat
+```
+
+流程：讀 `package.json` 的 `version` → `npm run build` → `npm run test` → 把 `dist/*` 複製進暫存資料夾，連同上面三個啟動腳本、以及 `LICENSE`（複製一份成 `LICENSE.txt`）→ 用 PowerShell 的 `Compress-Archive` 壓成 `releases/dit-dialogue-is-teacher-v<version>.zip`（`releases/` 已在 `.gitignore`，不進版控，只上傳成 GitHub Release 附件）→ 清掉暫存資料夾。
+
+這個腳本改一次、以後每個版本都能重跑；改動啟動邏輯只需要動 `start-dit.ps1`，`package-release.bat` 不用跟著改。
+
+### 9.3 部署 App 模式（給別人長期用）
 
 `dist/` 是純靜態檔案，任何靜態檔案託管都能用，沒有例外情況：
 
@@ -234,15 +252,15 @@ npx serve dist
 
 正式託管任選其一（皆為純靜態 host，不需要任何 server-side 邏輯）：GitHub Pages、Netlify、Vercel（static）、Cloudflare Pages、或自己的 nginx/Caddy 指到 `dist/` 目錄。**不要**把 `dist/index.html` 從資料夾裡抽出來單獨丟到某處——會漏掉 `assets/`、worker、以及 `snapshot.html` 範本。
 
-### 9.3 分享單一 session（不必部署，給看的人用）
+### 9.4 分享單一 session（不必部署，給看的人用）
 
 使用者在介面內按「匯出 → HTML」，下載的就是一個帶著資料、可雙擊開啟的獨立檔案（`snapshotMode`，載入/重置/匯出等控制項會自動隱藏）——**這是給終端使用者的功能，不是給你發版用的**，兩者不要混淆：你發布的是「能載入任意 session 的 DIT 本體」；使用者匯出的是「已經處理好、內容固定的一份快照」。
 
-### 9.4 版本號
+### 9.5 版本號
 
-`package.json` 目前是 `"private": true`，不會被發佈到 npm registry，`version` 欄位純粹是給人看的里程碑標記。沒有 remote、沒有 CI 依賴這個號碼，所以要不要 bump、bump 到多少，純看你想不想在 `git log`/`git tag` 上留一個對應的標記；建議語意：新來源/新講解模式等使用者能感知的功能 → bump minor（`0.x.0`），純內部重構/文件 → 不用動。
+`package.json` 目前是 `"private": true`，不會被發佈到 npm registry，`version` 欄位純粹是給人看的里程碑標記，也是 `scripts/package-release.bat` 決定 zip 檔名與 `gh release` tag 的依據。沒有 CI 依賴這個號碼，所以要不要 bump、bump 到多少，純看你想不想在 `git log`/`git tag`/GitHub Release 上留一個對應的標記；建議語意：新來源/新講解模式等使用者能感知的功能 → bump minor（`0.x.0`）；發布包裝方式改變（例如新增雙擊啟動器）、純內部重構/文件 → bump patch（`0.0.x`）或不用動，視你想不想在 Release 頁上區分。
 
-### 9.5 跨平台的複製指令（`src/core/runtime/webRuntimeController.ts`）
+### 9.6 跨平台的複製指令（`src/core/runtime/webRuntimeController.ts`）
 
 Ollama／OpenCode 面板顯示的一鍵複製指令已依作業系統分流：`detectRuntimeOS()` 讀 `navigator.platform`／`navigator.userAgent` 判斷 Windows 與否（無 `navigator` 的環境，如測試，預設 posix），`getRuntimeStartCommand(service, os?)` 依判斷結果回傳 PowerShell（`$env:OLLAMA_ORIGINS="*"; ollama serve`、`opencode.cmd serve ...`）或 posix shell（`OLLAMA_ORIGINS="*" ollama serve`、`opencode serve ...`，無 `.cmd`）版本；`WebRuntimeController.startCommand()` 與兩個面板元件都改呼叫這個函式，不再各自 import 一份寫死的常數。
 
