@@ -181,24 +181,30 @@ body {
 .settings-dialog-close { flex-shrink: 0; }
 .settings-dialog-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 18px 18px; }
 
-/* 每個群組垂直往下排，彼此靠上下 border 分隔；不再需要 --group-basis / --group-grow / g-* 那套
-   內容驅動寬度系統——對話框本身固定寬度，群組永遠是單欄，沒有「這一欄該多寬」的問題。 */
+/* 每個群組是一張獨立卡片（GitHub Settings 的 Subhead＋群組容器參考，只借布局語彙），
+   彼此靠 margin-bottom 隔開，不再靠 border-top 細線分隔——一眼就能看出組界（R7.5 W5/RC-5）。 */
 .settings-panel-group {
-  display: block; width: 100%; margin: 0; padding: 14px 0; border: 0; border-top: 1px solid var(--rule);
+  /* flow-root：瀏覽器原生 fieldset/legend 算繪會讓 legend 橫跨（straddle）fieldset 自己的
+     border-top 中線（這是 spec 行為，不是這裡的 bug）；下面把 legend 浮動使其跳出這個特例算繪，
+     這裡改用 flow-root 建立新 BFC 把浮動的 legend 正確收進本身高度，讓白框完整包住標題文字。 */
+  display: flow-root; width: 100%; margin: 0 0 12px; padding: 12px 14px;
+  background: var(--bg-card); border: 1px solid var(--rule); border-radius: 4px;
 }
-.settings-panel-group:first-child { border-top: 0; padding-top: 10px; }
 .settings-panel-group legend {
-  padding: 0 0 8px; width: 100%; color: var(--text-dark); font-family: var(--font-sans);
-  font-size: var(--fs-2xs); /* R7A-06: 10px 階梯外，就近取 --fs-2xs(10.5px) */
-  font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  float: left; padding: 0 0 6px; margin-bottom: 6px; width: 100%; color: var(--text-dark);
+  font-family: var(--font-sans); font-size: var(--fs-base); font-weight: 600; border-bottom: 1px solid var(--rule);
 }
-.settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 3px; }
+/* legend 是浮動元素，緊接其後、自身建立 BFC 的區塊（如 display:flex 的 .settings-actions）
+   不會自動換行到浮動框下方，而是被擠進浮動框旁剩餘的窄縫裡（寬度可能塌縮成 0，視覺上跑到卡片外）。
+   強制 legend 之後第一個元素 clear，讓其落回浮動框下方。 */
+.settings-panel-group legend + * { clear: both; }
+.settings-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 /* R7A-02（沿用）: 多控制項的教學講解群組用 label / control 兩軌 grid，四段語意各自成列。
    對話框內固定單欄寬度，控制欄用 minmax(0, 1fr) 撐滿可用寬——這裡不會重演舊版的死白問題，
    因為對話框寬度是設計常數，不是「先讓群組長多寬、控制欄再撐滿群組」這種互相依賴的鏈。 */
 .settings-actions.rows {
   display: grid; grid-template-columns: max-content minmax(0, 1fr);
-  gap: 8px 10px; align-items: center; padding-top: 3px;
+  gap: 8px 10px; align-items: center;
 }
 .settings-actions.rows > .row-span { grid-column: 1 / -1; }
 .settings-actions.rows .cache-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -206,8 +212,10 @@ body {
 .settings-actions > label:not(.btn):not(.toggle) { color: var(--text-dark); font-size: var(--fs-xs); font-weight: 600; }
 /* 選項說明：常駐顯示一行小字，只掛在非自明的控制項下面 (批次講解模式／快取清除／M 快捷鍵)。 */
 .option-hint { margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
-.settings-dialog-body .disclaimer { padding: 14px 0; border-top: 1px solid var(--rule); }
-.settings-dialog-body .ollama-panel { padding: 14px 0; }
+/* R7.5-INV-4：帶邊框裝飾元素的水平 padding 不得覆寫為 0；改為與卡片一致的內距，
+   讓 provider 面板落在卡片節奏內（W3 已移除色條，這裡不再有貼字風險）。 */
+.settings-dialog-body .disclaimer { padding: 14px; border-top: 1px solid var(--rule); }
+.settings-dialog-body .ollama-panel { padding: 14px; }
 
 .export-privacy-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
 .export-actions { padding-top: 3px; }
@@ -248,10 +256,6 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .disclaimer.none { color: var(--text-muted); }
 .disclaimer.ollama { color: var(--success); border-bottom-color: var(--rule); }
 .disclaimer.cloud { color: var(--accent-secondary); border-bottom: 1px solid var(--accent-secondary); background: rgba(138, 106, 47, 0.06); }
-/* 左規標示責任層級：雲端(會外傳)較重。 */
-.disclaimer { border-left: 3px solid transparent; }
-.disclaimer.cloud { border-left-color: var(--accent-secondary); }
-.disclaimer.ollama { border-left-color: var(--success); }
 
 /* ---- Ollama / Cloud 面板 ---- */
 .ollama-panel {
@@ -299,8 +303,8 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 }
 .ol-input::placeholder { color: var(--text-dark); }
 
-/* 雲端面板：以左規 + 暖色標示「會外傳」的來源。 */
-.cloud-panel { background: rgba(138, 106, 47, 0.05); border-left: 3px solid var(--accent-secondary); border-bottom-color: var(--rule); }
+/* 雲端面板：以暖色背景與 .disclaimer.cloud 的文字/背景標示「會外傳」的來源，不再靠色條。 */
+.cloud-panel { background: rgba(138, 106, 47, 0.05); border-bottom-color: var(--rule); }
 .batch-control { display: inline-flex; align-items: stretch; }
 .batch-control select {
   max-width: 132px;

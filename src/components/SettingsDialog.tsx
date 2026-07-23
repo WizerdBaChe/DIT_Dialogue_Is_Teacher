@@ -169,11 +169,20 @@ export function SettingsDialog(): ReactNode {
               </fieldset>
             )}
 
+            {/* 選了本地 AI／雲端 AI 後要調的參數面板，緊接在觸發它們的卡片下方，
+                不必捲到最下面才找得到（使用者回報 R7.5 追加發現）。 */}
+            {!snapshotMode && (
+              <>
+                <Disclaimer />
+                <OllamaPanel />
+                <CloudPanel />
+              </>
+            )}
+
             <fieldset className="settings-panel-group">
               <legend>{t.settings.languageGroup}</legend>
               <div className="settings-actions">
-                <label htmlFor="hdr-locale">{t.header.languageLabel}</label>
-                <select id="hdr-locale" value={locale} onChange={(event) => setLocale(event.target.value as typeof locale)}>
+                <select id="hdr-locale" aria-label={t.header.languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as typeof locale)}>
                   {LOCALE_ORDER.map((language) => <option key={language} value={language}>{LOCALE_NATIVE_NAME[language]}</option>)}
                 </select>
               </div>
@@ -203,14 +212,6 @@ export function SettingsDialog(): ReactNode {
             </fieldset>
 
             {!snapshotMode && <ExportControls />}
-
-            {!snapshotMode && (
-              <>
-                <Disclaimer />
-                <OllamaPanel />
-                <CloudPanel />
-              </>
-            )}
           </div>
         </div>
       )}

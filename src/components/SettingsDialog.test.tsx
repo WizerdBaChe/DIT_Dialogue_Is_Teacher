@@ -30,6 +30,17 @@ describe("SettingsDialog (R7 settings-dialog redesign)", () => {
     expect(legends).toEqual(["Session", "教學講解", "語言", "導航", "匯出"]);
   });
 
+  it("shows the language name only once — as the card legend, not also as a visible label (R7.5 W4/AN-4)", () => {
+    render(<SettingsDialog />);
+    openDialog();
+    const groups = Array.from(document.querySelectorAll(".settings-panel-group"));
+    const languageGroup = groups.find((el) => el.querySelector("legend")?.textContent === "語言");
+    expect(languageGroup).toBeDefined();
+    expect(languageGroup?.querySelector("label")).toBeNull();
+    const select = languageGroup?.querySelector("#hdr-locale");
+    expect(select?.getAttribute("aria-label")).toBeTruthy();
+  });
+
   it("keeps the provider label and select as adjacent children of the same rows grid", () => {
     render(<SettingsDialog />);
     openDialog();
