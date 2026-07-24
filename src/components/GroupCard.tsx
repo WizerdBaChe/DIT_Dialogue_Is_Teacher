@@ -75,7 +75,7 @@ export function GroupCard({
             <SpanBody node={n} />
           </div>
         ))}
-        {showAnnotations && providerId !== "none" && (
+        {showAnnotations && (providerId !== "none" || annotation) && (
           <AnnotationBlock
             annotation={annotation}
             loading={loading}
