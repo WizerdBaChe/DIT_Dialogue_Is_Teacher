@@ -120,6 +120,16 @@ const zhTW = {
     previousPreserved: "載入期間保留目前文件；只有完整驗證通過後才會替換。",
   },
 
+  /** 資料夾載入數量/大小門檻確認彈窗 (防選錯上層目錄，如整包 .claude/projects/)。 */
+  folderGuard: {
+    title: "確定要載入這麼多檔案嗎？",
+    body: (count: number, sizeMiB: string) =>
+      `你選取了 ${count} 個檔案（共 ${sizeMiB} MiB）。這通常代表選到了上層資料夾（例如整個 .claude/projects/ 或好幾個月份的 Codex session），而不是單一個 session 的資料夾。`,
+    hint: "DIT 一次只能顯示一個 session；建議先取消，只選取那一個 session 自己的資料夾（可以包含它的 subagents/ 子資料夾）。",
+    cancel: "取消，重新選擇",
+    proceed: "我知道風險，仍要載入",
+  },
+
   structure: {
     label: "Session 結構",
     position: (current: number | string, total: number) => `位置 ${current} / ${total}`,
@@ -554,6 +564,15 @@ const en: Messages = {
     cancel: "Cancel load",
     dismiss: "Dismiss status",
     previousPreserved: "The current document stays available until the replacement passes full validation.",
+  },
+
+  folderGuard: {
+    title: "Load this many files?",
+    body: (count: number, sizeMiB: string) =>
+      `You selected ${count} files (${sizeMiB} MiB total). This usually means a parent folder got selected (e.g. the whole .claude/projects/ or several months of Codex sessions) instead of a single session's folder.`,
+    hint: "DIT can only show one session at a time. Consider cancelling and selecting just that one session's own folder (its subagents/ subfolder is fine to include).",
+    cancel: "Cancel, pick again",
+    proceed: "I understand the risk, load anyway",
   },
 
   structure: {
