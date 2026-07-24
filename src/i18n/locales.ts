@@ -137,13 +137,15 @@ const zhTW = {
   welcome: {
     title: "歡迎使用 DIT",
     intro: "先選好語言和講解 AI 模式，隨時可以在「設定」裡再調整。",
-    languageStepLabel: "1. 使用語言",
+    languageStepLabel: "1. 使用語言 / Language",
     providerStepLabel: "2. 講解 AI 模式",
     moreOptions: "更多選項",
     fewerOptions: "收起更多選項",
     skip: "先略過，我自己看看",
     start: "開始使用",
     providerFollowUpHint: "選好後會直接帶你到「設定」把連線細節填完。",
+    exampleLabel: "範例：講解長什麼樣子",
+    exampleNote: "以下是事先在開發機用本機 Ollama 針對一段真實步驟產生的講解，原封凍結展示，不需要你先設定、先跑一次才看得到效果：",
   },
 
   structure: {
@@ -597,13 +599,15 @@ const en: Messages = {
   welcome: {
     title: "Welcome to DIT",
     intro: "Pick your language and notes AI mode first — you can change either later in Settings.",
-    languageStepLabel: "1. Language",
+    languageStepLabel: "1. 使用語言 / Language",
     providerStepLabel: "2. Notes AI mode",
     moreOptions: "More options",
     fewerOptions: "Fewer options",
     skip: "Skip, I'll look around first",
     start: "Get started",
     providerFollowUpHint: "We'll take you straight to Settings to finish the connection details.",
+    exampleLabel: "Example: what an explanation looks like",
+    exampleNote: "Generated once ahead of time on a dev machine with local Ollama against a real step, then frozen here — you don't need to set anything up or run it yourself first to see what it looks like:",
   },
 
   structure: {

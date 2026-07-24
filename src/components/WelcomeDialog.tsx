@@ -8,6 +8,8 @@ import { useSessionStore } from "@/store/sessionStore";
 import type { ProviderId } from "@/types/spanTree";
 import { useT, useLocale, LOCALE_ORDER, LOCALE_NATIVE_NAME } from "@/i18n";
 import { Disclaimer } from "./Disclaimer";
+import { AnnotationBlock } from "./parts";
+import { SAMPLE_ANNOTATION_PREVIEW } from "@/fixtures/sampleAnnotation";
 
 /** 常用項目直接列出；其餘收進「更多選項」，降低第一次看到 9 個選項的認知負擔。 */
 const COMMON_PROVIDERS: ProviderId[] = ["none", "ollama", "lmstudio", "anthropic-byok"];
@@ -130,6 +132,17 @@ export function WelcomeDialog(): ReactNode {
             )}
             <Disclaimer />
             {providerId !== "none" && <p className="option-hint">{t.welcome.providerFollowUpHint}</p>}
+          </section>
+
+          <section className="welcome-step welcome-example">
+            <h3>{t.welcome.exampleLabel}</h3>
+            <p className="option-hint">{t.welcome.exampleNote}</p>
+            <p className="welcome-example-step-summary">{SAMPLE_ANNOTATION_PREVIEW[locale].stepSummary}</p>
+            <AnnotationBlock
+              annotation={SAMPLE_ANNOTATION_PREVIEW[locale].annotation}
+              loading={false}
+              onGenerate={() => {}}
+            />
           </section>
 
           <div className="welcome-dialog-actions">
