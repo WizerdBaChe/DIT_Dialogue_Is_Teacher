@@ -46,6 +46,22 @@ describe("buildSessionDocument (pipeline snapshot)", () => {
     expect(doc.spans.map((span) => span.startedAt)).toEqual([...doc.spans.map((span) => span.startedAt)].sort());
   });
 
+  it("throws PipelineError when top-level files carry more than one distinct sessionId", () => {
+    // 模擬選錯資料夾：兩個不相關 session 的主檔（都不在 subagents/ 底下）混在同一批載入請求裡。
+    expect(() => buildSessionDocumentFromFiles([
+      { path: "project-a/session-1.jsonl", content: sampleSession },
+      { path: "project-b/session-2.jsonl", content: subagentSession },
+    ])).toThrow(PipelineError);
+  });
+
+  it("does not flag subagents/*.jsonl files with a different sessionId than main", () => {
+    // subagents/ 底下的檔案本來就各自有自己的 sessionId，不該被誤判成「多個 session」。
+    expect(() => buildSessionDocumentFromFiles([
+      { path: "main.jsonl", content: r4MainSession },
+      { path: "subagents/agent-1.jsonl", content: r4SubagentSession },
+    ])).not.toThrow();
+  });
+
   it("throws PipelineError on empty input", () => {
     expect(() => buildSessionDocument("")).toThrow(PipelineError);
     expect(() => buildSessionDocument("   \n  \n")).toThrow(PipelineError);

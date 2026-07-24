@@ -95,6 +95,17 @@ export interface GenericPresetConfigState {
 
 const GENERIC_PRESET_IDS: GenericChatPresetId[] = ["lmstudio", "jan", "openrouter", "groq", "custom"];
 
+/** 資料夾載入防呆門檻 (方案 A)：超過任一項就先跳確認，而不是直接合併。見設計討論：
+ *  選到 .claude/projects/ 或 .codex/sessions/<年>/<月>/ 這種上層目錄時，檔案數/總大小通常會明顯偏高。 */
+const FOLDER_LOAD_FILE_COUNT_THRESHOLD = 40;
+const FOLDER_LOAD_BYTES_THRESHOLD = 15 * 1024 * 1024;
+
+export interface PendingFolderLoad {
+  files: SessionBlobInput[];
+  fileCount: number;
+  totalBytes: number;
+}
+
 const DEFAULT_GENERIC_PRESET_CONFIGS: Record<GenericChatPresetId, GenericPresetConfigState> = {
   lmstudio: { baseUrl: getPreset("lmstudio").baseUrl, model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
   jan: { baseUrl: getPreset("jan").baseUrl, model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
@@ -338,6 +349,8 @@ interface SessionState {
   error: string | null;
   sessionLoadProgress: SessionLoadProgress | null;
   sessionLoadError: string | null;
+  /** 資料夾載入超過數量/大小門檻時，暫存待確認的檔案；null = 沒有待確認的載入。 */
+  pendingFolderLoad: PendingFolderLoad | null;
 
   providerId: ProviderId;
   showAnnotations: boolean;
@@ -409,6 +422,10 @@ interface SessionState {
   loadFromText: (raw: string, origin?: SessionOrigin) => void;
   loadFromFiles: (files: TranscriptFileInput[], origin?: SessionOrigin) => void;
   loadFromBlobs: (files: SessionBlobInput[], origin?: SessionOrigin) => Promise<void>;
+  /** 資料夾選取入口專用：數量/大小超過門檻先暫存待確認，否則直接載入。 */
+  requestFolderLoad: (files: SessionBlobInput[]) => void;
+  confirmPendingFolderLoad: () => void;
+  cancelPendingFolderLoad: () => void;
   cancelSessionLoad: () => void;
   dismissSessionLoadStatus: () => void;
   dismissWarnings: () => void;
@@ -478,6 +495,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   error: null,
   sessionLoadProgress: null,
   sessionLoadError: null,
+  pendingFolderLoad: null,
 
   providerId: "none",
   showAnnotations: true,
@@ -588,6 +606,24 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
+  requestFolderLoad: (files) => {
+    const totalBytes = files.reduce((sum, file) => sum + file.blob.size, 0);
+    if (files.length > FOLDER_LOAD_FILE_COUNT_THRESHOLD || totalBytes > FOLDER_LOAD_BYTES_THRESHOLD) {
+      set({ pendingFolderLoad: { files, fileCount: files.length, totalBytes } });
+      return;
+    }
+    void get().loadFromBlobs(files, "user");
+  },
+
+  confirmPendingFolderLoad: () => {
+    const pending = get().pendingFolderLoad;
+    if (!pending) return;
+    set({ pendingFolderLoad: null });
+    void get().loadFromBlobs(pending.files, "user");
+  },
+
+  cancelPendingFolderLoad: () => set({ pendingFolderLoad: null }),
+
   cancelSessionLoad: () => {
     activeSessionLoad?.cancel();
   },
@@ -614,6 +650,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       error: null,
       sessionLoadProgress: null,
       sessionLoadError: null,
+      pendingFolderLoad: null,
       primaryView: "overview",
       structureDrawerOpen: false,
       mapOpen: false,

@@ -12,6 +12,7 @@ import { MapLauncher } from "@/components/MapLauncher";
 import { SessionMapDialog } from "@/components/SessionMapDialog";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { ParseNoticeDialog } from "@/components/ParseNoticeDialog";
+import { FolderLoadConfirmDialog } from "@/components/FolderLoadConfirmDialog";
 
 export default function App(): ReactNode {
   const loadFromText = useSessionStore((s) => s.loadFromText);
@@ -42,6 +43,7 @@ export default function App(): ReactNode {
       <SessionMapDialog />
       <SettingsDialog />
       <ParseNoticeDialog />
+      <FolderLoadConfirmDialog />
     </div>
   );
 }

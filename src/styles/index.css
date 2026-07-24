@@ -239,6 +239,20 @@ body {
 }
 .parse-notice-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
 
+/* 資料夾載入數量/大小門檻確認彈窗：同一套 <dialog> 慣例，但 Escape/backdrop 可取消 (等同「取消，重新選擇」)。 */
+.folder-load-confirm-dialog {
+  width: min(480px, 92vw); max-width: none; height: auto; max-height: min(84dvh, 620px); padding: 0;
+  inset: 0; margin: auto; border: 1px solid var(--rule-strong); background: var(--bg-header); color: var(--text-main);
+  overflow: hidden;
+}
+.folder-load-confirm-dialog[open] { display: block; }
+.folder-load-confirm-dialog::backdrop { background: rgb(28 26 23 / 0.6); }
+.folder-load-confirm-dialog[data-modal-fallback="true"] { position: fixed; inset: 8dvh 6vw; z-index: 100; }
+.folder-load-confirm-dialog-shell { display: flex; flex-direction: column; max-height: min(84dvh, 620px); overflow-y: auto; padding: 20px 22px; gap: 10px; }
+.folder-load-confirm-dialog-shell h2 { margin: 0; font-family: var(--font-serif); font-size: var(--fs-xl); font-weight: 600; }
+.folder-load-confirm-dialog-shell p { margin: 0; line-height: 1.65; color: var(--text-main); }
+.folder-load-confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
 .export-privacy-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
 .export-actions { padding-top: 3px; }
 .export-done { display: block; margin-top: 4px; }

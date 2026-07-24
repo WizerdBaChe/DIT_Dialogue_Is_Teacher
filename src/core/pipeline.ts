@@ -93,12 +93,35 @@ export function buildSessionDocumentFromFiles(files: TranscriptFileInput[], sour
   return buildSessionDocumentFromParsedFiles(parsedFiles);
 }
 
+/**
+ * 選錯資料夾防呆：正常情況下「非 subagents/ 路徑」的檔案只會有一個 sessionId (單一 main transcript)；
+ * subagents/ 底下每個檔案本來就各自有自己的 sessionId，不列入比對。若非 subagents 路徑的檔案出現
+ * 超過一種 sessionId，代表選取範圍混進了多個不相關的 session (例如整包 .claude/projects/ 或多個月份
+ * 的 Codex rollout 檔)，直接拒絕合併，而不是悄悄挑第一個當 main、其餘硬拼成一棵錯亂的樹。
+ */
+function assertSingleTopLevelSession(files: ParsedTranscriptFileInput[]): void {
+  const topLevelIds = new Set(
+    files
+      .filter((file) => !isSubagentPath(file.path))
+      .map((file) => file.parsed.meta.id)
+      .filter((id): id is string => Boolean(id)),
+  );
+  if (topLevelIds.size <= 1) return;
+  const preview = [...topLevelIds].slice(0, 5).join("、");
+  const more = topLevelIds.size > 5 ? " …" : "";
+  throw new PipelineError(
+    `這批檔案看起來包含 ${topLevelIds.size} 個不同的 session（sessionId：${preview}${more}），DIT 一次只能載入一個 session。`
+    + "請確認只選取單一 session 的資料夾（可以包含它自己的 subagents/ 子資料夾），不要選到上層目錄。",
+  );
+}
+
 /** Build one session from per-file parse results produced by either strings or a Web Worker stream. */
 export function buildSessionDocumentFromParsedFiles(
   files: ParsedTranscriptFileInput[],
   onPhase?: PipelinePhaseListener,
 ): PipelineResult {
   if (files.length === 0) throw new PipelineError("輸入為空，請提供至少一個 .jsonl transcript。");
+  assertSingleTopLevelSession(files);
 
   const main = files.find((file) => !isSubagentPath(file.path)) ?? files[0];
   const ordered = [main, ...files.filter((file) => file !== main)];
