@@ -52,7 +52,7 @@ import {
 } from "@/core/annotation";
 import { sampleSession } from "@/fixtures";
 import type { SessionExport } from "@/core/export/contracts";
-import { MESSAGES, type Locale } from "@/i18n/locales";
+import { MESSAGES, LOCALE_ORDER, type Locale } from "@/i18n/locales";
 import { resetFallbackReport } from "@/core/diagnostics";
 import { readOnboardingCompleted, writeOnboardingCompleted } from "@/core/onboarding/repository";
 import {
@@ -496,6 +496,17 @@ interface SessionState {
   cancelAnnotateAll: () => void;
 }
 
+/** 首次啟動時依瀏覽器語言猜初始 locale (問題4)：目前只分繁中/英文兩種字典，非中文一律落在 en。
+ *  只在「還沒看過 onboarding」時呼叫，不會覆蓋使用者已經明確選過的語言。 */
+function detectInitialLocale(): Locale | null {
+  if (typeof navigator === "undefined") return null;
+  const langs = navigator.languages && navigator.languages.length > 0 ? navigator.languages : [navigator.language];
+  const lang = (langs[0] ?? "").toLowerCase();
+  if (!lang) return null;
+  const detected: Locale = lang.startsWith("zh") ? "zh-TW" : "en";
+  return LOCALE_ORDER.includes(detected) ? detected : null;
+}
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   doc: null,
   viewItems: [],
@@ -911,7 +922,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   checkOnboarding: async () => {
     if (get().snapshotMode) return;
     const completed = await readOnboardingCompleted();
-    if (!completed) set({ welcomeOpen: true });
+    if (completed) return;
+    const detected = detectInitialLocale();
+    set({ welcomeOpen: true, ...(detected ? { locale: detected } : {}) });
   },
 
   openWelcome: () => set({ welcomeOpen: true, settingsOpen: false }),
