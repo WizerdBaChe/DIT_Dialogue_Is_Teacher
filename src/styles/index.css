@@ -208,6 +208,12 @@ body {
 }
 .settings-actions.rows > .row-span { grid-column: 1 / -1; }
 .settings-actions.rows .cache-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+/* 講解全部/載入進度也內嵌到 Settings 對話框裡（問題3）：對話框開著時原本蓋住主畫面看不到進度，
+   直接把同一份即時進度元件掛在觸發按鈕旁邊；框內已有卡片邊界，蓋版式的滿版底色/邊框在這裡不需要。 */
+.settings-panel-group .annotate-progress,
+.settings-panel-group .session-load-status {
+  padding-left: 0; padding-right: 0; border-bottom: 0; background: transparent;
+}
 .session-load-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .settings-actions > label:not(.btn):not(.toggle) { color: var(--text-dark); font-size: var(--fs-xs); font-weight: 600; }
 /* 選項說明：常駐顯示一行小字，只掛在非自明的控制項下面 (批次講解模式／快取清除／M 快捷鍵)。 */
