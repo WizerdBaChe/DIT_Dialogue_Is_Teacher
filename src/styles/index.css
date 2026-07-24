@@ -253,6 +253,26 @@ body {
 .folder-load-confirm-dialog-shell p { margin: 0; line-height: 1.65; color: var(--text-main); }
 .folder-load-confirm-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
+/* 首次使用歡迎彈窗：跟 .settings-dialog 同一套 <dialog> 慣例，但允許 Escape/backdrop 關閉 (等同略過)。 */
+.welcome-dialog {
+  width: min(480px, 92vw); max-width: none; height: auto; max-height: min(84dvh, 680px); padding: 0;
+  inset: 0; margin: auto; border: 1px solid var(--rule-strong); background: var(--bg-header); color: var(--text-main);
+  overflow: hidden;
+}
+.welcome-dialog[open] { display: block; }
+.welcome-dialog::backdrop { background: rgb(28 26 23 / 0.52); }
+.welcome-dialog[data-modal-fallback="true"] { position: fixed; inset: 8dvh 6vw; z-index: 100; }
+.welcome-dialog-shell { display: flex; flex-direction: column; max-height: min(84dvh, 680px); overflow-y: auto; padding: 20px 22px; gap: 14px; }
+.welcome-dialog-shell h2 { margin: 0; font-family: var(--font-serif); font-size: var(--fs-xl); font-weight: 600; }
+.welcome-intro { margin: 0; color: var(--text-muted); line-height: 1.6; }
+.welcome-step { display: flex; flex-direction: column; gap: 8px; }
+.welcome-step h3 { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--text-dark); }
+.welcome-provider-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.welcome-provider-chip[aria-pressed="true"] { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
+.welcome-more-toggle { align-self: flex-start; }
+.welcome-dialog-shell .disclaimer { padding: 8px 0 0; border-bottom: 0; }
+.welcome-dialog-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+
 .export-privacy-note { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
 .export-actions { padding-top: 3px; }
 .export-done { display: block; margin-top: 4px; }
