@@ -11,6 +11,8 @@ import { CloudPanel } from "./CloudPanel";
 import { EndpointPanel } from "./EndpointPanel";
 import { SessionLoadActions } from "./SessionLoadActions";
 import { ExportControls } from "./ExportControls";
+import { AnnotateProgress } from "./AnnotateProgress";
+import { SessionLoadStatus } from "./SessionLoadStatus";
 
 const PROVIDERS: ProviderId[] = ["none", "ollama", "lmstudio", "jan", "cloud", "anthropic-byok", "openrouter", "groq", "custom"];
 
@@ -29,6 +31,7 @@ export function SettingsDialog(): ReactNode {
   const cachedCount = useSessionStore((state) => Object.keys(state.cachedForCurrentConfig).length);
   const failedCount = useSessionStore((state) => Object.keys(state.annotationErrors).length);
   const cachedAnnotationCount = useSessionStore((state) => state.cachedAnnotationCount);
+  const isAnnotating = useSessionStore((state) => state.annotateProgress?.status === "running");
   const minimapEnabled = useSessionStore((state) => state.minimapEnabled);
   const mapShortcutEnabled = useSessionStore((state) => state.mapShortcutEnabled);
   const snapshotMode = useSessionStore((state) => state.snapshotMode);
@@ -114,6 +117,7 @@ export function SettingsDialog(): ReactNode {
                   <SessionLoadActions />
                   <button className="btn" onClick={resetToSample} title={t.header.resetTitle}>{t.header.reset}</button>
                 </div>
+                <SessionLoadStatus />
               </fieldset>
             )}
 
@@ -140,7 +144,7 @@ export function SettingsDialog(): ReactNode {
                       <button
                         className="btn"
                         onClick={() => { setAnnotationRunMode("failed"); void annotateAll(); }}
-                        disabled={!hasDoc || providerId === "none"}
+                        disabled={!hasDoc || providerId === "none" || isAnnotating}
                         title={providerId === "none" ? t.header.annotateDisabled : undefined}
                       >
                         {t.header.annotateFailedCount(failedCount)}
@@ -149,13 +153,16 @@ export function SettingsDialog(): ReactNode {
                     <button
                       className="btn danger"
                       onClick={() => { setAnnotationRunMode("all"); void annotateAll(); }}
-                      disabled={!hasDoc || providerId === "none"}
+                      disabled={!hasDoc || providerId === "none" || isAnnotating}
                       title={providerId === "none" ? t.header.annotateDisabled : undefined}
                     >
                       {t.header.annotateAll}
                     </button>
                   </div>
                   <p className="row-span option-hint">{t.settings.batchModeHint}</p>
+                  <div className="row-span">
+                    <AnnotateProgress />
+                  </div>
 
                   <span className="row-span cache-row">
                     <span className="cache-status">{t.header.cachedAnnotationCount(cachedAnnotationCount)}</span>

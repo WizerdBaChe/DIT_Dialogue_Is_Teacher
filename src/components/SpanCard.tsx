@@ -79,7 +79,7 @@ export function SpanCard({ itemId, node }: { itemId: string; node: SpanNode }): 
         <span className="title-text">{span.summary}</span>
       </div>
       <SpanBody node={node} />
-      {showAnnotations && providerId !== "none" && (
+      {showAnnotations && (providerId !== "none" || annotation) && (
         <AnnotationBlock
           annotation={annotation}
           loading={loading}
