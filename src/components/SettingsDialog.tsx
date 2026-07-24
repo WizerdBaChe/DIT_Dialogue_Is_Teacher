@@ -42,6 +42,7 @@ export function SettingsDialog(): ReactNode {
   const closeSettings = useSessionStore((state) => state.closeSettings);
   const setMinimapEnabled = useSessionStore((state) => state.setMinimapEnabled);
   const setMapShortcutEnabled = useSessionStore((state) => state.setMapShortcutEnabled);
+  const openWelcome = useSessionStore((state) => state.openWelcome);
 
   const missingCount = Math.max(0, viewItemCount - cachedCount);
 
@@ -184,6 +185,9 @@ export function SettingsDialog(): ReactNode {
                 <select id="hdr-locale" aria-label={t.header.languageLabel} value={locale} onChange={(event) => setLocale(event.target.value as typeof locale)}>
                   {LOCALE_ORDER.map((language) => <option key={language} value={language}>{LOCALE_NATIVE_NAME[language]}</option>)}
                 </select>
+                {!snapshotMode && (
+                  <button type="button" className="btn" onClick={openWelcome}>{t.settings.reopenWelcome}</button>
+                )}
               </div>
             </fieldset>
 

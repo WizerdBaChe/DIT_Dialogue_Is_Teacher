@@ -13,11 +13,13 @@ import { SessionMapDialog } from "@/components/SessionMapDialog";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { ParseNoticeDialog } from "@/components/ParseNoticeDialog";
 import { FolderLoadConfirmDialog } from "@/components/FolderLoadConfirmDialog";
+import { WelcomeDialog } from "@/components/WelcomeDialog";
 
 export default function App(): ReactNode {
   const loadFromText = useSessionStore((s) => s.loadFromText);
   const hasDoc = useSessionStore((s) => Boolean(s.doc));
   const loadPersistedConfig = useSessionStore((s) => s.loadPersistedConfig);
+  const checkOnboarding = useSessionStore((s) => s.checkOnboarding);
 
   // 首次載入內建範例，讓使用者立即看到效果 (可再用「載入 .jsonl」替換)。
   useEffect(() => {
@@ -28,6 +30,12 @@ export default function App(): ReactNode {
   // R8 §7: best-effort read of dit.config.json (BYOK keys); silently no-ops if absent (file:// or not served).
   useEffect(() => {
     void loadPersistedConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // R8.5：讀 IndexedDB 的「已看過歡迎導覽」旗標，尚未看過就開啟一次。
+  useEffect(() => {
+    void checkOnboarding();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -44,6 +52,7 @@ export default function App(): ReactNode {
       <SettingsDialog />
       <ParseNoticeDialog />
       <FolderLoadConfirmDialog />
+      <WelcomeDialog />
     </div>
   );
 }

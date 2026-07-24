@@ -54,6 +54,7 @@ import { sampleSession } from "@/fixtures";
 import type { SessionExport } from "@/core/export/contracts";
 import { MESSAGES, type Locale } from "@/i18n/locales";
 import { resetFallbackReport } from "@/core/diagnostics";
+import { readOnboardingCompleted, writeOnboardingCompleted } from "@/core/onboarding/repository";
 import {
   SessionLoadCancelledError,
   startSessionLoad,
@@ -361,6 +362,8 @@ interface SessionState {
   mapOpen: boolean;
   /** 設定對話框開關 (R7 設計改版：取代原本的內嵌 settings tray)。 */
   settingsOpen: boolean;
+  /** 首次使用歡迎彈窗開關；由 checkOnboarding() 依 IndexedDB 旗標決定是否在啟動時開啟。 */
+  welcomeOpen: boolean;
   mapZoomLevel: MapZoomLevel;
   mapFocusId: string | null;
   mapError: string | null;
@@ -469,6 +472,11 @@ interface SessionState {
   closeMap: () => void;
   openSettings: () => void;
   closeSettings: () => void;
+  /** App 掛載時呼叫一次：讀 IndexedDB 旗標，尚未看過歡迎導覽且非快照模式才開啟。 */
+  checkOnboarding: () => Promise<void>;
+  openWelcome: () => void;
+  /** 不論是按「開始使用」、略過、或 Escape/backdrop 關閉，都視為看過一次，寫入旗標。 */
+  completeOnboarding: () => void;
   setMapZoom: (level: MapZoomLevel, focusId?: string) => void;
   setMapFocus: (id: string) => void;
   jumpToMapItem: (id: string) => void;
@@ -505,6 +513,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   structureDrawerOpen: false,
   mapOpen: false,
   settingsOpen: false,
+  welcomeOpen: false,
   mapZoomLevel: "global",
   mapFocusId: null,
   mapError: null,
@@ -898,6 +907,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   closeSettings: () => set({ settingsOpen: false }),
+
+  checkOnboarding: async () => {
+    if (get().snapshotMode) return;
+    const completed = await readOnboardingCompleted();
+    if (!completed) set({ welcomeOpen: true });
+  },
+
+  openWelcome: () => set({ welcomeOpen: true, settingsOpen: false }),
+
+  completeOnboarding: () => {
+    set({ welcomeOpen: false });
+    void writeOnboardingCompleted();
+  },
 
   setMapZoom: (mapZoomLevel, focusId) => set((state) => ({
     mapZoomLevel,

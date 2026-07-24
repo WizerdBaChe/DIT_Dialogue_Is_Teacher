@@ -69,6 +69,7 @@ const zhTW = {
     batchModeHint: "「重試失敗」只補跑失敗的項目；「全部講解」會覆蓋既有講解結果。",
     cacheClearHint: "清除後下次講解需要重新呼叫 AI，本機快取不會自動恢復。",
     mapShortcutHint: "開啟後，在一般畫面按 M 鍵可快速開關 Session 地圖。",
+    reopenWelcome: "重新顯示歡迎導覽",
   },
 
   workspace: {
@@ -130,6 +131,19 @@ const zhTW = {
     hint: "DIT 一次只能顯示一個 session；建議先取消，只選取那一個 session 自己的資料夾（可以包含它的 subagents/ 子資料夾）。",
     cancel: "取消，重新選擇",
     proceed: "我知道風險，仍要載入",
+  },
+
+  /** 首次使用歡迎彈窗：語言 + 講解 AI 模式，兩者都是既有設定的入口，選了立即生效。 */
+  welcome: {
+    title: "歡迎使用 DIT",
+    intro: "先選好語言和講解 AI 模式，隨時可以在「設定」裡再調整。",
+    languageStepLabel: "1. 使用語言",
+    providerStepLabel: "2. 講解 AI 模式",
+    moreOptions: "更多選項",
+    fewerOptions: "收起更多選項",
+    skip: "先略過，我自己看看",
+    start: "開始使用",
+    providerFollowUpHint: "選好後會直接帶你到「設定」把連線細節填完。",
   },
 
   structure: {
@@ -517,6 +531,7 @@ const en: Messages = {
     batchModeHint: "\"Retry failed\" only reruns failures; \"Annotate all\" overwrites existing notes.",
     cacheClearHint: "Clearing means the next note has to call the AI again — the local cache won't come back on its own.",
     mapShortcutHint: "When on, pressing M on the main screen quickly opens or closes the Session Map.",
+    reopenWelcome: "Show the welcome tour again",
   },
 
   workspace: {
@@ -577,6 +592,18 @@ const en: Messages = {
     hint: "DIT can only show one session at a time. Consider cancelling and selecting just that one session's own folder (its subagents/ subfolder is fine to include).",
     cancel: "Cancel, pick again",
     proceed: "I understand the risk, load anyway",
+  },
+
+  welcome: {
+    title: "Welcome to DIT",
+    intro: "Pick your language and notes AI mode first — you can change either later in Settings.",
+    languageStepLabel: "1. Language",
+    providerStepLabel: "2. Notes AI mode",
+    moreOptions: "More options",
+    fewerOptions: "Fewer options",
+    skip: "Skip, I'll look around first",
+    start: "Get started",
+    providerFollowUpHint: "We'll take you straight to Settings to finish the connection details.",
   },
 
   structure: {
