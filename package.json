@@ -1,7 +1,7 @@
 {
   "name": "dit-dialogue-is-teacher",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "description": "把 AI coding agent 的執行軌跡轉成可學習的結構化節點視圖",
   "scripts": {
