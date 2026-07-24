@@ -58,9 +58,33 @@ describe("SettingsDialog (R7 settings-dialog redesign)", () => {
     openDialog();
     const hints = Array.from(document.querySelectorAll(".option-hint")).map((el) => el.textContent);
     expect(hints).toHaveLength(3);
-    expect(hints.some((text) => text?.includes("未處理"))).toBe(true);
+    expect(hints.some((text) => text?.includes("重試失敗"))).toBe(true);
     expect(hints.some((text) => text?.includes("重新呼叫"))).toBe(true);
     expect(hints.some((text) => text?.includes("M"))).toBe(true);
+  });
+
+  it("shows a plain-text missing count plus a standalone red 全部講解 button (not hidden behind a select)", () => {
+    render(<SettingsDialog />);
+    openDialog();
+    const batchControl = document.querySelector(".batch-control");
+    expect(batchControl?.querySelector("select")).toBeNull();
+    expect(batchControl?.querySelector(".annotate-missing-count")).not.toBeNull();
+    const allButton = Array.from(batchControl?.querySelectorAll(".btn") ?? []).find((el) => el.textContent === "全部講解");
+    expect(allButton).toBeDefined();
+    expect(allButton?.classList.contains("danger")).toBe(true);
+  });
+
+  it("only shows the 重試失敗 button once there are failed annotations", () => {
+    render(<SettingsDialog />);
+    openDialog();
+    let batchControl = document.querySelector(".batch-control");
+    expect(Array.from(batchControl?.querySelectorAll(".btn") ?? []).some((el) => el.textContent?.startsWith("重試失敗"))).toBe(false);
+
+    act(() => {
+      useSessionStore.setState({ annotationErrors: { "some-id": "boom" } });
+    });
+    batchControl = document.querySelector(".batch-control");
+    expect(Array.from(batchControl?.querySelectorAll(".btn") ?? []).some((el) => el.textContent?.startsWith("重試失敗"))).toBe(true);
   });
 
   it("closes on Escape (dialog cancel) and clears settingsOpen", () => {

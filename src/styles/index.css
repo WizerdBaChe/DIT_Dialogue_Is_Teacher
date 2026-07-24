@@ -275,6 +275,9 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .btn.primary { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 .btn.primary:hover { background: var(--accent-primary); color: #fff; }
+/* 「全部講解」等有風險/花費疑慮的批次操作：紅底白字，跟一般 .btn 明顯區隔，避免被誤觸。 */
+.btn.danger { border-color: var(--danger); background: var(--danger); color: #fff; font-weight: 600; }
+.btn.danger:hover { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--rule); color: var(--text-dark); background: transparent; }
 /* R7A-06: 12px 階梯外，就近取 --fs-sm(12.5px)；.toggle 只在設定匣使用 */
 .toggle { display: flex; align-items: center; gap: 6px; font-family: var(--font-sans); font-size: var(--fs-sm); color: var(--text-muted); cursor: pointer; user-select: none; }
@@ -341,17 +344,10 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 
 /* 雲端面板：以暖色背景與 .disclaimer.cloud 的文字/背景標示「會外傳」的來源，不再靠色條。 */
 .cloud-panel { background: rgba(138, 106, 47, 0.05); border-bottom-color: var(--rule); }
-.batch-control { display: inline-flex; align-items: stretch; }
-.batch-control select {
-  max-width: 132px;
-  border: 1px solid var(--rule-strong);
-  border-right: 0;
-  background: var(--bg-card);
-  color: var(--text-main);
-  padding: 5px 6px;
-  font-size: var(--fs-xs);
-}
-.batch-control .btn { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+/* R8.5：從「select 選模式 + 一顆按鈕」改成「未講解剩餘數量文字 + 重試失敗(選用) + 全部講解」，
+   全部講解不再藏在下拉選單背後 (見 docs/rounds/r8.5-post-launch-ux)。 */
+.batch-control { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.annotate-missing-count { font-size: var(--fs-sm); color: var(--text-muted); white-space: nowrap; }
 .cache-status { color: var(--success); font-size: var(--fs-xs); white-space: nowrap; }
 .storage-notice { padding: 8px 28px; border-bottom: 1px solid var(--danger); color: var(--danger); background: rgba(154, 48, 48, 0.06); }
 

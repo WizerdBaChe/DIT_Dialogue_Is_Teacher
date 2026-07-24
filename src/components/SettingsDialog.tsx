@@ -28,7 +28,6 @@ export function SettingsDialog(): ReactNode {
   const viewItemCount = useSessionStore((state) => state.viewItems.length);
   const cachedCount = useSessionStore((state) => Object.keys(state.cachedForCurrentConfig).length);
   const failedCount = useSessionStore((state) => Object.keys(state.annotationErrors).length);
-  const annotationRunMode = useSessionStore((state) => state.annotationRunMode);
   const cachedAnnotationCount = useSessionStore((state) => state.cachedAnnotationCount);
   const minimapEnabled = useSessionStore((state) => state.minimapEnabled);
   const mapShortcutEnabled = useSessionStore((state) => state.mapShortcutEnabled);
@@ -44,11 +43,7 @@ export function SettingsDialog(): ReactNode {
   const setMinimapEnabled = useSessionStore((state) => state.setMinimapEnabled);
   const setMapShortcutEnabled = useSessionStore((state) => state.setMapShortcutEnabled);
 
-  const annotationCount = annotationRunMode === "missing"
-    ? Math.max(0, viewItemCount - cachedCount)
-    : annotationRunMode === "failed"
-      ? failedCount
-      : viewItemCount;
+  const missingCount = Math.max(0, viewItemCount - cachedCount);
 
   /** 跟 SessionMapDialog 同理：<dialog> 未開啟時 display:none，必須在 layout 階段先開，內容才量得到高度。
    *  focus 還原直接掛在這個 effect 的關閉分支，不依賴 <dialog> 的原生 'close' 事件觸發 onClose——
@@ -139,22 +134,24 @@ export function SettingsDialog(): ReactNode {
 
                   <span>{t.header.annotateModeLabel}</span>
                   <div className="batch-control">
-                    <select
-                      aria-label={t.header.annotateModeLabel}
-                      value={annotationRunMode}
-                      onChange={(event) => setAnnotationRunMode(event.target.value as "missing" | "failed" | "all")}
-                    >
-                      <option value="missing">{t.header.annotateModes.missing}</option>
-                      <option value="failed">{t.header.annotateModes.failed}</option>
-                      <option value="all">{t.header.annotateModes.all}</option>
-                    </select>
+                    <span className="annotate-missing-count">{t.header.annotateMissingCount(missingCount)}</span>
+                    {failedCount > 0 && (
+                      <button
+                        className="btn"
+                        onClick={() => { setAnnotationRunMode("failed"); void annotateAll(); }}
+                        disabled={!hasDoc || providerId === "none"}
+                        title={providerId === "none" ? t.header.annotateDisabled : undefined}
+                      >
+                        {t.header.annotateFailedCount(failedCount)}
+                      </button>
+                    )}
                     <button
-                      className="btn"
-                      onClick={() => void annotateAll()}
+                      className="btn danger"
+                      onClick={() => { setAnnotationRunMode("all"); void annotateAll(); }}
                       disabled={!hasDoc || providerId === "none"}
                       title={providerId === "none" ? t.header.annotateDisabled : undefined}
                     >
-                      {t.header.annotateCount(annotationRunMode, annotationCount)}
+                      {t.header.annotateAll}
                     </button>
                   </div>
                   <p className="row-span option-hint">{t.settings.batchModeHint}</p>
