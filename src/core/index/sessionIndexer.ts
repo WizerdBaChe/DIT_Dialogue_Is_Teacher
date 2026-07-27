@@ -20,6 +20,15 @@ import type { DirectoryFile, DirectorySource, SessionIndex, SessionIndexEntry, T
 
 export const INDEX_SCAN_HEAD_BYTES = 128 * 1024;
 export const INDEX_SCAN_TAIL_BYTES = 128 * 1024;
+/**
+ * 一行可能比整個檔頭視窗還大：夾帶截圖的使用者訊息會把 base64 影像塞進同一行 JSON，
+ * 實測有超過 128 KB 的。這種檔案的檔頭切片裡沒有任何一行是完整的，掃描會一無所獲，
+ * 而「開頭讀不到東西」若直接當成「沒有真人訊息」，就會把一份真人對話標成機器任務。
+ * 因此第一次掃不到紀錄時，把檔頭視窗放大一次再試。
+ */
+export const INDEX_SCAN_HEAD_MAX_BYTES = 1024 * 1024;
+/** 超過這個長度的單行不像一般紀錄，比較像夾帶了 base64 影像；見 scanFile 的邊界處理。 */
+const OVERSIZED_LINE_BYTES = 32 * 1024;
 /** 上限存在是為了不讓一個超大目錄卡住 UI。超過就明說被略過幾個，絕不靜默截斷。 */
 export const INDEX_MAX_FILES = 500;
 
@@ -33,7 +42,7 @@ interface ScanStats {
   firstHumanText: string | null;
   firstTimestamp: string | null;
   lastTimestamp: string | null;
-  humanPromptCount: number;
+  humanTurnCount: number;
   syntheticPromptCount: number;
   assistantCount: number;
   hasCompaction: boolean;
@@ -51,7 +60,7 @@ function emptyStats(): ScanStats {
     firstHumanText: null,
     firstTimestamp: null,
     lastTimestamp: null,
-    humanPromptCount: 0,
+    humanTurnCount: 0,
     syntheticPromptCount: 0,
     assistantCount: 0,
     hasCompaction: false,
@@ -64,15 +73,18 @@ function emptyStats(): ScanStats {
 interface ContentBlock { type?: string; text?: string }
 
 /**
- * 一筆紀錄算不算「真人 prompt」。
+ * 一筆紀錄算不算「真人出手的一個回合」，以及（若有）淨化後剩下的文字。
+ *
+ * 回合與文字要分開回報：`/doctor` 這類斜線指令淨化後文字整段消失，但那是一個人按下去的。
+ * 用「有沒有文字」當人機判準，會把每一個以斜線指令開場的 session 都標成機器任務。
  * 排除：isMeta (工具注入的 skill 內文、system-reminder)、壓縮摘要、tool_result 回填。
  */
-function humanPromptText(record: Record<string, unknown>): string | null {
+function humanTurn(record: Record<string, unknown>): { text: string | null } | null {
   if (record.type !== "user") return null;
   if (record.isMeta === true || record.isCompactSummary === true) return null;
   const content = (record.message as { content?: unknown } | undefined)?.content;
 
-  if (typeof content === "string") return stripInjectedPreamble(content).trim() || null;
+  if (typeof content === "string") return { text: stripInjectedPreamble(content).trim() || null };
   if (!Array.isArray(content)) return null;
 
   const blocks = content as ContentBlock[];
@@ -82,7 +94,7 @@ function humanPromptText(record: Record<string, unknown>): string | null {
     .map((block) => stripInjectedPreamble(block.text as string))
     .join("\n")
     .trim();
-  return text || null;
+  return { text: text || null };
 }
 
 function absorb(stats: ScanStats, record: Record<string, unknown>): void {
@@ -112,11 +124,12 @@ function absorb(stats: ScanStats, record: Record<string, unknown>): void {
       if (record.subtype === "compact_boundary") stats.hasCompaction = true;
       break;
     case "user": {
-      const text = humanPromptText(record);
-      if (!text) break;
-      stats.humanPromptCount += 1;
-      if (isSyntheticPrompt(text)) stats.syntheticPromptCount += 1;
-      else if (!stats.firstHumanText) stats.firstHumanText = text;
+      const turn = humanTurn(record);
+      if (!turn) break;
+      stats.humanTurnCount += 1;
+      if (!turn.text) break;
+      if (isSyntheticPrompt(turn.text)) stats.syntheticPromptCount += 1;
+      else if (!stats.firstHumanText) stats.firstHumanText = turn.text;
       break;
     }
     default:
@@ -159,6 +172,8 @@ async function readText(file: DirectoryFile, range?: { start: number; end: numbe
 interface ScanResult {
   stats: ScanStats;
   countsExact: boolean;
+  /** 檔頭切片裡至少有一行是完整的。false = 計數不可信，分類必須棄權。 */
+  headScanUsable: boolean;
   isClaudeCode: boolean;
 }
 
@@ -167,9 +182,8 @@ async function scanFile(file: DirectoryFile): Promise<ScanResult> {
   const seen = new Set<string>();
   const whole = file.size <= INDEX_SCAN_HEAD_BYTES + INDEX_SCAN_TAIL_BYTES;
 
-  const headText = whole
-    ? await readText(file)
-    : await readText(file, { start: 0, end: INDEX_SCAN_HEAD_BYTES });
+  let headWindow = INDEX_SCAN_HEAD_BYTES;
+  let headText = whole ? await readText(file) : await readText(file, { start: 0, end: headWindow });
 
   // 來源判定用檔頭：與載入時走的是同一個 detectAdapter，索引與載入不會有兩套看法。
   const adapter = detectAdapter(headText);
@@ -177,12 +191,33 @@ async function scanFile(file: DirectoryFile): Promise<ScanResult> {
 
   feed(stats, completeLines(headText, false, !whole), seen);
 
-  if (!whole) {
-    const tailText = await readText(file, { start: file.size - INDEX_SCAN_TAIL_BYTES, end: file.size });
-    feed(stats, completeLines(tailText, true, false), seen);
+  /*
+   * 視窗邊界必定切掉一行，而被切掉的那一行有時就是唯一的真人訊息：夾帶截圖的使用者訊息
+   * 會把 base64 影像塞進同一行 JSON，實測有 132 KB 的單行。落在檔頭邊界時，那則訊息整個
+   * 消失，計數變成 0，然後被判成「沒有真人訊息」＝機器任務——正是要避免的誤傷。
+   *
+   * 但也不能為此無條件放大：一般行長 1–25 KB，每個檔案都多讀就是幾十 MB 的浪費。
+   * 折衷是看**被切掉那一段有多長**：超過 32 KB 就不像普通一行，才值得再讀一次。
+   */
+  const straddling = headText.length - (headText.lastIndexOf("\n") + 1);
+  if (!whole && headWindow < INDEX_SCAN_HEAD_MAX_BYTES && straddling > OVERSIZED_LINE_BYTES) {
+    headWindow = Math.min(file.size, INDEX_SCAN_HEAD_MAX_BYTES);
+    headText = await readText(file, { start: 0, end: headWindow });
+    feed(stats, completeLines(headText, false, headWindow < file.size), seen);
   }
 
-  return { stats, countsExact: whole, isClaudeCode };
+  // 檔頭一筆完整紀錄都讀不到（第一行就超過放大後的視窗）：計數全不可信，分類必須棄權。
+  const headScanUsable = stats.recordCount > 0;
+
+  if (!whole) {
+    const tailStart = Math.max(headWindow, file.size - INDEX_SCAN_TAIL_BYTES);
+    if (tailStart < file.size) {
+      const tailText = await readText(file, { start: tailStart, end: file.size });
+      feed(stats, completeLines(tailText, true, false), seen);
+    }
+  }
+
+  return { stats, countsExact: whole, headScanUsable, isClaudeCode };
 }
 
 function firstLine(text: string, max: number): string {
@@ -250,10 +285,16 @@ export async function buildSessionIndex(
       continue;
     }
 
-    // 本輪只索引 Claude Code (作者裁決)。認不出來的不猜、也不列進清單。
-    if (!result.isClaudeCode) continue;
+    const { stats, countsExact, headScanUsable } = result;
 
-    const { stats, countsExact } = result;
+    /*
+     * 本輪只索引 Claude Code (作者裁決)。但「不是 Claude Code」與「讀不出來所以不知道」
+     * 是兩件事，不能都當成前者處理：
+     *  - 讀得到完整的行、而且 adapter 不認領 → 有把握地排除（Codex 或其他東西）。
+     *  - 一行完整的都讀不到 → 沒有把握，那就列出來標成「無法判定」，而不是靜默消失。
+     * 從清單上憑空少一個檔案，比誠實地說「不知道」更糟。
+     */
+    if (headScanUsable && !result.isClaudeCode) continue;
     const prefix = subagentPrefixFor(file.path);
     const subagentPaths = subagents.filter((candidate) => candidate.path.startsWith(prefix)).map((candidate) => candidate.path);
     const { title, titleSource } = pickTitle(stats, file.path);
@@ -262,9 +303,10 @@ export async function buildSessionIndex(
       path: file.path,
       hasAgentId: stats.hasAgentId,
       allSidechain: stats.recordCount > 0 && stats.sidechainCount === stats.recordCount,
-      humanPromptCount: stats.humanPromptCount,
+      humanTurnCount: stats.humanTurnCount,
       syntheticPromptCount: stats.syntheticPromptCount,
-      isClaudeCode: true,
+      headScanUsable,
+      isClaudeCode: result.isClaudeCode,
     });
 
     entries.push({
@@ -280,7 +322,7 @@ export async function buildSessionIndex(
       startedAt: stats.firstTimestamp,
       endedAt: stats.lastTimestamp,
       sizeBytes: file.size,
-      humanPromptCount: stats.humanPromptCount,
+      humanPromptCount: stats.humanTurnCount,
       assistantCount: stats.assistantCount,
       countsExact,
       hasCompaction: stats.hasCompaction,

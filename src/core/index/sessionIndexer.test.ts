@@ -166,6 +166,52 @@ describe("buildSessionIndex", () => {
     expect(entries[0].kind).toBe("dialogue");
   });
 
+  /**
+   * 誤傷回歸 1：`/doctor` 這類斜線指令淨化後文字整段消失。若用「有沒有文字」當人機判準，
+   * 每一個以斜線指令開場的 session 都會被標成機器任務——真實資料裡就有一個 51 則回覆的
+   * 工作階段被這樣誤判。
+   */
+  it("REGRESSION: a slash-command opener still counts as a human turn", async () => {
+    const slashOnly = transcript(
+      line({ type: "user", uuid: "u1", sessionId: "sd", message: { role: "user", content: "<command-message>doctor</command-message>\n<command-name>/doctor</command-name>" } }),
+      assistantLine("開始健檢"),
+    );
+    const { entries } = await buildSessionIndex(sourceOf([["p/slash.jsonl", slashOnly]]));
+    expect(entries[0]).toMatchObject({ kind: "dialogue", kindReason: "has-human-prompt", humanPromptCount: 1 });
+    // 標題另當別論：淨化後沒有文字可用，只能顯示檔名，而且要看得出是降級。
+    expect(entries[0].titleSource).toBe("filename");
+  });
+
+  /**
+   * 誤傷回歸 2：夾帶截圖的使用者訊息會把 base64 影像塞進同一行 JSON（實測 132 KB）。
+   * 那一行若剛好跨過檔頭視窗邊界就會被丟掉，計數歸零，然後被判成機器任務。
+   */
+  it("REGRESSION: an oversized line straddling the head window is recovered, not dropped", async () => {
+    const filler = Array.from({ length: 20 }, (_, i) => assistantLine(`pad-${i}`));
+    const huge = line({
+      type: "user",
+      uuid: "u-huge",
+      sessionId: "sh",
+      timestamp: "2026-07-20T00:00:00Z",
+      message: { role: "user", content: [{ type: "image", source: { data: "x".repeat(200 * 1024) } }, { type: "text", text: "這是我本人打的字，附了一張截圖" }] },
+    });
+    const tail = Array.from({ length: 20 }, (_, i) => assistantLine(`tail-${i}`));
+    const content = transcript(...filler, huge, ...tail);
+
+    const { entries } = await buildSessionIndex(sourceOf([["p/shot.jsonl", content]]));
+
+    expect(entries[0]).toMatchObject({ kind: "dialogue", kindReason: "has-human-prompt", humanPromptCount: 1 });
+    expect(entries[0].title).toContain("這是我本人打的字");
+  });
+
+  it("gives up rather than guessing when the head scan reads nothing at all", async () => {
+    // 第一行就大過放大後的視窗：什麼都讀不到，於是不判斷，而不是判成機器任務。
+    const monstrous = line({ type: "user", uuid: "u1", sessionId: "sm", message: { role: "user", content: "y".repeat(2 * 1024 * 1024) } });
+    const { entries } = await buildSessionIndex(sourceOf([["p/monster.jsonl", `${monstrous}\n${transcript(...Array.from({ length: 40 }, (_, i) => assistantLine(`t${i}`)))}`]]));
+
+    expect(entries[0]).toMatchObject({ kind: "unknown", kindReason: "insufficient-signal" });
+  });
+
   it("sorts newest first", async () => {
     const older = transcript(line({ type: "user", uuid: "u1", sessionId: "s1", timestamp: "2026-01-01T00:00:00Z", message: { role: "user", content: "old" } }));
     const newer = transcript(line({ type: "user", uuid: "u1", sessionId: "s2", timestamp: "2026-07-01T00:00:00Z", message: { role: "user", content: "new" } }));

@@ -89,6 +89,31 @@ diagnostics=[ warn FILE_UNRECOGNIZED ×1 (…/agent-a19da4e7585bd9a2b.meta.json)
 
 也就是：RC-1a 的 `.meta.json` 現在只是一條 warn，整份 session 正常載入；RC-1b 的「只有子代理」變成具名狀態，不再靜默把子代理當主檔。§0 驗收 (a) 的自動化部分成立，UI 部分待 M3 與 §5 手動驗收。
 
+## §1.6 M3 施工後實測與兩次誤傷修正（2026-07-28，真實資料）
+
+以完工後的索引器掃 `C:\Users\gunda\.claude\projects\`（218 個檔案）：
+
+```
+entries=109   耗時 ~450 ms
+kind        = { dialogue: 108, machine: 1 }
+kindReason  = { has-human-prompt: 108, no-human-prompt: 1 }
+titleSource = { custom: 72, ai: 11, derived: 25, filename: 1 }
+withSubagents=15   withCompaction=1   diagnostics=[]
+```
+
+**109 個 session 有 108 個顯示得出可讀標題**，唯一還顯示 HASH 的那個是 7 行的空 session（只有 `queue-operation` 與 `local_command`，沒有任何訊息），`machine/no-human-prompt` 判定正確。**唯一的啟發式規則（`synthetic-prompts-only`）在真實語料上一次都沒有觸發**，也就是這批資料裡沒有任何一筆是靠推測分類的。
+
+### 實測抓到的兩個誤傷（已修，各有回歸測試）
+
+作者特別要求「避免誤傷」，實測確實抓到兩個，兩個都是把**真人對話**標成機器任務：
+
+| # | 症狀 | 根因 | 修法 |
+|---|---|---|---|
+| 1 | `3f5c5d01`（51 則回覆的 `/doctor` 工作階段）被判為 `machine` | 判準是「淨化後還剩幾個字」。斜線指令 `<command-name>/doctor</command-name>` 淨化後整段消失，於是計數為 0 | 改數「真人**出手**的回合」(`humanTurnCount`)，與「還剩多少文字」分開。文字只用來取標題 |
+| 2 | `c32fe685`（附截圖的真人 prompt）被判為 `machine` | 那則訊息把 base64 影像塞在同一行 JSON，單行 132 KB，剛好跨過 128 KB 檔頭邊界而被當成半行丟掉 | 被切掉的殘段超過 32 KB 就不像普通一行，放大檔頭視窗（上限 1 MB）重讀一次 |
+
+連帶把偏誤方向統一成一條原則並補在三處：**寧可漏判機器，不可誤判真人**——機器語句用精確比對而非前綴比對；掃描讀不到任何完整行時回報「無法判定」而不是「沒有真人訊息」；同理，讀不到完整行時也不得回報「不是 Claude Code」而把檔案從清單上抹掉。
+
 ---
 
 ## §2 決策登錄
