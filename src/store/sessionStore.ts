@@ -684,11 +684,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       sessionLoadProgress: { phase: "reading", loadedBytes: 0, totalBytes, lineCount: 0, sourcePath: null },
       error: null,
     });
-    const task = startSessionLoad(files, (progress) => {
-      if (activeSessionLoad === task) set({ sessionLoadProgress: progress });
-    });
-    activeSessionLoad = task;
+    // startSessionLoad 本身也會丟（建構 Worker 失敗：CSP、file://、瀏覽器不支援 module worker）。
+    // 它原本在 try 之外，於是那條路徑會讓進度條永遠停在「讀取中」——這正是 RC-5 的洩漏型缺陷，
+    // 由 DSM-4 的 transition test 撞出來。任何會丟的東西都必須在同一個 try 裡。
+    let task: SessionLoadTask | undefined;
     try {
+      task = startSessionLoad(files, (progress) => {
+        if (activeSessionLoad === task) set({ sessionLoadProgress: progress });
+      });
+      activeSessionLoad = task;
       const result = await task.promise;
       if (activeSessionLoad !== task) return;
       publishPipelineResult(result, origin);
@@ -702,14 +706,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         },
       });
     } catch (error) {
-      if (activeSessionLoad !== task) return;
+      // task 未建立時 activeSessionLoad 仍是上一輪的值（或 null），不能用它當守衛，
+      // 否則建構失敗這條路徑會整個被跳過，進度條又留在原地。
+      if (task && activeSessionLoad !== task) return;
       if (error instanceof SessionLoadCancelledError) {
         set({ sessionLoadProgress: null, error: null });
       } else {
         set({ sessionLoadProgress: null, error: toFatalDiagnostic(error), parseNoticeAcknowledged: false, cacheReady: true });
       }
     } finally {
-      if (activeSessionLoad === task) activeSessionLoad = null;
+      if (task && activeSessionLoad === task) activeSessionLoad = null;
     }
   },
 

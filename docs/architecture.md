@@ -100,7 +100,10 @@ Worker 只在完整 normalize→denoise→distill→validate 成功後回傳結�
 
 ## 6. 已知限制 / 待辦
 
-- subagent 主檔＋`subagents/*.jsonl` 已可經資料夾輸入合併，並以可展開群組＋輕量 SVG 局部分支呈現。
+- subagent 主檔＋`subagents/*.jsonl` 已可合併，並以可展開群組＋輕量 SVG 局部分支呈現。
+  **佈局更正 (R9)**：真實的 Claude Code 把主檔 `<id>.jsonl` 放在子代理資料夾 `<id>/subagents/` 的**同層兄弟**
+  位置，主檔不在資料夾內。R9 之前的文件與 fixture 都假設兩者同層，那個假設從未對真實資料驗證過。
+  配對由 Session 索引器負責，見 `docs/design/DIT_STATE_MACHINES.md` DSM-1／DSM-4。
 - React Flow 仍是未來高互動分支圖的選配升級，不是目前 R4 的依賴。
 - OpenCode 真實 Cloud UAT 已於 production preview 完成：OpenCode 1.17.20 經 Balanced 去識別化預覽
   與同意後，以 `deepseek-v4-flash-free` 成功回傳講解；離線、取消與失敗路徑也已驗證。
