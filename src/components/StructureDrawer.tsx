@@ -1,31 +1,23 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { useBlockingSurface } from "./useBlockingSurface";
 import { Sidebar } from "./Sidebar";
 
 type FocusDestination = "trigger" | "reader" | "workspace";
 
 export function StructureDrawer(): ReactNode {
-  const open = useSessionStore((state) => state.structureDrawerOpen);
   const closeStructureDrawer = useSessionStore((state) => state.closeStructureDrawer);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const focusDestination = useRef<FocusDestination>("trigger");
+  const surface = useBlockingSurface("structure-drawer", dialogRef, () => {
+    focusDestination.current = "trigger";
+    closeStructureDrawer();
+  });
 
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) {
-      try {
-        dialog.showModal();
-      } catch {
-        dialog.setAttribute("open", "");
-        dialog.dataset.modalFallback = "true";
-      }
-      window.requestAnimationFrame(() => titleRef.current?.focus());
-    } else if (!open && dialog.open) {
-      dialog.close();
-    }
-  }, [open]);
+    if (surface.isActive) window.requestAnimationFrame(() => titleRef.current?.focus());
+  }, [surface.isActive]);
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 720px)");
@@ -64,11 +56,7 @@ export function StructureDrawer(): ReactNode {
       id="structure-drawer"
       className="structure-drawer"
       aria-labelledby="structure-drawer-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        focusDestination.current = "trigger";
-        closeStructureDrawer();
-      }}
+      {...surface.dialogProps}
       onClose={() => {
         if (useSessionStore.getState().structureDrawerOpen) closeStructureDrawer();
         restoreFocus();

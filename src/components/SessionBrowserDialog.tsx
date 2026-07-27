@@ -9,6 +9,7 @@
  */
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { useBlockingSurface } from "./useBlockingSurface";
 import { useDiagnosticCopy, useT } from "@/i18n";
 import { isDirectoryPickerSupported, type SessionIndexEntry, type SessionKind } from "@/core/index";
 
@@ -45,35 +46,15 @@ export function SessionBrowserDialog(): ReactNode {
   const toggleBrowseFilter = useSessionStore((s) => s.toggleBrowseFilter);
   const loadIndexEntry = useSessionStore((s) => s.loadIndexEntry);
 
-  const open = browseState !== "no_directory";
+  const surface = useBlockingSurface("session-browser", dialogRef, closeBrowser);
   const supportsPicker = isDirectoryPickerSupported();
   const visible = entries.filter((entry) => filter[entry.kind]);
 
   useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) {
-      try {
-        dialog.showModal();
-      } catch {
-        dialog.setAttribute("open", "");
-        dialog.dataset.modalFallback = "true";
-      }
-    } else if (!open && dialog.open) {
-      try {
-        dialog.close();
-      } catch {
-        dialog.removeAttribute("open");
-        delete dialog.dataset.modalFallback;
-      }
-    }
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (!open) return;
+    if (!surface.isActive) return;
     const frame = window.requestAnimationFrame(() => titleRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [open]);
+  }, [surface.isActive]);
 
   const choose = (): void => {
     if (supportsPicker) void pickAndIndexDirectory();
@@ -93,16 +74,10 @@ export function SessionBrowserDialog(): ReactNode {
       id="session-browser-dialog"
       className="session-browser-dialog"
       aria-labelledby="session-browser-dialog-title"
-      // escapable：這裡沒有破壞性動作，Escape／backdrop 等同「關閉」。
-      onCancel={(event) => {
-        event.preventDefault();
-        closeBrowser();
-      }}
-      onClick={(event) => {
-        if (event.target === dialogRef.current) closeBrowser();
-      }}
+      // policy = escapable：這裡沒有破壞性動作，Escape／backdrop 等同「關閉」。
+      {...surface.dialogProps}
     >
-      {open && (
+      {surface.isActive && (
         <div className="session-browser-shell">
           <header className="session-browser-head">
             <div>

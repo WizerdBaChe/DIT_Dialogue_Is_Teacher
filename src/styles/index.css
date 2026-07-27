@@ -425,18 +425,19 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .cache-status { color: var(--success); font-size: var(--fs-xs); white-space: nowrap; }
 .storage-notice { padding: 8px 28px; border-bottom: 1px solid var(--danger); color: var(--danger); background: rgba(154, 48, 48, 0.06); }
 
+/* R9：改為真正的 <dialog> + showModal()。原本是一個自己畫半透明背景的固定定位 <section>，
+   宣稱 role="dialog" aria-modal="true"，但不在 top layer、不讓背景失效——送資料出去前的
+   同意閘門不能只是「看起來像」擋著。背景由 ::backdrop 畫，不再自己塗一層。 */
 .privacy-review {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(28, 26, 23, 0.54);
+  width: min(760px, 92vw); max-width: none; height: auto; max-height: min(88dvh, 860px); padding: 0;
+  inset: 0; margin: auto; border: 0; background: transparent; color: var(--text-main); overflow: visible;
 }
+.privacy-review[open] { display: block; }
+.privacy-review::backdrop { background: rgba(28, 26, 23, 0.54); }
+.privacy-review[data-modal-fallback="true"] { position: fixed; inset: 6dvh 4vw; z-index: 100; }
 .privacy-review-card {
-  width: min(760px, 100%);
-  max-height: calc(100vh - 48px);
+  width: 100%;
+  max-height: min(88dvh, 860px);
   overflow: auto;
   background: var(--bg-card);
   border-top: 4px solid var(--accent-secondary);

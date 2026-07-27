@@ -8,6 +8,7 @@
  */
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { useBlockingSurface } from "./useBlockingSurface";
 import { useDiagnosticCopy, useT } from "@/i18n";
 import { noticeable } from "@/core/diagnostics/contracts";
 
@@ -20,43 +21,23 @@ export function ParseNoticeDialog(): ReactNode {
 
   const diagnostics = useSessionStore((state) => state.diagnostics);
   const error = useSessionStore((state) => state.error);
-  const acknowledged = useSessionStore((state) => state.parseNoticeAcknowledged);
   const acknowledgeParseNotice = useSessionStore((state) => state.acknowledgeParseNotice);
+  // policy 是 action-only，onDismiss 不會被 Escape/backdrop 觸發；傳它只是為了介面完整。
+  const surface = useBlockingSurface("fatal-notice", dialogRef, acknowledgeParseNotice);
 
   // 兩個來源同一件事：批次層丟出的 fatal 走 `error`，文件層自帶的 fatal 走 diagnostics。
   const fatal = error ?? diagnostics.find((d) => d.tier === "fatal") ?? null;
-  const open = fatal !== null && !acknowledged;
   const others = noticeable(diagnostics).filter((d) => d !== fatal);
   const fatalCopy = fatal ? copy.fatal(fatal) : null;
 
   useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) {
-      try {
-        dialog.showModal();
-      } catch {
-        dialog.setAttribute("open", "");
-        dialog.dataset.modalFallback = "true";
-      }
-    } else if (!open && dialog.open) {
-      try {
-        dialog.close();
-      } catch {
-        dialog.removeAttribute("open");
-        delete dialog.dataset.modalFallback;
-      }
-    }
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (!open) {
+    if (!surface.isActive) {
       setDetailsOpen(false);
       return;
     }
     const frame = window.requestAnimationFrame(() => titleRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [open]);
+  }, [surface.isActive]);
 
   return (
     <dialog
@@ -64,10 +45,10 @@ export function ParseNoticeDialog(): ReactNode {
       id="parse-notice-dialog"
       className="parse-notice-dialog"
       aria-labelledby="parse-notice-dialog-title"
-      // 刻意不接：Escape／backdrop 點擊都不能關掉，只有按下面的確認按鈕才算看過。
-      onCancel={(event) => event.preventDefault()}
+      // policy = action-only：Escape／backdrop 點擊都不能關掉，只有確認按鈕才算看過。
+      {...surface.dialogProps}
     >
-      {open && fatalCopy && (
+      {surface.isActive && fatalCopy && (
         <div className="parse-notice-dialog-shell">
           <h2 id="parse-notice-dialog-title" ref={titleRef} tabIndex={-1}>{fatalCopy.title}</h2>
           <p className="parse-notice-body">{fatalCopy.body}</p>

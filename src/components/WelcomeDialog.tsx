@@ -5,6 +5,7 @@
  *  結構沿用 SettingsDialog 的既有 <dialog> 慣例 (showModal/close + focus 管理)。 */
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { useBlockingSurface } from "./useBlockingSurface";
 import type { ProviderId } from "@/types/spanTree";
 import { useT, useLocale, LOCALE_ORDER, LOCALE_NATIVE_NAME } from "@/i18n";
 import { Disclaimer } from "./Disclaimer";
@@ -22,7 +23,6 @@ export function WelcomeDialog(): ReactNode {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const welcomeOpen = useSessionStore((state) => state.welcomeOpen);
   const snapshotMode = useSessionStore((state) => state.snapshotMode);
   const providerId = useSessionStore((state) => state.providerId);
   const setProvider = useSessionStore((state) => state.setProvider);
@@ -37,36 +37,16 @@ export function WelcomeDialog(): ReactNode {
     if (shouldOpenSettings) openSettings();
   };
 
-  const open = welcomeOpen && !snapshotMode;
+  const surface = useBlockingSurface("welcome", dialogRef, completeOnboarding);
 
   useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) {
-      try {
-        dialog.showModal();
-      } catch {
-        dialog.setAttribute("open", "");
-        dialog.dataset.modalFallback = "true";
-      }
-    } else if (!open && dialog.open) {
-      try {
-        dialog.close();
-      } catch {
-        dialog.removeAttribute("open");
-        delete dialog.dataset.modalFallback;
-      }
-    }
-  }, [open]);
-
-  useLayoutEffect(() => {
-    if (!open) {
+    if (!surface.isActive) {
       setMoreOpen(false);
       return;
     }
     const frame = window.requestAnimationFrame(() => titleRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [open]);
+  }, [surface.isActive]);
 
   if (snapshotMode) return null;
 
@@ -88,15 +68,9 @@ export function WelcomeDialog(): ReactNode {
       id="welcome-dialog"
       className="welcome-dialog"
       aria-labelledby="welcome-dialog-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        completeOnboarding();
-      }}
-      onClick={(event) => {
-        if (event.target === dialogRef.current) completeOnboarding();
-      }}
+      {...surface.dialogProps}
     >
-      {welcomeOpen && (
+      {surface.isActive && (
         <div className="welcome-dialog-shell">
           <h2 id="welcome-dialog-title" ref={titleRef} tabIndex={-1}>{t.welcome.title}</h2>
           <p className="welcome-intro">{t.welcome.intro}</p>

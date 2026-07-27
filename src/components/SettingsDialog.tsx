@@ -3,6 +3,7 @@
  *  關閉時 focus 還給觸發按鈕。詳見 docs/rounds/r7-multi-source-and-layout/DESIGN_R7_SETTINGS_DIALOG_v0.1.md。 */
 import { useLayoutEffect, useEffect, useRef, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { useBlockingSurface } from "./useBlockingSurface";
 import type { ProviderId } from "@/types/spanTree";
 import { useT, useLocale, LOCALE_ORDER, LOCALE_NATIVE_NAME } from "@/i18n";
 import { Disclaimer } from "./Disclaimer";
@@ -22,7 +23,6 @@ export function SettingsDialog(): ReactNode {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  const settingsOpen = useSessionStore((state) => state.settingsOpen);
   const hasDoc = useSessionStore((state) => Boolean(state.doc));
   const providerId = useSessionStore((state) => state.providerId);
   const showAnnotations = useSessionStore((state) => state.showAnnotations);
@@ -52,34 +52,19 @@ export function SettingsDialog(): ReactNode {
   /** 跟 SessionMapDialog 同理：<dialog> 未開啟時 display:none，必須在 layout 階段先開，內容才量得到高度。
    *  focus 還原直接掛在這個 effect 的關閉分支，不依賴 <dialog> 的原生 'close' 事件觸發 onClose——
    *  實測發現該事件在部分瀏覽器環境下不會同步 (甚至不會) 觸發，等它來會讓 focus 還原整個失效。 */
+  const surface = useBlockingSurface("settings", dialogRef, closeSettings);
+
+  /** focus 還原不依賴 <dialog> 的原生 'close' 事件——實測部分瀏覽器不會同步（甚至不會）觸發。 */
   useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (settingsOpen && !dialog.open) {
-      try {
-        dialog.showModal();
-      } catch {
-        dialog.setAttribute("open", "");
-        dialog.dataset.modalFallback = "true";
-      }
-    } else if (!settingsOpen && dialog.open) {
-      try {
-        dialog.close();
-      } catch {
-        dialog.removeAttribute("open");
-        delete dialog.dataset.modalFallback;
-      }
-      window.requestAnimationFrame(() => {
-        document.getElementById("settings-toggle-btn")?.focus();
-      });
-    }
-  }, [settingsOpen]);
+    if (surface.isActive) return;
+    window.requestAnimationFrame(() => document.getElementById("settings-toggle-btn")?.focus());
+  }, [surface.isActive]);
 
   useEffect(() => {
-    if (!settingsOpen) return;
+    if (!surface.isActive) return;
     const frame = window.requestAnimationFrame(() => titleRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
-  }, [settingsOpen]);
+  }, [surface.isActive]);
 
   return (
     <dialog
@@ -87,20 +72,12 @@ export function SettingsDialog(): ReactNode {
       id="settings-dialog"
       className="settings-dialog"
       aria-labelledby="settings-dialog-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        closeSettings();
-      }}
+      {...surface.dialogProps}
       onClose={() => {
         if (useSessionStore.getState().settingsOpen) closeSettings();
       }}
-      onClick={(event) => {
-        // 點擊 backdrop 時，原生 <dialog> 的 click 事件 target 就是 dialog 元素本身
-        // （backdrop 不是可命中的子節點）；點在 shell 內容上的 target 永遠是某個子元素。
-        if (event.target === dialogRef.current) closeSettings();
-      }}
     >
-      {settingsOpen && (
+      {surface.isActive && (
         <div className="settings-dialog-shell">
           <header className="settings-dialog-header">
             <h2 id="settings-dialog-title" ref={titleRef} tabIndex={-1}>{t.settings.dialogTitle}</h2>
