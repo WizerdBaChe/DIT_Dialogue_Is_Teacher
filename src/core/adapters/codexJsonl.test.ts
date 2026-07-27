@@ -119,7 +119,7 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
 
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toHaveLength(0);
-    expect(result.warnings).toEqual(["未從輸入中解析出任何可呈現的事件。"]);
+    expect(result.diagnostics).toEqual([{ tier: "warn", code: "NO_EVENTS" }]);
   });
 
   it("extracts the real exec tool name from the wrapped JS call, falling back to 'exec' with a warning", () => {
@@ -131,7 +131,7 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events[0]).toMatchObject({ toolName: "update_plan" });
     expect(result.events[1]).toMatchObject({ toolName: "exec" });
-    expect(result.warnings.some((w) => w.includes("無法從 exec input 抽出工具名"))).toBe(true);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED" }));
   });
 
   it("pairs patch_apply_end back into the originating apply_patch exec call (§B4.4)", () => {
@@ -172,7 +172,7 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toHaveLength(1);
     expect(result.events[0].kind).toBe("unknown");
-    expect(result.warnings.some((w) => w.includes("patch_apply_end 找不到對應的"))).toBe(true);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "CODEX_EVENT_UNPAIRED", detail: "patch_apply_end" }));
   });
 
   it("emits self-explanatory lifecycle marker events for turn_aborted/thread_rolled_back/context_compacted", () => {
@@ -198,11 +198,8 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(lines.join("\n"));
 
     expect(result.events.filter((e) => e.kind === "unknown")).toHaveLength(0);
-    expect(result.warnings).toContain(
-      "略過 8 筆子代理協調事件（inter_agent_communication_metadata／sub_agent_activity／agent_message，無可呈現內容）。",
-    );
-    expect(result.warnings.some((w) => w.includes('未知型別 "inter_agent_communication_metadata"'))).toBe(false);
-    expect(result.warnings.some((w) => w.includes('未知型別 "event_msg/sub_agent_activity"'))).toBe(false);
+    expect(result.diagnostics).toContainEqual({ tier: "info", code: "CODEX_COORDINATION_SKIPPED", count: 8 });
+    expect(result.diagnostics.some((d) => d.code === "UNKNOWN_RECORD_TYPE")).toBe(false);
   });
 
   it("other unknown types are unaffected by the known-noise drop and still aggregate per-type (R7-INV-7 v2 part (a))", () => {
@@ -210,7 +207,7 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(lines.join("\n"));
 
     expect(result.events.filter((e) => e.kind === "unknown")).toHaveLength(3);
-    expect(result.warnings).toContain('未知型別 "some_brand_new_type" ×3，已寬容收納。');
+    expect(result.diagnostics).toContainEqual({ tier: "warn", code: "UNKNOWN_RECORD_TYPE", detail: "some_brand_new_type", count: 3 });
   });
 
   it("strips a whitelisted injection preamble from a user message before rendering (R7.5 W1/RC-1)", () => {
@@ -248,9 +245,7 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     expect(result.events.every((e) => e.kind === "unknown")).toBe(true);
     expect(result.events[0].text).toContain("auto-review");
     expect(result.events[1].text).toContain("允許");
-    expect(result.warnings).toContain(
-      "偵測到 2 筆 Codex 自動核准審查（auto-review）記錄，內容多為機器轉述歷史與 JSON 裁決，通常無教學價值；已在原時序位置精簡為標記卡，原始資料未被刪除。",
-    );
+    expect(result.diagnostics).toContainEqual({ tier: "info", code: "CODEX_AUTO_REVIEW_CONDENSED", count: 2 });
   });
 
   it("shows an unrecognized auto-review outcome code raw rather than guessing a label", () => {
@@ -291,6 +286,6 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const raw = `${line("session_meta", { session_id: "s1" })}\n{not valid json,,,\n${line("event_msg", { type: "token_count" })}`;
     expect(() => codexJsonlAdapter.parse(raw)).not.toThrow();
     const result = codexJsonlAdapter.parse(raw);
-    expect(result.warnings).toContain("1 行 JSON 解析失敗，已略過。");
+    expect(result.diagnostics).toContainEqual({ tier: "warn", code: "LINE_PARSE_FAILED", count: 1 });
   });
 });
