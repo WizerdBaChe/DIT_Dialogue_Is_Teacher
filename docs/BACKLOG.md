@@ -127,8 +127,24 @@
 - [ ] **蒸餾 preset v1 格式待定稿**：`DistilledSkeleton` 的規則與欄位目前為預設版，後續再依魚骨需求調整
       （例如 spine 是否要納入「根因確認」節點、rib 分類粒度、label 來源改用 LLM）。
 - [ ] 全局摘要（跨節點濃縮）。
-- [ ] subagent 跨檔 (`subagents/*.jsonl`) 串接。
-- [ ] pipeline 單元測試（adapter→denoise→distill 快照）。
+
+## 🔁 狀態機既有債（R9 盤點時記錄，**非 R9 造成**）
+
+盤點全文見 [`docs/design/DIT_STATE_MACHINES.md`](design/DIT_STATE_MACHINES.md) §3。四項在 R9 之前就存在，
+本輪刻意不動以免把「修 A 順手改 B」混進同一個驗收面。
+
+- [ ] **DSM-7 [untracked]** — `pendingPrivacyReviewer` 是 `sessionStore.ts` 的模組層變數而非 state。
+      「有沒有人在等同意」因此無法被選擇器觀察，也不會隨 state 快照進入測試視野。R9 已把它的
+      *表面* 納入阻斷面仲裁，resolver 的歸屬未動。
+- [ ] **DSM-8** — `cacheReady` 有三個寫入點（發布、還原完成、還原失敗）。同檔的 `cacheLoadGeneration`
+      世代守衛是**寫對的**，值得當作範本保留；要改的只有這個布林。
+- [ ] **DSM-9 [untracked]** — `replayTimer` 是模組層變數。「正在播放」同時存在於 `isPlaying` 與
+      「timer 是否存在」，兩者靠 `pause()` 手動同步；漏掉一次呼叫就會不一致。
+- [ ] **DSM-10 [overlap]** — `primaryView` 與抽屜/地圖 boolean 部分重疊：地圖既是一種「檢視」又是
+      一個「阻斷面」。R9 只統一了後者。
+- [ ] **渲染層機器缺少行程內觀察者**（Prism F7 同型）：vitest 跑 node，看不到 top layer、backdrop、
+      遮蔽與可點擊性。目前靠「斷言 showModal 真的被呼叫」+ 手動驗收補；未來的版面/地圖工作若要
+      自動化，需要獨立的 `tests/e2e/`。
 
 ## ✅ 已完成（移出 backlog 供對照）
 - 高密度學習模式（卡片時間軸）+ 降噪/標籤/群組 + 重播。
