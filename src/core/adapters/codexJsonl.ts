@@ -35,6 +35,7 @@
  *
  * 容錯原則：單行 JSON 解析失敗只記 warning 並跳過，絕不整體拋例外。
  */
+import type { Diagnostic } from "@/core/diagnostics/contracts";
 import type { SourceAdapter, ParseResult, RawEvent } from "./types";
 import { stripInjectedPreamble } from "@/core/text/preamble";
 
@@ -135,7 +136,9 @@ const NO_EVENT_EVENT_MSG_TYPES = new Set([
 export class CodexJsonlAccumulator {
   private readonly events: RawEvent[] = [];
   private readonly unknownTypeCounts = new Map<string, number>();
-  private readonly oneOffWarnings: string[] = [];
+  /** R9：改記代碼＋計數，不組句子；文案在 i18n/diagnosticCopy.ts。 */
+  private readonly unpairedEventCounts = new Map<string, number>();
+  private execToolNameUnresolved = 0;
   private readonly meta: ParseResult["meta"] = {
     source: "codex",
     tool: "codex",
@@ -303,7 +306,7 @@ export class CodexJsonlAccumulator {
         const input = payload?.input;
         const match = typeof input === "string" ? EXEC_TOOL_NAME_RE.exec(input) : null;
         const toolName = match?.[1];
-        if (!toolName) this.oneOffWarnings.push(`無法從 exec input 抽出工具名（行 ${this.lineNo}）。`);
+        if (!toolName) this.execToolNameUnresolved += 1;
         const event: RawEvent = {
           kind: "tool_use",
           timestamp,
@@ -403,7 +406,7 @@ export class CodexJsonlAccumulator {
     if (subType === "patch_apply_end") {
       const entry = this.consumeNearestPendingExec((name) => name === "apply_patch", asStringOrUndefined(payload?.turn_id));
       if (!entry) {
-        this.oneOffWarnings.push(`patch_apply_end 找不到對應的 apply_patch 呼叫，已降級為獨立事件。`);
+        this.unpairedEventCounts.set("patch_apply_end", (this.unpairedEventCounts.get("patch_apply_end") ?? 0) + 1);
         this.pushEvent({ kind: "unknown", timestamp, text: "套用修改（找不到對應的呼叫）", raw: payload });
         return;
       }
@@ -419,7 +422,7 @@ export class CodexJsonlAccumulator {
     if (subType === "mcp_tool_call_end") {
       const entry = this.consumeNearestPendingExec((name) => name.startsWith("mcp__"), asStringOrUndefined(payload?.turn_id));
       if (!entry) {
-        this.oneOffWarnings.push(`mcp_tool_call_end 找不到對應的 mcp__* 呼叫，已降級為獨立事件。`);
+        this.unpairedEventCounts.set("mcp_tool_call_end", (this.unpairedEventCounts.get("mcp_tool_call_end") ?? 0) + 1);
         this.pushEvent({ kind: "unknown", timestamp, text: "MCP 工具呼叫（找不到對應的呼叫）", raw: payload });
         return;
       }
@@ -444,7 +447,7 @@ export class CodexJsonlAccumulator {
     if (subType === "web_search_end") {
       const entry = this.consumeNearestPendingExec((name) => name === "web__run", asStringOrUndefined(payload?.turn_id));
       if (!entry) {
-        this.oneOffWarnings.push(`web_search_end 找不到對應的 web__run 呼叫，已降級為獨立事件。`);
+        this.unpairedEventCounts.set("web_search_end", (this.unpairedEventCounts.get("web_search_end") ?? 0) + 1);
         this.pushEvent({ kind: "unknown", timestamp, text: "網頁搜尋（找不到對應的呼叫）", raw: payload });
         return;
       }
@@ -484,27 +487,30 @@ export class CodexJsonlAccumulator {
   }
 
   finish(): ParseResult {
-    const warnings: string[] = [...this.oneOffWarnings];
+    const diagnostics: Diagnostic[] = [];
+    if (this.execToolNameUnresolved > 0) {
+      diagnostics.push({ tier: "warn", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: this.execToolNameUnresolved });
+    }
+    for (const [subType, count] of this.unpairedEventCounts) {
+      diagnostics.push({ tier: "warn", code: "CODEX_EVENT_UNPAIRED", detail: subType, count });
+    }
     for (const [type, count] of this.unknownTypeCounts) {
-      warnings.push(
+      diagnostics.push(
         type === "__parse_error__"
-          ? `${count} 行 JSON 解析失敗，已略過。`
-          : `未知型別 "${type}" ×${count}，已寬容收納。`,
+          ? { tier: "warn", code: "LINE_PARSE_FAILED", count }
+          : { tier: "warn", code: "UNKNOWN_RECORD_TYPE", detail: type, count },
       );
     }
     if (this.droppedNoiseCount > 0) {
-      warnings.push(
-        `略過 ${this.droppedNoiseCount} 筆子代理協調事件（inter_agent_communication_metadata／sub_agent_activity／agent_message，無可呈現內容）。`,
-      );
+      diagnostics.push({ tier: "info", code: "CODEX_COORDINATION_SKIPPED", count: this.droppedNoiseCount });
     }
     if (this.autoReviewNoiseCount > 0) {
-      warnings.push(
-        `偵測到 ${this.autoReviewNoiseCount} 筆 Codex 自動核准審查（auto-review）記錄，內容多為機器轉述歷史與 JSON 裁決，通常無教學價值；已在原時序位置精簡為標記卡，原始資料未被刪除。`,
-      );
+      diagnostics.push({ tier: "info", code: "CODEX_AUTO_REVIEW_CONDENSED", count: this.autoReviewNoiseCount });
     }
-    if (this.events.length === 0) warnings.push("未從輸入中解析出任何可呈現的事件。");
-    return { meta: this.meta, events: this.events, warnings };
+    if (this.events.length === 0) diagnostics.push({ tier: "warn", code: "NO_EVENTS" });
+    return { meta: this.meta, events: this.events, diagnostics };
   }
+
 }
 
 export const codexJsonlAdapter: SourceAdapter = {

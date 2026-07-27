@@ -3,6 +3,7 @@
  * 每個來源 (Claude Code / Codex / 貼上) 實作此介面，將原始輸入轉成來源無關的 RawEvent[]。
  * 下游 Normalizer 只認 RawEvent[]，不認得任何特定來源格式。
  */
+import type { Diagnostic } from "@/core/diagnostics/contracts";
 import type { SessionMeta, SourceId } from "@/types/spanTree";
 
 /** 來源無關的中介事件種類。 */
@@ -44,8 +45,12 @@ export interface RawEvent {
 export interface ParseResult {
   meta: Partial<SessionMeta>;
   events: RawEvent[];
-  /** 解析過程的非致命警告 (損壞行、未知型別等)，供自檢與 UI 提示。 */
-  warnings: string[];
+  /**
+   * 解析過程的非致命診斷 (損壞行、未知型別、已處理的噪音)。
+   * R9：由 `warnings: string[]` 升級為分級的 `Diagnostic[]`——adapter 只給代碼與計數，
+   * 不組句子；文案在 `src/i18n/diagnosticCopy.ts` 唯一一張表裡。
+   */
+  diagnostics: Diagnostic[];
 }
 
 /** 逐行累積解析器，供 streaming 路徑使用；`parse()` 內部可直接以此組合實作。 */

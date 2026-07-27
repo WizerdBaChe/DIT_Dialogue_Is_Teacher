@@ -1,5 +1,6 @@
 import type { PipelineResult } from "@/core/pipeline";
 import { mergeFallbackReport } from "@/core/diagnostics";
+import { PipelineFatalError } from "@/core/diagnostics/contracts";
 import type { SessionBlobInput, SessionLoadProgress, SessionWorkerLoadRequest, SessionWorkerMessage } from "./contracts";
 
 interface SessionWorkerLike {
@@ -51,14 +52,17 @@ export function startSessionLoad(
       if (event.data.type === "complete") {
         mergeFallbackReport(event.data.fallbacks ?? []);
         resolve(event.data.result);
+      } else if (event.data.type === "cancelled") {
+        reject(new SessionLoadCancelledError());
+      } else {
+        reject(new PipelineFatalError(event.data.diagnostic.code, event.data.diagnostic.detail));
       }
-      else reject(new Error(event.data.message));
     };
     worker.onerror = (event) => {
       if (settled) return;
       settled = true;
       worker.terminate();
-      reject(new Error(event.message || "Session worker failed."));
+      reject(new PipelineFatalError("LOAD_FAILED", event.message || "Session worker failed."));
     };
   });
 

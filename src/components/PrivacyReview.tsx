@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
+import { useBlockingSurface } from "./useBlockingSurface";
 import { useT } from "@/i18n";
 import { PROVIDER_PRESETS } from "@/core/llm";
 
@@ -11,17 +12,30 @@ function isMetered(providerId: string): boolean {
   return preset ? preset.cost !== "free" : false;
 }
 
+/**
+ * 同意閘門。R9 (RC-4)：以前是一個 `<section role="dialog" aria-modal="true">`——宣稱自己是
+ * 阻斷面，實際上不在 top layer、不畫 backdrop、也不讓背景失效。要送資料出去之前的最後一道
+ * 確認，不能只是「看起來像」擋著。policy 是 `action-only`：Escape／backdrop 都不算答覆。
+ */
 export function PrivacyReview(): ReactNode {
   const t = useT();
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const review = useSessionStore((state) => state.privacyReview);
   const providerId = useSessionStore((state) => state.providerId);
   const approve = useSessionStore((state) => state.approvePrivacyReview);
   const cancel = useSessionStore((state) => state.cancelPrivacyReview);
-  if (!review) return null;
+  const surface = useBlockingSurface("privacy-review", dialogRef, cancel);
 
-  const findings = Object.entries(review.inspection.summary).filter(([, count]) => Boolean(count));
+  const findings = review ? Object.entries(review.inspection.summary).filter(([, count]) => Boolean(count)) : [];
   return (
-    <section className="privacy-review" role="dialog" aria-modal="true" aria-labelledby="privacy-review-title">
+    <dialog
+      ref={dialogRef}
+      id="privacy-review"
+      className="privacy-review"
+      aria-labelledby="privacy-review-title"
+      {...surface.dialogProps}
+    >
+      {surface.isActive && review && (
       <div className="privacy-review-card">
         <p className="eyebrow">{t.privacy.eyebrow}</p>
         <h2 id="privacy-review-title">{t.privacy.title}</h2>
@@ -42,6 +56,7 @@ export function PrivacyReview(): ReactNode {
           <button type="button" className="btn primary" onClick={approve}>{t.privacy.send}</button>
         </div>
       </div>
-    </section>
+      )}
+    </dialog>
   );
 }
