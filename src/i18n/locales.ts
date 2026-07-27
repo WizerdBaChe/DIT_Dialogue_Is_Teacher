@@ -123,14 +123,57 @@ const zhTW = {
     previousPreserved: "載入期間保留目前文件；只有完整驗證通過後才會替換。",
   },
 
-  /** 資料夾載入數量/大小門檻確認彈窗 (防選錯上層目錄，如整包 .claude/projects/)。 */
-  folderGuard: {
-    title: "確定要載入這麼多檔案嗎？",
-    body: (count: number, sizeMiB: string) =>
-      `你選取了 ${count} 個檔案（共 ${sizeMiB} MiB）。這通常代表選到了上層資料夾（例如整個 .claude/projects/ 或好幾個月份的 Codex session），而不是單一個 session 的資料夾。`,
-    hint: "DIT 一次只能顯示一個 session；建議先取消，只選取那一個 session 自己的資料夾（可以包含它的 subagents/ 子資料夾）。",
-    cancel: "取消，重新選擇",
-    proceed: "我知道風險，仍要載入",
+  /** R9：Session 瀏覽器。把「載入資料夾」從盲選變成瀏覽後挑選。 */
+  browser: {
+    title: "選擇要看的 Session",
+    subtitle: (dir: string, count: number) => `${dir} · 共 ${count} 個 session`,
+    pick: "選擇資料夾",
+    repick: "換一個資料夾",
+    close: "關閉",
+    hintPath: "Claude Code 的 session 在 ~/.claude/projects/<專案>/；選那個專案資料夾，或選 projects/ 一次看全部。",
+    hintFallback: "這個瀏覽器不支援記住資料夾，每次都要重新選一次。",
+    picking: "等待你選擇資料夾…",
+    indexing: (done: number, total: number) => `讀取中… ${done}/${total}`,
+    indexFailedTitle: "讀不到這個資料夾",
+    retry: "重新選擇",
+    empty: "這個資料夾裡沒有找到 Claude Code 的 session。",
+    emptyFiltered: "目前的篩選條件下沒有 session；把上面的分類打開就會出現。",
+    loading: "載入中…",
+    filterLabel: "分類篩選",
+    columns: {
+      title: "標題",
+      project: "專案",
+      time: "時間",
+      steps: "步數",
+      size: "大小",
+    },
+    kinds: {
+      dialogue: "對話",
+      subagent: "子代理",
+      machine: "機器任務",
+      unknown: "無法判定",
+    },
+    kindReasons: {
+      "path-subagents": "位於 subagents/ 資料夾內",
+      "field-agentid": "紀錄帶有 agentId 欄位",
+      "all-sidechain": "每一筆都標記為子鏈",
+      "no-human-prompt": "整份沒有任何真人訊息",
+      "synthetic-prompts-only": "所有訊息都是機器代打的固定句（這條是推測，可能誤判）",
+      "has-human-prompt": "有真人輸入的訊息",
+      "insufficient-signal": "訊號不足以判定",
+      "not-claude-code": "不是 Claude Code 格式",
+    },
+    titleSources: {
+      custom: "你自己設定的標題",
+      ai: "AI 產生的標題",
+      derived: "取自第一則你說的話",
+      filename: "沒有標題可用，顯示檔名",
+    },
+    counts: (human: number, assistant: number, exact: boolean) =>
+      exact ? `${human} 問 / ${assistant} 答` : `≥ ${human} 問 / ≥ ${assistant} 答`,
+    subagentCount: (count: number) => `子代理 ${count}`,
+    compaction: "含壓縮",
+    open: "載入這一個",
   },
 
   /** 首次使用歡迎彈窗：語言 + 講解 AI 模式，兩者都是既有設定的入口，選了立即生效。 */
@@ -587,13 +630,56 @@ const en: Messages = {
     previousPreserved: "The current document stays available until the replacement passes full validation.",
   },
 
-  folderGuard: {
-    title: "Load this many files?",
-    body: (count: number, sizeMiB: string) =>
-      `You selected ${count} files (${sizeMiB} MiB total). This usually means a parent folder got selected (e.g. the whole .claude/projects/ or several months of Codex sessions) instead of a single session's folder.`,
-    hint: "DIT can only show one session at a time. Consider cancelling and selecting just that one session's own folder (its subagents/ subfolder is fine to include).",
-    cancel: "Cancel, pick again",
-    proceed: "I understand the risk, load anyway",
+  browser: {
+    title: "Pick a session",
+    subtitle: (dir: string, count: number) => `${dir} · ${count} sessions`,
+    pick: "Choose folder",
+    repick: "Choose another folder",
+    close: "Close",
+    hintPath: "Claude Code keeps sessions in ~/.claude/projects/<project>/. Pick that project folder, or pick projects/ to see everything at once.",
+    hintFallback: "This browser cannot remember the folder, so you will pick it again each time.",
+    picking: "Waiting for you to choose a folder…",
+    indexing: (done: number, total: number) => `Reading… ${done}/${total}`,
+    indexFailedTitle: "Could not read that folder",
+    retry: "Choose again",
+    empty: "No Claude Code sessions were found in this folder.",
+    emptyFiltered: "No sessions match the current filter; turn the categories above back on.",
+    loading: "Loading…",
+    filterLabel: "Filter by kind",
+    columns: {
+      title: "Title",
+      project: "Project",
+      time: "Time",
+      steps: "Steps",
+      size: "Size",
+    },
+    kinds: {
+      dialogue: "Dialogue",
+      subagent: "Subagent",
+      machine: "Machine run",
+      unknown: "Undetermined",
+    },
+    kindReasons: {
+      "path-subagents": "Lives under a subagents/ folder",
+      "field-agentid": "Records carry an agentId field",
+      "all-sidechain": "Every record is marked as a sidechain",
+      "no-human-prompt": "No human message anywhere in the file",
+      "synthetic-prompts-only": "Every prompt is a machine-issued fixed phrase (a guess — this one can be wrong)",
+      "has-human-prompt": "Contains messages a person typed",
+      "insufficient-signal": "Not enough signal to decide",
+      "not-claude-code": "Not a Claude Code transcript",
+    },
+    titleSources: {
+      custom: "Title you set yourself",
+      ai: "AI-generated title",
+      derived: "Taken from your first message",
+      filename: "No title available; showing the filename",
+    },
+    counts: (human: number, assistant: number, exact: boolean) =>
+      exact ? `${human} asked / ${assistant} replied` : `≥ ${human} asked / ≥ ${assistant} replied`,
+    subagentCount: (count: number) => `${count} subagents`,
+    compaction: "compacted",
+    open: "Load this one",
   },
 
   welcome: {

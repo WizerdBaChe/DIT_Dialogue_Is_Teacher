@@ -12,7 +12,7 @@ import { MapLauncher } from "@/components/MapLauncher";
 import { SessionMapDialog } from "@/components/SessionMapDialog";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { ParseNoticeDialog } from "@/components/ParseNoticeDialog";
-import { FolderLoadConfirmDialog } from "@/components/FolderLoadConfirmDialog";
+import { SessionBrowserDialog } from "@/components/SessionBrowserDialog";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
 
 export default function App(): ReactNode {
@@ -51,7 +51,7 @@ export default function App(): ReactNode {
       <SessionMapDialog />
       <SettingsDialog />
       <ParseNoticeDialog />
-      <FolderLoadConfirmDialog />
+      <SessionBrowserDialog />
       <WelcomeDialog />
     </div>
   );
