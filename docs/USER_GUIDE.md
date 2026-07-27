@@ -9,8 +9,16 @@ Ollama 與 OpenCode 講解是選配功能。
 
 載入 → 總覽 → 閱讀 → 結構跳轉 → 地圖 → 子代理 → 選配講解 → 匯出。
 
-1. **載入 Session**：選「載入 .jsonl」讀單一或多個檔案；選「載入 Session 資料夾」同時讀主檔與
-   `subagents/*.jsonl`。讀取期間會顯示階段、百分比、MiB 與行數；按「取消載入」會保留上一份有效 Session。
+1. **載入 Session**：選「載入 .jsonl」讀單一或多個檔案；選「載入 Session 資料夾」會開啟 **Session 瀏覽器**
+   ——先選一個目錄（例如 `~/.claude/projects/<專案>/`，或直接選 `projects/` 一次看全部），DIT 會列出裡面
+   每一個 session 的標題、時間、規模與分類，挑一個才真正載入。
+
+   > **為什麼需要瀏覽器**：Claude Code 的檔名都是 UUID，而且主檔 `<session-id>.jsonl` 與它的子代理資料夾
+   > `<session-id>/subagents/` 是**並排的兄弟**——主檔不在那個資料夾裡面。所以直接用系統檔案選擇器挑
+   > 「某個 session 的資料夾」只會拿到子代理紀錄。瀏覽器會替你把兩者配成一組，你不需要知道這個佈局。
+
+   讀取期間會顯示階段、百分比、MiB 與行數；按「取消載入」會保留上一份有效 Session。載入失敗會回到清單，
+   不會把你丟回空白畫面。
 2. **先看總覽**：啟動、載入成功或重置後都先進入總覽。確認來源、步驟數與解析提示，再按主按鈕開始或繼續閱讀。
 3. **沿 Reader 閱讀**：使用上一項、下一項或逐步瀏覽逐步移動。卡片保留思考、操作、參數、結果、群組與 why；
    手動選取會停止舊播放位置，讓 Header、結構與 Reader 指向同一項。
@@ -47,8 +55,16 @@ Ollama 與 OpenCode 講解是選配功能。
 
 Load → Overview → Reader → structure jump → Map → Subagents → optional explanations → export.
 
-1. **Load a Session**: use “Load .jsonl” for one or more files, or “Load Session folder” for the main transcript plus
-   `subagents/*.jsonl`. Loading shows phase, percent, MiB, and line count. Cancel keeps the previous valid Session.
+1. **Load a Session**: use “Load .jsonl” for one or more files, or “Load Session folder” to open the **Session browser** —
+   pick a directory (e.g. `~/.claude/projects/<project>/`, or `projects/` to see everything), and DIT lists every session in
+   it with title, time, size, and kind. Picking a row is what loads.
+
+   > **Why a browser**: Claude Code names files by UUID, and the main transcript `<session-id>.jsonl` sits *next to* its
+   > subagent folder `<session-id>/subagents/`, not inside it. Choosing "a session's folder" in a file picker therefore
+   > yields only subagent transcripts. The browser pairs them for you, so the layout never has to be your problem.
+
+   Loading shows phase, percent, MiB, and line count. Cancel keeps the previous valid Session. A failed load returns you to
+   the list rather than to an empty app.
 2. **Start at Overview**: startup, a successful load, and reset all return to Overview. Confirm the source, item count, and
    warnings, then use the primary action to start or continue.
 3. **Read in Reader**: move with Previous, Next, or Step through. Cards retain thinking, actions, parameters, results, groups,

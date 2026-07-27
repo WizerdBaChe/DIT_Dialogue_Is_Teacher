@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
-import { useT } from "@/i18n";
+import { useDiagnosticCopy, useT } from "@/i18n";
+import { noticeable } from "@/core/diagnostics/contracts";
 import {
   SKELETON_NODE_KIND_ORDER,
   SKELETON_NODE_SYMBOL,
@@ -15,7 +16,7 @@ export function OverviewView(): ReactNode {
   const t = useT();
   const doc = useSessionStore((state) => state.doc);
   const viewItems = useSessionStore((state) => state.viewItems);
-  const warnings = useSessionStore((state) => state.warnings);
+  const diagnostics = useSessionStore((state) => state.diagnostics);
   const error = useSessionStore((state) => state.error);
   const sessionOrigin = useSessionStore((state) => state.sessionOrigin);
   const activeId = useSessionStore((state) => state.activeId);
@@ -23,11 +24,12 @@ export function OverviewView(): ReactNode {
   const snapshotMode = useSessionStore((state) => state.snapshotMode);
   const startReading = useSessionStore((state) => state.startReading);
   const dismissError = useSessionStore((state) => state.dismissError);
+  const copy = useDiagnosticCopy();
 
   if (!doc) {
     return (
       <main className="main-content overview-view">
-        {error && <NoticeBanner tone="error" onDismiss={dismissError}>{error}</NoticeBanner>}
+        {error && <NoticeBanner tone="error" onDismiss={dismissError}>{copy.line(error)}</NoticeBanner>}
         <div className="empty-state overview-empty">
           <h2>{t.main.emptyTitle}</h2>
           <p>
@@ -57,7 +59,6 @@ export function OverviewView(): ReactNode {
 
   return (
     <main className="main-content overview-view">
-      {error && <NoticeBanner tone="error" onDismiss={dismissError}>{error}</NoticeBanner>}
       <section className="overview-card" aria-labelledby="overview-title">
         <span className="overview-badge">
           {sessionOrigin === "sample" ? t.overview.sampleBadge : t.overview.loadedBadge}
@@ -70,7 +71,7 @@ export function OverviewView(): ReactNode {
             <span className="overview-step-number" aria-hidden="true">1</span>
             <div>
               <h3>{t.overview.steps.confirmTitle}</h3>
-              <p>{t.overview.sessionSummary(doc.session.title, doc.session.source, viewItems.length, warnings.length)}</p>
+              <p>{t.overview.sessionSummary(doc.session.title, doc.session.source, viewItems.length, noticeable(diagnostics).length)}</p>
             </div>
           </li>
           <li>

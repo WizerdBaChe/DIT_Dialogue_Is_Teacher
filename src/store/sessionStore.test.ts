@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { __testAnnotationRepository, selectCurrentPosition, useSessionStore } from "./sessionStore";
+import { __sessionScopedKeys, __testAnnotationRepository, selectCurrentPosition, useSessionStore } from "./sessionStore";
 import { r4MainSession, r4SubagentSession, sampleSession } from "@/fixtures";
 import { buildSessionDocument } from "@/core/pipeline";
 import { buildViewModel } from "@/core/view/viewModel";
@@ -104,7 +104,10 @@ describe("multi-file session loading", () => {
     useSessionStore.getState().loadFromText("not-jsonl");
 
     expect(useSessionStore.getState().doc).toBe(previousDocument);
-    expect(useSessionStore.getState().error).toContain("無法辨識輸入格式");
+    // R9：error 是唯一的失敗擁有者，且帶著具名代碼而非一句字串 (RC-5)。
+    expect(useSessionStore.getState().error).toMatchObject({ tier: "fatal", code: "FILE_UNRECOGNIZED" });
+    // 新的 fatal 必須重新武裝阻斷面，即使上一份 session 的提示已被確認過。
+    expect(useSessionStore.getState().parseNoticeAcknowledged).toBe(false);
   });
 });
 
@@ -366,5 +369,50 @@ describe("restore notice lifecycle (LS-INV-6)", () => {
     useSessionStore.getState().loadFromFiles([{ path: "main.jsonl", content: sampleSession }]);
 
     expect(useSessionStore.getState().restoreNotice).toBeNull();
+  });
+});
+
+/**
+ * RC-5 的護欄：session 範圍的欄位只能有一份歸零清單。R9 之前有兩份（publishPipelineResult
+ * 一份、reset() 一份），新增欄位漏加就會留下一個永遠不會被清掉的旗標。
+ */
+describe("session-scoped state reset discipline (R9 RC-5)", () => {
+  /** 生命週期不屬於單一 session 的欄位——設定、能力狀態、UI 偏好、載入進度。 */
+  const NOT_SESSION_SCOPED = new Set([
+    "doc", "viewItems", "sessionOrigin", "primaryView", "sessionLoadProgress",
+    "browseState", "browseDirectoryName", "browseProgress", "indexEntries", "indexDiagnostics", "browseFilter",
+    "providerId", "showAnnotations", "structureCollapsed", "welcomeOpen", "minimapEnabled",
+    "mapShortcutEnabled", "locale", "ollamaConfig", "ollamaStatus", "cloudConfig", "openCodeStatus",
+    "presetConfigs", "presetStatus", "anthropicConfig", "anthropicStatus", "configFileLoaded",
+    "privacyPolicyId", "annotationRunMode", "cacheReady", "storageNotice", "snapshotMode", "isPlaying",
+  ]);
+
+  it("every session-scoped state field is listed in the single reset constant", () => {
+    const stateKeys = Object.entries(useSessionStore.getState())
+      .filter(([, value]) => typeof value !== "function")
+      .map(([key]) => key);
+    const missing = stateKeys.filter((key) => !NOT_SESSION_SCOPED.has(key) && !__sessionScopedKeys.includes(key));
+    expect(missing).toEqual([]);
+  });
+
+  it("loading a new session clears every one of them", () => {
+    useSessionStore.setState({
+      warningsDismissed: true,
+      mapOpen: true,
+      settingsOpen: true,
+      mapError: "stale",
+      restoreNotice: { count: 3 },
+      annotationErrors: { x: "boom" },
+    });
+
+    useSessionStore.getState().loadFromText(sampleSession);
+
+    const state = useSessionStore.getState();
+    expect(state.warningsDismissed).toBe(false);
+    expect(state.mapOpen).toBe(false);
+    expect(state.settingsOpen).toBe(false);
+    expect(state.mapError).toBeNull();
+    expect(state.restoreNotice).toBeNull();
+    expect(state.annotationErrors).toEqual({});
   });
 });

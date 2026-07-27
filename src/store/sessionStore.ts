@@ -8,10 +8,10 @@ import type { MapZoomLevel } from "@/core/view/sessionMap";
 import {
   buildSessionDocument,
   buildSessionDocumentFromFiles,
-  PipelineError,
   type PipelineResult,
   type TranscriptFileInput,
 } from "@/core/pipeline";
+import { hasFatal, PipelineFatalError, type Diagnostic } from "@/core/diagnostics/contracts";
 import { buildViewModel, type ViewItem } from "@/core/view/viewModel";
 import {
   getProvider,
@@ -62,6 +62,21 @@ import {
   type SessionLoadProgress,
   type SessionLoadTask,
 } from "@/core/ingest";
+import {
+  buildSessionIndex,
+  clearDirectoryHandle,
+  directorySourceFromFileList,
+  DirectoryPermissionError,
+  DirectoryPickCancelledError,
+  isDirectoryPickerSupported,
+  pickDirectory,
+  readDirectoryHandle,
+  restoreDirectorySource,
+  saveDirectoryHandle,
+  type DirectorySource,
+  type SessionIndexEntry,
+  type SessionKind,
+} from "@/core/index";
 
 /** Ollama 在 store 內的可調設定。 */
 interface OllamaConfigState {
@@ -96,16 +111,18 @@ export interface GenericPresetConfigState {
 
 const GENERIC_PRESET_IDS: GenericChatPresetId[] = ["lmstudio", "jan", "openrouter", "groq", "custom"];
 
-/** 資料夾載入防呆門檻 (方案 A)：超過任一項就先跳確認，而不是直接合併。見設計討論：
- *  選到 .claude/projects/ 或 .codex/sessions/<年>/<月>/ 這種上層目錄時，檔案數/總大小通常會明顯偏高。 */
-const FOLDER_LOAD_FILE_COUNT_THRESHOLD = 40;
-const FOLDER_LOAD_BYTES_THRESHOLD = 15 * 1024 * 1024;
-
-export interface PendingFolderLoad {
-  files: SessionBlobInput[];
-  fileCount: number;
-  totalBytes: number;
-}
+/**
+ * DSM-4：Session 瀏覽器的狀態。
+ *
+ *   no_directory --pick--> picking --cancel--> no_directory
+ *                          picking --got handle--> indexing --ok--> indexed
+ *                                                  indexing --fail--> index_failed --retry--> picking
+ *   indexed --refresh--> indexing
+ *   indexed --choose--> loading --done|fail--> indexed
+ *
+ * 最後那一條是這台機器存在的理由：**載入失敗必須回到清單，而不是回到空白的 app**。
+ */
+export type BrowseState = "no_directory" | "picking" | "indexing" | "indexed" | "index_failed" | "loading";
 
 const DEFAULT_GENERIC_PRESET_CONFIGS: Record<GenericChatPresetId, GenericPresetConfigState> = {
   lmstudio: { baseUrl: getPreset("lmstudio").baseUrl, model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
@@ -259,7 +276,43 @@ function cancelPendingPrivacyReview(): void {
   pendingPrivacyReviewer = null;
 }
 
-function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin: SessionOrigin): void {
+/**
+ * 每一個「意義只屬於當前 session」的欄位的歸零值。
+ *
+ * R9 (RC-5)：在此之前，`publishPipelineResult` 用一份 30 行的手寫清單逐欄復位，`reset()`
+ * 又抄了一份較短的。新增一個 session 範圍的欄位卻忘了加進其中一份，就會留下一個永遠不會
+ * 被清掉的旗標——Prism RC-37 的「地圖建立中…永久卡死」正是這一類。現在只有一份清單，
+ * 且由 sessionStore.test.ts 對照執行期的鍵集合斷言。
+ */
+const SESSION_SCOPED_INITIAL_STATE = {
+  diagnostics: [] as Diagnostic[],
+  warningsDismissed: false,
+  parseNoticeAcknowledged: true,
+  error: null as Diagnostic | null,
+  structureDrawerOpen: false,
+  mapOpen: false,
+  settingsOpen: false,
+  mapZoomLevel: "global" as MapZoomLevel,
+  mapFocusId: null as string | null,
+  mapError: null as string | null,
+  activeId: null as string | null,
+  playingId: null as string | null,
+  annotations: {} as Record<string, Annotation>,
+  annotatingIds: {} as Record<string, true>,
+  annotationErrors: {} as Record<string, string>,
+  annotateProgress: null as AnnotateProgress | null,
+  privacyReview: null as PrivacyReviewState | null,
+  sessionFingerprint: null as string | null,
+  itemFingerprints: {} as Record<string, string>,
+  cachedForCurrentConfig: {} as Record<string, true>,
+  cachedAnnotationCount: 0,
+  restoreNotice: null as { count: number } | null,
+};
+
+/** 測試用：斷言「所有 session 範圍欄位都在同一份清單裡」。 */
+export const __sessionScopedKeys = Object.keys(SESSION_SCOPED_INITIAL_STATE);
+
+function publishPipelineResult({ doc, diagnostics }: PipelineResult, sessionOrigin: SessionOrigin): void {
   const current = useSessionStore.getState();
   const snapshotMode = current.snapshotMode;
   current.pause();
@@ -271,35 +324,18 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     (window as unknown as { __DIT?: unknown }).__DIT = { doc, viewItems, store: useSessionStore };
   }
   useSessionStore.setState({
+    ...SESSION_SCOPED_INITIAL_STATE,
     doc,
     viewItems,
-    warnings,
-    warningsDismissed: false,
-    // 每次重新發布都重算：有提示就強制彈窗一次，使用者按過確認才會消失 (見 ParseNoticeDialog)。
-    parseNoticeAcknowledged: warnings.length === 0,
-    error: null,
+    diagnostics,
+    // 每次重新發布都重算。R9 D5：只有 fatal 才強制彈窗；info/warn 走非阻斷的橫幅，
+    // 因為「有 2 行是我還沒支援的已知型別」不該把使用者攔在確認鍵前面 (RC-3)。
+    parseNoticeAcknowledged: !hasFatal(diagnostics),
     // 使用者自己載入的 session 直接進閱讀；總覽只當作內建範例的著陸頁。
     primaryView: sessionOrigin === "user" ? "reader" : "overview",
     sessionOrigin,
-    structureDrawerOpen: false,
-    mapOpen: false,
-    settingsOpen: false,
-    mapZoomLevel: "global",
-    mapFocusId: null,
-    mapError: null,
     activeId: viewItems[0]?.id ?? null,
-    playingId: null,
-    annotations: {},
-    annotatingIds: {},
-    annotationErrors: {},
-    annotateProgress: null,
-    privacyReview: null,
-    sessionFingerprint: null,
-    itemFingerprints: {},
-    cachedForCurrentConfig: {},
     cacheReady: snapshotMode,
-    cachedAnnotationCount: 0,
-    restoreNotice: null,
   });
   // EX-INV-4：快照模式下跳過 IndexedDB 快取還原 (file:// 的 null origin 部分瀏覽器會直接拒絕)。
   if (snapshotMode) return;
@@ -331,27 +367,70 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
   });
 }
 
+/**
+ * 目前索引所依據的目錄來源。放在模組層而非 state：它帶著檔案 handle（不可序列化，也不該
+ * 觸發 re-render），state 只保留可顯示的結果。載入某一筆時要重新從這裡取檔案內容。
+ */
+let activeDirectorySource: DirectorySource | null = null;
+
+function toIndexDiagnostic(error: unknown): Diagnostic {
+  return { tier: "warn", code: "INDEX_FILE_UNREADABLE", count: 1, detail: error instanceof Error ? error.message : String(error) };
+}
+
+type SetState = (partial: Partial<SessionState>) => void;
+
+async function runIndex(set: SetState, source: DirectorySource): Promise<void> {
+  activeDirectorySource = source;
+  set({ browseState: "indexing", browseDirectoryName: source.name, browseProgress: [0, 0], indexDiagnostics: [] });
+  const index = await buildSessionIndex(source, {
+    onProgress: (done, total) => set({ browseProgress: [done, total] }),
+  });
+  set({
+    browseState: "indexed",
+    browseProgress: null,
+    indexEntries: index.entries,
+    indexDiagnostics: index.diagnostics,
+  });
+}
+
+/** 任何載入路徑的失敗都收斂成同一個 typed diagnostic，寫進同一個欄位 (RC-5)。 */
+function toFatalDiagnostic(error: unknown): Diagnostic {
+  if (error instanceof PipelineFatalError) return error.diagnostic;
+  return { tier: "fatal", code: "LOAD_FAILED", detail: error instanceof Error ? error.message : String(error) };
+}
+
 function loadPipeline(build: () => PipelineResult, origin: SessionOrigin): void {
   // 必須在 build() 之前清空：降級記錄只反映目前這份資料，而 normalizer 的事件是在 build() 期間產生的。
   resetFallbackReport();
   try {
     publishPipelineResult(build(), origin);
   } catch (error) {
-    const locale = useSessionStore.getState().locale;
-    const message = error instanceof PipelineError ? error.message : MESSAGES[locale].header.loadFailed((error as Error).message);
-    useSessionStore.setState({ error: message, cacheReady: true });
+    // 重新武裝阻斷面：新的 fatal 必須被看見一次，即使上一份 session 的提示已被確認過。
+    useSessionStore.setState({ error: toFatalDiagnostic(error), parseNoticeAcknowledged: false, cacheReady: true });
   }
 }
 
-interface SessionState {
+export interface SessionState {
   doc: SessionDocument | null;
   viewItems: ViewItem[];
-  warnings: string[];
-  error: string | null;
+  /** R9：分級診斷取代原本不分級的 `warnings: string[]`，見 core/diagnostics/contracts.ts。 */
+  diagnostics: Diagnostic[];
+  /**
+   * 載入失敗的唯一擁有者。R9 之前同步路徑寫 `error`、worker 路徑寫 `sessionLoadError`，
+   * 同一件事有兩個擁有者、兩處要顯示 (RC-5)。
+   */
+  error: Diagnostic | null;
   sessionLoadProgress: SessionLoadProgress | null;
-  sessionLoadError: string | null;
-  /** 資料夾載入超過數量/大小門檻時，暫存待確認的檔案；null = 沒有待確認的載入。 */
-  pendingFolderLoad: PendingFolderLoad | null;
+
+  // ---- DSM-4：Session 瀏覽器 (R9) ----
+  browseState: BrowseState;
+  browseDirectoryName: string | null;
+  /** 索引進度 [已掃, 總數]；null = 不在索引中。 */
+  browseProgress: [number, number] | null;
+  indexEntries: SessionIndexEntry[];
+  indexDiagnostics: Diagnostic[];
+  /** 分類篩選。D4：預設全開，分類是徽章不是過濾器。 */
+  browseFilter: Record<SessionKind, boolean>;
 
   providerId: ProviderId;
   showAnnotations: boolean;
@@ -399,7 +478,7 @@ interface SessionState {
   /** 瞬時事件：本次載入首次從快取還原時設定；`dismissRestoreNotice()` 或切換 session 時清為 null。 */
   restoreNotice: { count: number } | null;
   storageNotice: string | null;
-  /** 解析提示已被使用者收起；提示內容仍留在 warnings，總覽的則數不受影響。 */
+  /** 解析提示已被使用者收起；提示內容仍留在 diagnostics，總覽的則數不受影響。 */
   warningsDismissed: boolean;
   /** 強制解析提示彈窗是否已被使用者按確認看過；每次重新發布 session 都會重算 (見 ParseNoticeDialog)。 */
   parseNoticeAcknowledged: boolean;
@@ -425,10 +504,18 @@ interface SessionState {
   loadFromText: (raw: string, origin?: SessionOrigin) => void;
   loadFromFiles: (files: TranscriptFileInput[], origin?: SessionOrigin) => void;
   loadFromBlobs: (files: SessionBlobInput[], origin?: SessionOrigin) => Promise<void>;
-  /** 資料夾選取入口專用：數量/大小超過門檻先暫存待確認，否則直接載入。 */
-  requestFolderLoad: (files: SessionBlobInput[]) => void;
-  confirmPendingFolderLoad: () => void;
-  cancelPendingFolderLoad: () => void;
+
+  // ---- DSM-4 actions ----
+  /** 開啟系統目錄選擇器並索引 (FSA 路徑)。 */
+  pickAndIndexDirectory: () => Promise<void>;
+  /** webkitdirectory 後備路徑：<input> 已經交出檔案了，直接索引。 */
+  indexFileList: (files: File[], name: string) => Promise<void>;
+  /** 還原上次的目錄 (只有 FSA 有此能力)；沒有存過就開啟選擇器。 */
+  resumeLastDirectory: () => Promise<void>;
+  closeBrowser: () => void;
+  toggleBrowseFilter: (kind: SessionKind) => void;
+  /** 從清單挑一個 session 載入。載入結束後回到清單，清單不消失。 */
+  loadIndexEntry: (path: string) => Promise<void>;
   cancelSessionLoad: () => void;
   dismissSessionLoadStatus: () => void;
   dismissWarnings: () => void;
@@ -510,11 +597,16 @@ function detectInitialLocale(): Locale | null {
 export const useSessionStore = create<SessionState>((set, get) => ({
   doc: null,
   viewItems: [],
-  warnings: [],
+  diagnostics: [],
   error: null,
   sessionLoadProgress: null,
-  sessionLoadError: null,
-  pendingFolderLoad: null,
+
+  browseState: "no_directory",
+  browseDirectoryName: null,
+  browseProgress: null,
+  indexEntries: [],
+  indexDiagnostics: [],
+  browseFilter: { dialogue: true, subagent: true, machine: true, unknown: true },
 
   providerId: "none",
   showAnnotations: true,
@@ -575,7 +667,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   hydrateSessionExport: (payload) => {
     // 先設 snapshotMode，讓 publishPipelineResult 同步讀到並跳過快取還原 (EX-INV-4)。
     set({ snapshotMode: true });
-    loadPipeline(() => ({ doc: payload.document, warnings: [] }), "user");
+    loadPipeline(() => ({ doc: payload.document, diagnostics: [] }), "user");
     set({ annotations: payload.annotations, primaryView: "overview" });
   },
 
@@ -590,13 +682,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const totalBytes = files.reduce((sum, file) => sum + file.blob.size, 0);
     set({
       sessionLoadProgress: { phase: "reading", loadedBytes: 0, totalBytes, lineCount: 0, sourcePath: null },
-      sessionLoadError: null,
+      error: null,
     });
-    const task = startSessionLoad(files, (progress) => {
-      if (activeSessionLoad === task) set({ sessionLoadProgress: progress });
-    });
-    activeSessionLoad = task;
+    // startSessionLoad 本身也會丟（建構 Worker 失敗：CSP、file://、瀏覽器不支援 module worker）。
+    // 它原本在 try 之外，於是那條路徑會讓進度條永遠停在「讀取中」——這正是 RC-5 的洩漏型缺陷，
+    // 由 DSM-4 的 transition test 撞出來。任何會丟的東西都必須在同一個 try 裡。
+    let task: SessionLoadTask | undefined;
     try {
+      task = startSessionLoad(files, (progress) => {
+        if (activeSessionLoad === task) set({ sessionLoadProgress: progress });
+      });
+      activeSessionLoad = task;
       const result = await task.promise;
       if (activeSessionLoad !== task) return;
       publishPipelineResult(result, origin);
@@ -608,49 +704,103 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           lineCount: get().sessionLoadProgress?.lineCount ?? 0,
           sourcePath: null,
         },
-        sessionLoadError: null,
       });
     } catch (error) {
-      if (activeSessionLoad !== task) return;
+      // task 未建立時 activeSessionLoad 仍是上一輪的值（或 null），不能用它當守衛，
+      // 否則建構失敗這條路徑會整個被跳過，進度條又留在原地。
+      if (task && activeSessionLoad !== task) return;
       if (error instanceof SessionLoadCancelledError) {
-        set({ sessionLoadProgress: null, sessionLoadError: null });
+        set({ sessionLoadProgress: null, error: null });
       } else {
-        const locale = get().locale;
-        set({
-          sessionLoadProgress: null,
-          sessionLoadError: MESSAGES[locale].header.loadFailed((error as Error).message),
-        });
+        set({ sessionLoadProgress: null, error: toFatalDiagnostic(error), parseNoticeAcknowledged: false, cacheReady: true });
       }
     } finally {
-      if (activeSessionLoad === task) activeSessionLoad = null;
+      if (task && activeSessionLoad === task) activeSessionLoad = null;
     }
   },
 
-  requestFolderLoad: (files) => {
-    const totalBytes = files.reduce((sum, file) => sum + file.blob.size, 0);
-    if (files.length > FOLDER_LOAD_FILE_COUNT_THRESHOLD || totalBytes > FOLDER_LOAD_BYTES_THRESHOLD) {
-      set({ pendingFolderLoad: { files, fileCount: files.length, totalBytes } });
+  pickAndIndexDirectory: async () => {
+    set({ browseState: "picking" });
+    try {
+      const { source, handle } = await pickDirectory();
+      void saveDirectoryHandle(handle);
+      await runIndex(set, source);
+    } catch (error) {
+      if (error instanceof DirectoryPickCancelledError) {
+        set({ browseState: get().indexEntries.length > 0 ? "indexed" : "no_directory" });
+        return;
+      }
+      set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+    }
+  },
+
+  indexFileList: async (files, name) => {
+    await runIndex(set, directorySourceFromFileList(files, name));
+  },
+
+  resumeLastDirectory: async () => {
+    if (!isDirectoryPickerSupported()) {
+      // 後備路徑沒有持久化能力，只能請使用者重選；UI 會直接開 <input>。
+      set({ browseState: "no_directory" });
       return;
     }
-    void get().loadFromBlobs(files, "user");
+    const stored = await readDirectoryHandle();
+    if (!stored) {
+      await get().pickAndIndexDirectory();
+      return;
+    }
+    set({ browseState: "picking" });
+    try {
+      const source = await restoreDirectorySource(stored as Parameters<typeof restoreDirectorySource>[0]);
+      await runIndex(set, source);
+    } catch (error) {
+      if (error instanceof DirectoryPermissionError) {
+        void clearDirectoryHandle();
+        set({ browseState: "index_failed", indexDiagnostics: [{ tier: "fatal", code: "INDEX_PERMISSION_LOST" }] });
+        return;
+      }
+      set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+    }
   },
 
-  confirmPendingFolderLoad: () => {
-    const pending = get().pendingFolderLoad;
-    if (!pending) return;
-    set({ pendingFolderLoad: null });
-    void get().loadFromBlobs(pending.files, "user");
-  },
+  closeBrowser: () => set({ browseState: "no_directory", browseProgress: null }),
 
-  cancelPendingFolderLoad: () => set({ pendingFolderLoad: null }),
+  toggleBrowseFilter: (kind) => set((state) => ({
+    browseFilter: { ...state.browseFilter, [kind]: !state.browseFilter[kind] },
+  })),
+
+  loadIndexEntry: async (path) => {
+    const { indexEntries } = get();
+    const entry = indexEntries.find((candidate) => candidate.path === path);
+    const source = activeDirectorySource;
+    if (!entry || !source) return;
+
+    set({ browseState: "loading" });
+    try {
+      const files = await source.list();
+      const wanted = new Set([entry.path, ...entry.subagentPaths]);
+      const blobs: SessionBlobInput[] = [];
+      for (const file of files) {
+        if (!wanted.has(file.path)) continue;
+        blobs.push({ path: file.path, blob: await file.read() });
+      }
+      await get().loadFromBlobs(blobs, "user");
+    } catch (error) {
+      set({ error: toFatalDiagnostic(error), parseNoticeAcknowledged: false });
+    } finally {
+      // 不論成敗都回到清單 (DSM-4)：失敗把使用者丟回空白畫面才是真正的死路。
+      set({ browseState: "indexed" });
+    }
+  },
 
   cancelSessionLoad: () => {
     activeSessionLoad?.cancel();
   },
 
-  dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, sessionLoadError: null }),
+  dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, error: null }),
   dismissWarnings: () => set({ warningsDismissed: true }),
-  acknowledgeParseNotice: () => set({ parseNoticeAcknowledged: true }),
+  // 確認即清掉 fatal：使用者已經看過原因與下一步，留著它只會讓空狀態重複同一句話。
+  acknowledgeParseNotice: () => set({ parseNoticeAcknowledged: true, error: null }),
   dismissError: () => set({ error: null }),
   dismissStorageNotice: () => set({ storageNotice: null }),
   dismissRestoreNotice: () => set({ restoreNotice: null }),
@@ -662,31 +812,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     dataOutConsent = null;
     ++cacheLoadGeneration;
     set({
+      ...SESSION_SCOPED_INITIAL_STATE,
       doc: null,
       viewItems: [],
-      warnings: [],
-      warningsDismissed: false,
-      parseNoticeAcknowledged: true,
-      error: null,
       sessionLoadProgress: null,
-      sessionLoadError: null,
-      pendingFolderLoad: null,
       primaryView: "overview",
-      structureDrawerOpen: false,
-      mapOpen: false,
-      settingsOpen: false,
-      mapZoomLevel: "global",
-      mapFocusId: null,
-      mapError: null,
-      activeId: null,
-      playingId: null,
-      privacyReview: null,
-      sessionFingerprint: null,
-      itemFingerprints: {},
-      cachedForCurrentConfig: {},
       cacheReady: true,
-      cachedAnnotationCount: 0,
-      restoreNotice: null,
     });
   },
 
@@ -860,7 +991,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     get().pause();
     cancelPendingPrivacyReview();
     dataOutConsent = null;
-    set({ providerId: "none", showAnnotations: true, ollamaStatus: null, openCodeStatus: null, annotateProgress: null, privacyReview: null, sessionLoadProgress: null, sessionLoadError: null });
+    set({ providerId: "none", showAnnotations: true, ollamaStatus: null, openCodeStatus: null, annotateProgress: null, privacyReview: null, sessionLoadProgress: null, error: null });
     get().loadFromText(sampleSession, "sample");
   },
 

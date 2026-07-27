@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   CLUSTER_MAP_SYMBOL,
@@ -21,6 +21,7 @@ import {
 } from "@/core/view/sessionMap";
 import { reportFallback } from "@/core/diagnostics";
 import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
+import { useBlockingSurface } from "./useBlockingSurface";
 import { useT } from "@/i18n";
 import { landmarkKindLabel, mapTargetOrdinal } from "./labels";
 import { SessionMapGraphic } from "./SessionMapGraphic";
@@ -84,25 +85,7 @@ export function SessionMapDialog(): ReactNode {
    * <dialog> 未開啟時是 display:none；內容若在那個狀態下被虛擬清單量到，高度會是 0 而且之後不再補算，
    * 地標清單就會整片空白。先在 layout 階段把 dialog 打開，虛擬清單的 layout effect 才量得到真實高度。
    */
-  useLayoutEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (mapOpen && !dialog.open) {
-      try {
-        dialog.showModal();
-      } catch {
-        dialog.setAttribute("open", "");
-        dialog.dataset.modalFallback = "true";
-      }
-    } else if (!mapOpen && dialog.open) {
-      try {
-        dialog.close();
-      } catch {
-        dialog.removeAttribute("open");
-        delete dialog.dataset.modalFallback;
-      }
-    }
-  }, [mapOpen]);
+  const surface = useBlockingSurface("session-map", dialogRef, closeMap);
   const currentViewItemId = playingId ?? activeId;
   const viewIndexById = useMemo(() => new Map(viewItems.map((item, index) => [item.id, index])), [viewItems]);
   const position = selectCurrentPosition({ viewItems, activeId, playingId });
@@ -208,21 +191,13 @@ export function SessionMapDialog(): ReactNode {
       id="session-map-dialog"
       className="session-map-dialog"
       aria-labelledby="session-map-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        closeMap();
-      }}
+      {...surface.dialogProps}
       onClose={() => {
         if (useSessionStore.getState().mapOpen) closeMap();
         restoreFocus();
       }}
-      onClick={(event) => {
-        // 點擊 backdrop 時，原生 <dialog> 的 click 事件 target 就是 dialog 元素本身
-        // （backdrop 不是可命中的子節點）；點在 shell 內容上的 target 永遠是某個子元素。
-        if (event.target === dialogRef.current) closeMap();
-      }}
     >
-      {mapOpen && <div className="session-map-shell">
+      {surface.isActive && <div className="session-map-shell">
         <header className="session-map-header">
           <div>
             <h2 id="session-map-title" ref={titleRef} tabIndex={-1}>{t.map.title}</h2>

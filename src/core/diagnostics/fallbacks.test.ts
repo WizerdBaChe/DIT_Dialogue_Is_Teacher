@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getFallbackReport, mergeFallbackReport, reportFallback, resetFallbackReport } from "./diagnostics";
+import { getFallbackReport, mergeFallbackReport, reportFallback, resetFallbackReport } from "./fallbacks";
 
 describe("fallback diagnostics", () => {
   let warn: ReturnType<typeof vi.spyOn>;

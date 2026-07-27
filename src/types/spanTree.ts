@@ -98,6 +98,13 @@ export interface SpanGroup {
   kind: GroupKind;
 }
 
+/** 這個 session 產出的 pull request (Claude Code `type: "pr-link"` 紀錄)。 */
+export interface SessionPrLink {
+  number: number | null;
+  url: string;
+  repository: string | null;
+}
+
 /** session 後設資料。 */
 export interface SessionMeta {
   id: string;
@@ -107,6 +114,8 @@ export interface SessionMeta {
   projectPath: string | null;
   startedAt: string | null;
   model: string | null;
+  /** 選填：只有 Claude Code 會提供；R9 起收集，尚無消費端 (見 PSM_R9 §7)。 */
+  prLinks?: SessionPrLink[];
 }
 
 /**
