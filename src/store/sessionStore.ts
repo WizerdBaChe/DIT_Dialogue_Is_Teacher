@@ -410,7 +410,7 @@ function loadPipeline(build: () => PipelineResult, origin: SessionOrigin): void 
   }
 }
 
-interface SessionState {
+export interface SessionState {
   doc: SessionDocument | null;
   viewItems: ViewItem[];
   /** R9：分級診斷取代原本不分級的 `warnings: string[]`，見 core/diagnostics/contracts.ts。 */
