@@ -43,9 +43,12 @@ describe("startSessionLoad", () => {
     const worker = new FakeWorker();
     const task = startSessionLoad([], vi.fn(), () => worker);
 
-    worker.emit({ type: "error", message: "validation failed" });
+    worker.emit({ type: "error", diagnostic: { tier: "fatal", code: "NO_RENDERABLE_CONTENT" } });
 
-    await expect(task.promise).rejects.toThrow("validation failed");
+    // R9：錯誤跨執行緒是 typed 的，主執行緒拿到具名的 fatal，不是一句字串。
+    await expect(task.promise).rejects.toMatchObject({
+      diagnostic: { tier: "fatal", code: "NO_RENDERABLE_CONTENT" },
+    });
     expect(worker.terminated).toBe(true);
   });
 
@@ -60,7 +63,7 @@ describe("startSessionLoad", () => {
         spans: [],
         groups: [],
       },
-      warnings: [],
+      diagnostics: [],
     };
 
     worker.emit({

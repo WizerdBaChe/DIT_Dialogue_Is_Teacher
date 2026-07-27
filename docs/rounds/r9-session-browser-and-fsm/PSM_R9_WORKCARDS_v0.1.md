@@ -65,6 +65,32 @@
 
 ---
 
+## §1.5 M1／M2 施工後實測（2026-07-27，真實資料）
+
+以完工後的 adapter 與批次機掃描 `C:\Users\gunda\.claude\projects\` 全部 **140 個真實 `.jsonl`**：
+
+| 診斷 | 次數 | 分級 |
+|---|---|---|
+| `NOISE_SKIPPED` | 140 檔皆有 | info |
+| `MARKERS_EMITTED` | 17 檔 | info |
+| `NO_EVENTS` | 1 檔（真的空 session） | warn |
+
+**`UNKNOWN_RECORD_TYPE` 0 次、`LINE_PARSE_FAILED` 0 次、`fatal` 0 次**；單檔非 info 診斷的最大值為 1。RC-2 描述的 2334 行「未知型別」全數歸零，達成 §0 驗收 (b)。
+
+再以作者實測失敗的那個資料夾 `66c03ab2-d399-473a-9896-b3c1647c517f` 依 M3 將採用的組法（主檔 + 同名資料夾下的 `subagents/*`）實跑：
+
+```
+inputs=3 (2 parsed, 1 unrecognized)
+spans=140  subagentGroups=2
+title="剛剛做了系統環境的改動，給我一些測試驗證規則層路由跟permissions.ask有生效。"
+diagnostics=[ warn FILE_UNRECOGNIZED ×1 (…/agent-a19da4e7585bd9a2b.meta.json), info NOISE_SKIPPED ×140, info NOISE_SKIPPED ×3 ]
+只選 subagents/ 資料夾 → NO_MAIN_TRANSCRIPT
+```
+
+也就是：RC-1a 的 `.meta.json` 現在只是一條 warn，整份 session 正常載入；RC-1b 的「只有子代理」變成具名狀態，不再靜默把子代理當主檔。§0 驗收 (a) 的自動化部分成立，UI 部分待 M3 與 §5 手動驗收。
+
+---
+
 ## §2 決策登錄
 
 | # | 決策 | 裁決者 | 落於 |
