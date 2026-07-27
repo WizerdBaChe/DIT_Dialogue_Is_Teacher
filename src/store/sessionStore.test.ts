@@ -379,7 +379,8 @@ describe("restore notice lifecycle (LS-INV-6)", () => {
 describe("session-scoped state reset discipline (R9 RC-5)", () => {
   /** 生命週期不屬於單一 session 的欄位——設定、能力狀態、UI 偏好、載入進度。 */
   const NOT_SESSION_SCOPED = new Set([
-    "doc", "viewItems", "sessionOrigin", "primaryView", "sessionLoadProgress", "pendingFolderLoad",
+    "doc", "viewItems", "sessionOrigin", "primaryView", "sessionLoadProgress",
+    "browseState", "browseDirectoryName", "browseProgress", "indexEntries", "indexDiagnostics", "browseFilter",
     "providerId", "showAnnotations", "structureCollapsed", "welcomeOpen", "minimapEnabled",
     "mapShortcutEnabled", "locale", "ollamaConfig", "ollamaStatus", "cloudConfig", "openCodeStatus",
     "presetConfigs", "presetStatus", "anthropicConfig", "anthropicStatus", "configFileLoaded",
