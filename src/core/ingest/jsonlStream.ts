@@ -11,24 +11,19 @@ export interface JsonlStreamOptions {
   onProgress?: (progress: JsonlStreamProgress) => void;
 }
 
-export interface JsonlStreamResult {
-  parsed: ParseResult;
-  inputBytes: number;
-  lineCount: number;
-}
+/**
+ * 逐檔結果。R9：`unrecognized` 從「拋例外」降為一個結果值——真實 `subagents/` 目錄裡
+ * 就是有 `.meta.json` 這種旁檔，讓它炸掉整批載入是 RC-1a 的直接成因。
+ * R7-INV-9（不得默默退回任一來源）仍然成立：這裡不猜測來源，只是把「猜不到」講出來。
+ */
+export type JsonlStreamResult =
+  | { status: "recognized"; parsed: ParseResult; inputBytes: number; lineCount: number }
+  | { status: "unrecognized"; inputBytes: number; lineCount: number };
 
 export class StreamCancelledError extends Error {
   constructor() {
     super("Session loading was cancelled.");
     this.name = "StreamCancelledError";
-  }
-}
-
-/** 串流路徑找不到任何 adapter 認領這份輸入時拋出 (R7-INV-9：不得默默退回任一來源)。 */
-export class UnknownSourceError extends Error {
-  constructor() {
-    super("無法辨識輸入格式，找不到能處理此內容的來源 adapter。");
-    this.name = "UnknownSourceError";
   }
 }
 
@@ -53,7 +48,11 @@ export async function parseJsonlChunks(
   let bytesRead = 0;
   let lineCount = 0;
 
+  /** 偵測失敗一次就不再重試：格式是整份檔案的屬性，不是逐行的。 */
+  let detectionFailed = false;
+
   const pushLine = (line: string): void => {
+    if (detectionFailed) return;
     if (accumulator) {
       accumulator.pushLine(line);
       lineCount += 1;
@@ -64,7 +63,10 @@ export async function parseJsonlChunks(
       return;
     }
     const adapter = detectAdapter(line);
-    if (!adapter) throw new UnknownSourceError();
+    if (!adapter) {
+      detectionFailed = true;
+      return;
+    }
     accumulator = adapter.createAccumulator();
     for (const buffered of pendingLines) {
       accumulator.pushLine(buffered);
@@ -92,10 +94,13 @@ export async function parseJsonlChunks(
   carry += decoder.decode();
   if (carry.length > 0) pushLine(stripTrailingCr(carry));
   if (options.isCancelled?.()) throw new StreamCancelledError();
-  if (!accumulator) throw new UnknownSourceError();
   options.onProgress?.({ bytesRead, lineCount });
 
-  return { parsed: accumulator.finish(), inputBytes: bytesRead, lineCount };
+  // 沒有 accumulator 有兩種成因：偵測失敗，或整份檔案都是空行。兩者對批次層是同一件事
+  // ——這個檔案沒有可用內容——由批次層決定要 warn 還是 fatal。
+  if (!accumulator) return { status: "unrecognized", inputBytes: bytesRead, lineCount };
+
+  return { status: "recognized", parsed: accumulator.finish(), inputBytes: bytesRead, lineCount };
 }
 
 async function* blobChunks(blob: Blob): AsyncGenerator<Uint8Array> {

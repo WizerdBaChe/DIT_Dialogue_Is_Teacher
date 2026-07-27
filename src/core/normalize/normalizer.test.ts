@@ -3,7 +3,7 @@ import { normalize } from "./normalizer";
 import type { ParseResult, RawEvent } from "@/core/adapters/types";
 
 function parsed(events: RawEvent[], meta: ParseResult["meta"] = {}): ParseResult {
-  return { meta, events, warnings: [] };
+  return { meta, events, diagnostics: [] };
 }
 
 describe("normalize — session title fallback (R7B-03, B4.6)", () => {

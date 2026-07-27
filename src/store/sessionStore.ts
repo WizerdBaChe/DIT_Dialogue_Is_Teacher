@@ -8,10 +8,10 @@ import type { MapZoomLevel } from "@/core/view/sessionMap";
 import {
   buildSessionDocument,
   buildSessionDocumentFromFiles,
-  PipelineError,
   type PipelineResult,
   type TranscriptFileInput,
 } from "@/core/pipeline";
+import { hasFatal, PipelineFatalError, type Diagnostic } from "@/core/diagnostics/contracts";
 import { buildViewModel, type ViewItem } from "@/core/view/viewModel";
 import {
   getProvider,
@@ -259,7 +259,43 @@ function cancelPendingPrivacyReview(): void {
   pendingPrivacyReviewer = null;
 }
 
-function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin: SessionOrigin): void {
+/**
+ * 每一個「意義只屬於當前 session」的欄位的歸零值。
+ *
+ * R9 (RC-5)：在此之前，`publishPipelineResult` 用一份 30 行的手寫清單逐欄復位，`reset()`
+ * 又抄了一份較短的。新增一個 session 範圍的欄位卻忘了加進其中一份，就會留下一個永遠不會
+ * 被清掉的旗標——Prism RC-37 的「地圖建立中…永久卡死」正是這一類。現在只有一份清單，
+ * 且由 sessionStore.test.ts 對照執行期的鍵集合斷言。
+ */
+const SESSION_SCOPED_INITIAL_STATE = {
+  diagnostics: [] as Diagnostic[],
+  warningsDismissed: false,
+  parseNoticeAcknowledged: true,
+  error: null as Diagnostic | null,
+  structureDrawerOpen: false,
+  mapOpen: false,
+  settingsOpen: false,
+  mapZoomLevel: "global" as MapZoomLevel,
+  mapFocusId: null as string | null,
+  mapError: null as string | null,
+  activeId: null as string | null,
+  playingId: null as string | null,
+  annotations: {} as Record<string, Annotation>,
+  annotatingIds: {} as Record<string, true>,
+  annotationErrors: {} as Record<string, string>,
+  annotateProgress: null as AnnotateProgress | null,
+  privacyReview: null as PrivacyReviewState | null,
+  sessionFingerprint: null as string | null,
+  itemFingerprints: {} as Record<string, string>,
+  cachedForCurrentConfig: {} as Record<string, true>,
+  cachedAnnotationCount: 0,
+  restoreNotice: null as { count: number } | null,
+};
+
+/** 測試用：斷言「所有 session 範圍欄位都在同一份清單裡」。 */
+export const __sessionScopedKeys = Object.keys(SESSION_SCOPED_INITIAL_STATE);
+
+function publishPipelineResult({ doc, diagnostics }: PipelineResult, sessionOrigin: SessionOrigin): void {
   const current = useSessionStore.getState();
   const snapshotMode = current.snapshotMode;
   current.pause();
@@ -271,35 +307,18 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
     (window as unknown as { __DIT?: unknown }).__DIT = { doc, viewItems, store: useSessionStore };
   }
   useSessionStore.setState({
+    ...SESSION_SCOPED_INITIAL_STATE,
     doc,
     viewItems,
-    warnings,
-    warningsDismissed: false,
-    // 每次重新發布都重算：有提示就強制彈窗一次，使用者按過確認才會消失 (見 ParseNoticeDialog)。
-    parseNoticeAcknowledged: warnings.length === 0,
-    error: null,
+    diagnostics,
+    // 每次重新發布都重算。R9 D5：只有 fatal 才強制彈窗；info/warn 走非阻斷的橫幅，
+    // 因為「有 2 行是我還沒支援的已知型別」不該把使用者攔在確認鍵前面 (RC-3)。
+    parseNoticeAcknowledged: !hasFatal(diagnostics),
     // 使用者自己載入的 session 直接進閱讀；總覽只當作內建範例的著陸頁。
     primaryView: sessionOrigin === "user" ? "reader" : "overview",
     sessionOrigin,
-    structureDrawerOpen: false,
-    mapOpen: false,
-    settingsOpen: false,
-    mapZoomLevel: "global",
-    mapFocusId: null,
-    mapError: null,
     activeId: viewItems[0]?.id ?? null,
-    playingId: null,
-    annotations: {},
-    annotatingIds: {},
-    annotationErrors: {},
-    annotateProgress: null,
-    privacyReview: null,
-    sessionFingerprint: null,
-    itemFingerprints: {},
-    cachedForCurrentConfig: {},
     cacheReady: snapshotMode,
-    cachedAnnotationCount: 0,
-    restoreNotice: null,
   });
   // EX-INV-4：快照模式下跳過 IndexedDB 快取還原 (file:// 的 null origin 部分瀏覽器會直接拒絕)。
   if (snapshotMode) return;
@@ -331,25 +350,34 @@ function publishPipelineResult({ doc, warnings }: PipelineResult, sessionOrigin:
   });
 }
 
+/** 任何載入路徑的失敗都收斂成同一個 typed diagnostic，寫進同一個欄位 (RC-5)。 */
+function toFatalDiagnostic(error: unknown): Diagnostic {
+  if (error instanceof PipelineFatalError) return error.diagnostic;
+  return { tier: "fatal", code: "LOAD_FAILED", detail: error instanceof Error ? error.message : String(error) };
+}
+
 function loadPipeline(build: () => PipelineResult, origin: SessionOrigin): void {
   // 必須在 build() 之前清空：降級記錄只反映目前這份資料，而 normalizer 的事件是在 build() 期間產生的。
   resetFallbackReport();
   try {
     publishPipelineResult(build(), origin);
   } catch (error) {
-    const locale = useSessionStore.getState().locale;
-    const message = error instanceof PipelineError ? error.message : MESSAGES[locale].header.loadFailed((error as Error).message);
-    useSessionStore.setState({ error: message, cacheReady: true });
+    // 重新武裝阻斷面：新的 fatal 必須被看見一次，即使上一份 session 的提示已被確認過。
+    useSessionStore.setState({ error: toFatalDiagnostic(error), parseNoticeAcknowledged: false, cacheReady: true });
   }
 }
 
 interface SessionState {
   doc: SessionDocument | null;
   viewItems: ViewItem[];
-  warnings: string[];
-  error: string | null;
+  /** R9：分級診斷取代原本不分級的 `warnings: string[]`，見 core/diagnostics/contracts.ts。 */
+  diagnostics: Diagnostic[];
+  /**
+   * 載入失敗的唯一擁有者。R9 之前同步路徑寫 `error`、worker 路徑寫 `sessionLoadError`，
+   * 同一件事有兩個擁有者、兩處要顯示 (RC-5)。
+   */
+  error: Diagnostic | null;
   sessionLoadProgress: SessionLoadProgress | null;
-  sessionLoadError: string | null;
   /** 資料夾載入超過數量/大小門檻時，暫存待確認的檔案；null = 沒有待確認的載入。 */
   pendingFolderLoad: PendingFolderLoad | null;
 
@@ -399,7 +427,7 @@ interface SessionState {
   /** 瞬時事件：本次載入首次從快取還原時設定；`dismissRestoreNotice()` 或切換 session 時清為 null。 */
   restoreNotice: { count: number } | null;
   storageNotice: string | null;
-  /** 解析提示已被使用者收起；提示內容仍留在 warnings，總覽的則數不受影響。 */
+  /** 解析提示已被使用者收起；提示內容仍留在 diagnostics，總覽的則數不受影響。 */
   warningsDismissed: boolean;
   /** 強制解析提示彈窗是否已被使用者按確認看過；每次重新發布 session 都會重算 (見 ParseNoticeDialog)。 */
   parseNoticeAcknowledged: boolean;
@@ -510,10 +538,9 @@ function detectInitialLocale(): Locale | null {
 export const useSessionStore = create<SessionState>((set, get) => ({
   doc: null,
   viewItems: [],
-  warnings: [],
+  diagnostics: [],
   error: null,
   sessionLoadProgress: null,
-  sessionLoadError: null,
   pendingFolderLoad: null,
 
   providerId: "none",
@@ -575,7 +602,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   hydrateSessionExport: (payload) => {
     // 先設 snapshotMode，讓 publishPipelineResult 同步讀到並跳過快取還原 (EX-INV-4)。
     set({ snapshotMode: true });
-    loadPipeline(() => ({ doc: payload.document, warnings: [] }), "user");
+    loadPipeline(() => ({ doc: payload.document, diagnostics: [] }), "user");
     set({ annotations: payload.annotations, primaryView: "overview" });
   },
 
@@ -590,7 +617,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const totalBytes = files.reduce((sum, file) => sum + file.blob.size, 0);
     set({
       sessionLoadProgress: { phase: "reading", loadedBytes: 0, totalBytes, lineCount: 0, sourcePath: null },
-      sessionLoadError: null,
+      error: null,
     });
     const task = startSessionLoad(files, (progress) => {
       if (activeSessionLoad === task) set({ sessionLoadProgress: progress });
@@ -608,18 +635,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           lineCount: get().sessionLoadProgress?.lineCount ?? 0,
           sourcePath: null,
         },
-        sessionLoadError: null,
       });
     } catch (error) {
       if (activeSessionLoad !== task) return;
       if (error instanceof SessionLoadCancelledError) {
-        set({ sessionLoadProgress: null, sessionLoadError: null });
+        set({ sessionLoadProgress: null, error: null });
       } else {
-        const locale = get().locale;
-        set({
-          sessionLoadProgress: null,
-          sessionLoadError: MESSAGES[locale].header.loadFailed((error as Error).message),
-        });
+        set({ sessionLoadProgress: null, error: toFatalDiagnostic(error), parseNoticeAcknowledged: false, cacheReady: true });
       }
     } finally {
       if (activeSessionLoad === task) activeSessionLoad = null;
@@ -648,9 +670,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     activeSessionLoad?.cancel();
   },
 
-  dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, sessionLoadError: null }),
+  dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, error: null }),
   dismissWarnings: () => set({ warningsDismissed: true }),
-  acknowledgeParseNotice: () => set({ parseNoticeAcknowledged: true }),
+  // 確認即清掉 fatal：使用者已經看過原因與下一步，留著它只會讓空狀態重複同一句話。
+  acknowledgeParseNotice: () => set({ parseNoticeAcknowledged: true, error: null }),
   dismissError: () => set({ error: null }),
   dismissStorageNotice: () => set({ storageNotice: null }),
   dismissRestoreNotice: () => set({ restoreNotice: null }),
@@ -662,31 +685,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     dataOutConsent = null;
     ++cacheLoadGeneration;
     set({
+      ...SESSION_SCOPED_INITIAL_STATE,
       doc: null,
       viewItems: [],
-      warnings: [],
-      warningsDismissed: false,
-      parseNoticeAcknowledged: true,
-      error: null,
       sessionLoadProgress: null,
-      sessionLoadError: null,
       pendingFolderLoad: null,
       primaryView: "overview",
-      structureDrawerOpen: false,
-      mapOpen: false,
-      settingsOpen: false,
-      mapZoomLevel: "global",
-      mapFocusId: null,
-      mapError: null,
-      activeId: null,
-      playingId: null,
-      privacyReview: null,
-      sessionFingerprint: null,
-      itemFingerprints: {},
-      cachedForCurrentConfig: {},
       cacheReady: true,
-      cachedAnnotationCount: 0,
-      restoreNotice: null,
     });
   },
 
@@ -860,7 +865,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     get().pause();
     cancelPendingPrivacyReview();
     dataOutConsent = null;
-    set({ providerId: "none", showAnnotations: true, ollamaStatus: null, openCodeStatus: null, annotateProgress: null, privacyReview: null, sessionLoadProgress: null, sessionLoadError: null });
+    set({ providerId: "none", showAnnotations: true, ollamaStatus: null, openCodeStatus: null, annotateProgress: null, privacyReview: null, sessionLoadProgress: null, error: null });
     get().loadFromText(sampleSession, "sample");
   },
 

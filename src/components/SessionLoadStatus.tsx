@@ -7,19 +7,12 @@ const PHASES = ["reading", "parsing", "organizing", "validating", "ready"] as co
 export function SessionLoadStatus(): ReactNode {
   const t = useT();
   const progress = useSessionStore((state) => state.sessionLoadProgress);
-  const error = useSessionStore((state) => state.sessionLoadError);
   const cancel = useSessionStore((state) => state.cancelSessionLoad);
   const dismiss = useSessionStore((state) => state.dismissSessionLoadStatus);
 
-  if (!progress) {
-    if (!error) return null;
-    return (
-      <div className="session-load-status error" role="alert">
-        <span>{error}</span>
-        <button type="button" className="btn" onClick={dismiss}>{t.sessionLoad.dismiss}</button>
-      </div>
-    );
-  }
+  // R9：載入失敗不再由這裡呈現。fatal 有唯一的擁有者 (`error`) 與唯一的表面 (阻斷面)，
+  // 進度條只負責進度——這是 RC-5「同一件事兩個擁有者、兩處顯示」的解法。
+  if (!progress) return null;
 
   const percent = progress.totalBytes > 0
     ? Math.min(100, Math.round((progress.loadedBytes / progress.totalBytes) * 100))
