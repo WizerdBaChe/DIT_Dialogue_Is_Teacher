@@ -48,7 +48,11 @@ export type DiagnosticCode =
   | "INDEX_TRUNCATED"
   | "INDEX_FILE_UNREADABLE"
   | "INDEX_PERMISSION_LOST"
-  | "INDEX_EMPTY";
+  | "INDEX_EMPTY"
+  // --- session index (R9.1) ---
+  | "INDEX_DIRECTORY_UNREADABLE"
+  | "INDEX_TITLE_FROM_FILENAME"
+  | "INDEX_HANDLE_NOT_PERSISTED";
 
 export interface Diagnostic {
   tier: DiagnosticTier;

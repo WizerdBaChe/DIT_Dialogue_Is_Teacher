@@ -38,7 +38,7 @@ afterEach(() => {
       parseNoticeAcknowledged: true,
       welcomeOpen: false,
       settingsOpen: false,
-      browseState: "no_directory",
+      browseState: "closed",
       privacyReview: null,
       mapOpen: false,
       structureDrawerOpen: false,
@@ -121,7 +121,7 @@ describe("blocking surfaces", () => {
     act(() => {
       document.querySelector("#session-browser-dialog")!.dispatchEvent(new Event("cancel", { cancelable: true }));
     });
-    expect(useSessionStore.getState().browseState).toBe("no_directory");
+    expect(useSessionStore.getState().browseState).toBe("closed");
   });
 
   it("the arbiter and the store agree on who wants to be open", () => {
