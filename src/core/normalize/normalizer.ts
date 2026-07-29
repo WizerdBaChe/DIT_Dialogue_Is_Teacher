@@ -21,7 +21,7 @@ const KIND_TO_SPAN_TYPE: Record<RawEvent["kind"], SpanType> = {
   thinking: "thinking",
   tool_use: "tool_use",
   tool_result: "tool_result",
-  unknown: "assistant_msg",
+  unknown: "marker",
 };
 
 /** 取單行摘要。 */
