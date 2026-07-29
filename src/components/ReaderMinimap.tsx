@@ -60,8 +60,20 @@ export function ReaderMinimap({ visibleStart, visibleEnd }: ReaderMinimapProps):
   if (!minimapEnabled || !projection || projection.targets.length === 0 || !buckets) return null;
   const denominator = Math.max(1, viewItems.length - 1);
   const positionX = (index: number): number => TRACK_LEFT + (index / denominator) * TRACK_WIDTH;
-  // 找不到選取項目時不畫圓點：畫在起點會宣稱一個假的位置。
-  const currentIndex = viewItems.findIndex((item) => item.id === selectedId);
+  /*
+   * R9.1 RC-C：紅點與密度長條必須出自**同一份投影**。
+   *
+   * 原本密度是從 `projection.targets` 算的、紅點卻是從 `viewItems.findIndex` 算的——兩套
+   * 座標系。當投影裡根本沒有這個項目時（例如只載到子代理紀錄、骨架退化成開始與結束兩站），
+   * 時間軸上仍然找得到索引，於是紅點被畫在一段沒有任何節點的線尾，宣稱了一個投影不承認的位置。
+   * 改為先讓投影認領：投影放不下它，就不畫點。
+   */
+  const projectedIds = new Set(projection.targets.flatMap((target) => (
+    target.type === "landmark" ? [target.viewItemId] : target.sourceViewItemIds
+  )));
+  const currentIndex = selectedId && projectedIds.has(selectedId)
+    ? viewItems.findIndex((item) => item.id === selectedId)
+    : -1;
   const currentX = currentIndex >= 0 ? positionX(currentIndex) : null;
   const viewportX = positionX(Math.max(0, visibleStart));
   const viewportEndX = positionX(Math.max(visibleStart, visibleEnd));
@@ -85,10 +97,18 @@ export function ReaderMinimap({ visibleStart, visibleEnd }: ReaderMinimapProps):
     <button
       type="button"
       className="reader-minimap"
-      aria-label={t.map.minimapLabel}
+      /*
+       * R9.1 RC-G：這些長條是「每一段有幾個地標」的密度，而且是以這份 session 自己的
+       * 最高值正規化的——所以同一種節點在不同 session 會有不同長度。這件事程式碼註解寫得
+       * 很清楚，卻從來沒有傳到使用者眼前，於是長條被讀成節點、長度被讀成分類差異。
+       * 編碼要說在被讀到的地方：可見標題 + aria-label 各說一次。
+       */
+      aria-label={t.map.minimapDensityLabel}
+      title={t.map.minimapDensityLabel}
       aria-haspopup="dialog"
       aria-controls="session-map-dialog"
       data-label={t.map.youAreHere}
+      data-caption={t.map.minimapDensityCaption}
       onClick={openMap}
     >
       <svg aria-hidden="true" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none">
