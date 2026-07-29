@@ -78,6 +78,28 @@ function isSubagentPath(path: string): boolean {
   return /(^|[\\/])subagents[\\/]/i.test(path);
 }
 
+/**
+ * 這份 transcript 內容上是不是子代理紀錄 (R9.1 RC-C)。
+ *
+ * 路徑不是可靠的判準。「載入 .jsonl」的多選走的是一般 `<input multiple>`，`webkitRelativePath`
+ * 是空字串，於是路徑退化成 `agent-<id>.jsonl`——`subagents/` 前綴整個消失。選了一整個
+ * `subagents/` 目錄的檔案時，第一個子代理檔就會被當成主檔收下，`NO_MAIN_TRANSCRIPT`
+ * 那段寫好的說明因此永遠沒有機會出現，使用者拿到的是一份只有開始與結束的空骨架。
+ *
+ * 內容才是可靠的：子代理紀錄要嘛整份都在旁鏈上，要嘛帶著 `agentId`。這兩個訊號索引器的
+ * 分類規則本來就在用（classifySession 規則 4），這裡只是把它從次要判準升為主要判準。
+ */
+function isSubagentContent(parsed: ParseResult): boolean {
+  const { events } = parsed;
+  if (events.length === 0) return false;
+  if (events.every((event) => event.isSidechain === true)) return true;
+  return events.some((event) => typeof (event.raw as { agentId?: unknown } | undefined)?.agentId === "string");
+}
+
+function isSubagentFile(file: { path: string; parsed: ParseResult }): boolean {
+  return isSubagentPath(file.path) || isSubagentContent(file.parsed);
+}
+
 /** Build one session from a main transcript plus any selected subagent files. */
 export function buildSessionDocumentFromFiles(files: TranscriptFileInput[], sourceId?: SourceId): PipelineResult {
   const outcomes = files
@@ -100,7 +122,7 @@ export function buildSessionDocumentFromFiles(files: TranscriptFileInput[], sour
 function countTopLevelSessions(files: Array<{ path: string; parsed: ParseResult }>): number {
   return new Set(
     files
-      .filter((file) => !isSubagentPath(file.path))
+      .filter((file) => !isSubagentFile(file))
       .map((file) => file.parsed.meta.id)
       .filter((id): id is string => Boolean(id)),
   ).size;
@@ -128,7 +150,7 @@ export function buildSessionDocumentFromParsedFiles(
   const sessionCount = countTopLevelSessions(parsedFiles);
   if (sessionCount > 1) throw new PipelineFatalError("MULTIPLE_SESSIONS", String(sessionCount));
 
-  const main = parsedFiles.find((file) => !isSubagentPath(file.path));
+  const main = parsedFiles.find((file) => !isSubagentFile(file));
   if (!main) throw new PipelineFatalError("NO_MAIN_TRANSCRIPT");
 
   const batchDiagnostics: Diagnostic[] = [];

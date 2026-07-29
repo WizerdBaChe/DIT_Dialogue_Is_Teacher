@@ -176,3 +176,33 @@ describe("buildSessionDocument — single-input fatal outcomes", () => {
     expectFatal(() => buildSessionDocument(noiseOnly), "NO_RENDERABLE_CONTENT");
   });
 });
+
+/**
+ * R9.1 RC-C：子代理身分不能靠路徑字串。「載入 .jsonl」的多選走一般 <input multiple>，
+ * webkitRelativePath 是空字串，路徑會退化成裸檔名——`subagents/` 前綴整個消失。
+ */
+describe("subagent identity comes from content, not from the path (R9.1 RC-C)", () => {
+  const subagentLine = (uuid: string) => JSON.stringify({
+    type: "user", uuid, sessionId: "s1", isSidechain: true, agentId: "agent-a",
+    timestamp: "2026-07-20T00:00:00Z", message: { role: "user", content: "go" },
+  });
+  const mainLine = JSON.stringify({
+    type: "user", uuid: "u1", sessionId: "s1",
+    timestamp: "2026-07-20T00:00:00Z", message: { role: "user", content: "please review this" },
+  });
+
+  it("throws NO_MAIN_TRANSCRIPT when every selected file is subagent-shaped, even with bare basenames", () => {
+    expect(() => buildSessionDocumentFromFiles([
+      { path: "agent-1.jsonl", content: subagentLine("s1") },
+      { path: "agent-2.jsonl", content: subagentLine("s2") },
+    ])).toThrowError(expect.objectContaining({ diagnostic: expect.objectContaining({ code: "NO_MAIN_TRANSCRIPT" }) }));
+  });
+
+  it("still picks the real main transcript when a bare-basename subagent is selected alongside it", () => {
+    const result = buildSessionDocumentFromFiles([
+      { path: "agent-1.jsonl", content: subagentLine("s1") },
+      { path: "session.jsonl", content: mainLine },
+    ]);
+    expect(result.doc.spans.length).toBeGreaterThan(0);
+  });
+});
