@@ -43,7 +43,7 @@ async function indexSource(files: Array<[string, string]>): Promise<void> {
 
 afterEach(() => {
   useSessionStore.setState({
-    browseState: "no_directory",
+    browseState: "closed",
     indexEntries: [],
     indexDiagnostics: [],
     browseProgress: null,
@@ -55,8 +55,8 @@ afterEach(() => {
 });
 
 describe("DSM-4 · session browser transitions", () => {
-  it("no_directory --index--> indexed", async () => {
-    expect(useSessionStore.getState().browseState).toBe("no_directory");
+  it("closed --index--> indexed", async () => {
+    expect(useSessionStore.getState().browseState).toBe("closed");
     await indexSource([["proj/a.jsonl", TRANSCRIPT]]);
     expect(useSessionStore.getState().browseState).toBe("indexed");
     expect(useSessionStore.getState().indexEntries).toHaveLength(1);
@@ -97,10 +97,10 @@ describe("DSM-4 · session browser transitions", () => {
     expect(useSessionStore.getState().indexEntries.length).toBeGreaterThan(0);
   });
 
-  it("indexed --close--> no_directory, and re-indexing replaces the list rather than appending", async () => {
+  it("indexed --close--> closed, and re-indexing replaces the list rather than appending", async () => {
     await indexSource([["proj/a.jsonl", TRANSCRIPT]]);
     useSessionStore.getState().closeBrowser();
-    expect(useSessionStore.getState().browseState).toBe("no_directory");
+    expect(useSessionStore.getState().browseState).toBe("closed");
 
     await indexSource([["proj/b.jsonl", TRANSCRIPT], ["proj/c.jsonl", TRANSCRIPT]]);
     expect(useSessionStore.getState().indexEntries).toHaveLength(2);
