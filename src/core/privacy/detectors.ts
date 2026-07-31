@@ -31,16 +31,39 @@ const IDENTIFIER_RULES: PatternRule[] = [
   { kind: "ip_address", action: "replace", confidence: 0.9, pattern: /\b(?!(?:127\.0\.0\.1|0\.0\.0\.0)\b)(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g },
 ];
 
+/**
+ * Rules are module-level constants, so each scan gets its own RegExp rather
+ * than mutating shared `lastIndex`. `d` is added so capture offsets come from
+ * the engine instead of being guessed — see findingsForRules.
+ */
+function withIndices(pattern: RegExp): RegExp {
+  const flags = new Set(pattern.flags.split(""));
+  flags.add("g");
+  flags.add("d");
+  return new RegExp(pattern.source, [...flags].join(""));
+}
+
 function findingsForRules(detectorId: string, input: string, rules: PatternRule[]): PrivacyFinding[] {
   const findings: PrivacyFinding[] = [];
   for (const rule of rules) {
-    rule.pattern.lastIndex = 0;
-    for (const match of input.matchAll(rule.pattern)) {
+    const pattern = withIndices(rule.pattern);
+    for (const match of input.matchAll(pattern)) {
       if (match.index === undefined) continue;
       const value = rule.capture ? match[rule.capture] : match[0];
       if (!value) continue;
-      const relativeStart = rule.capture ? match[0].indexOf(value) : 0;
-      const start = match.index + Math.max(0, relativeStart);
+      /**
+       * The capture's position must come from match.indices, not from
+       * match[0].indexOf(value): indexOf finds the FIRST occurrence inside the
+       * match, which is the wrong one whenever the captured text also appears
+       * earlier. "password:password" located the label at offset 0 instead of
+       * the value at 9 — and a caller that masks a finding by its offsets
+       * would then have masked the label and shipped the secret.
+       */
+      const indices = (match as RegExpMatchArray & { indices?: Array<[number, number] | undefined> }).indices;
+      const captured = rule.capture ? indices?.[rule.capture] : undefined;
+      const start = captured
+        ? captured[0]
+        : match.index + Math.max(0, rule.capture ? match[0].indexOf(value) : 0);
       findings.push({
         id: `${detectorId}:${rule.kind}:${start}:${start + value.length}`,
         detectorId,
