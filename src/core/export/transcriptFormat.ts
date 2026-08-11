@@ -23,6 +23,20 @@ export function collapseBlankLines(text: string): string {
   return text.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/**
+ * 把遮蔽統計組成人讀的一句話：`email 2 · 使用者路徑 1`。
+ * 兩種渲染器共用，確保 Markdown 與 HTML 講的是同一件事。
+ */
+export function redactionSummaryText(
+  summary: Partial<Record<string, number>>,
+  kindLabels: Record<string, string>,
+): string {
+  return Object.entries(summary)
+    .filter(([, count]) => Boolean(count))
+    .map(([kind, count]) => `${kindLabels[kind] ?? kind} ${count}`)
+    .join(" · ");
+}
+
 /** 產生匯出檔名的時間戳片段 (呼叫端注入 Date，維持純函式)。 */
 export function fileStamp(now: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");

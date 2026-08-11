@@ -10,8 +10,9 @@ import { buildSessionExport, type BuildSessionExportOptions } from "@/core/expor
 import { buildTranscript } from "@/core/export/transcript";
 import { renderTranscriptMarkdown } from "@/core/export/transcriptMarkdown";
 import { renderTranscriptHtml } from "@/core/export/transcriptHtml";
+import { redactTranscript } from "@/core/export/transcriptRedact";
 import { fileStamp } from "@/core/export/transcriptFormat";
-import { DEFAULT_TRANSCRIPT_OPTIONS, type TranscriptOptions } from "@/core/export/contracts";
+import { DEFAULT_TRANSCRIPT_OPTIONS, type TranscriptExport, type TranscriptOptions } from "@/core/export/contracts";
 import { downloadText } from "@/core/export/download";
 import { injectSnapshotPayload, SnapshotTemplateError } from "@/core/export/snapshotTemplate";
 import { NoticeBanner } from "./NoticeBanner";
@@ -35,6 +36,9 @@ export function ExportControls(): ReactNode {
   const [notice, setNotice] = useState<ExportNotice | null>(null);
   // 匯出當下的取捨，不進 store：換個 session 重新想一次比記住上次的選擇更合理。
   const [transcriptOptions, setTranscriptOptions] = useState<TranscriptOptions>(DEFAULT_TRANSCRIPT_OPTIONS);
+  const [redactSensitive, setRedactSensitive] = useState(false);
+  // 遮蔽要掃過整份逐字稿，大 session 會有可感知的延遲；期間鎖住按鈕避免重複觸發。
+  const [busy, setBusy] = useState(false);
 
   const exportOptions = (): BuildSessionExportOptions => ({
     exportedAt: new Date().toISOString(),
@@ -90,44 +94,66 @@ export function ExportControls(): ReactNode {
     setTranscriptOptions((previous) => ({ ...previous, [key]: checked }));
   };
 
-  /** 逐字稿三種輸出共用的組裝；回傳 null 代表沒有載入 session。 */
-  const currentTranscript = () => {
+  /**
+   * 逐字稿各種輸出共用的組裝；回傳 null 代表沒有載入 session。
+   * 開啟遮蔽時多跑一趟本機遮蔽（偵測器是 async，故整條路徑為 async）。
+   */
+  const currentTranscript = async () => {
     if (!doc) return null;
-    return buildTranscript(doc, {
+    const transcript = buildTranscript(doc, {
       exportedAt: new Date().toISOString(),
       appVersion: pkg.version,
       options: transcriptOptions,
     });
+    return redactSensitive ? await redactTranscript(transcript) : transcript;
+  };
+
+  /** 遮蔽沒能清乾淨時要講出來——使用者以為有遮但其實沒遮乾淨，比沒開遮蔽更危險。 */
+  const reportResidual = (transcript: TranscriptExport, size: number) => {
+    const residual = transcript.redaction?.residualSecretBlocks ?? 0;
+    if (residual > 0) setNotice({ kind: "warn", message: t.transcript.redactionResidual(residual) });
+    else reportResult(size);
   };
 
   const transcriptFilename = (extension: string) =>
     `dit-transcript-${doc?.session.id.slice(0, 8) ?? "session"}-${stamp()}.${extension}`;
 
-  const exportTranscript = (format: "md" | "json" | "html") => {
-    const transcript = currentTranscript();
-    if (!transcript) return;
+  const exportTranscript = async (format: "md" | "json" | "html") => {
+    if (!doc || busy) return;
+    setBusy(true);
     try {
+      const transcript = await currentTranscript();
+      if (!transcript) return;
       const { text, mime, extension } = format === "md"
         ? { text: renderTranscriptMarkdown(transcript, t.transcript), mime: "text/markdown", extension: "md" }
         : format === "json"
           ? { text: JSON.stringify(transcript, null, 2), mime: "application/json", extension: "json" }
           : { text: renderTranscriptHtml(transcript, t.transcript, { lang: locale }), mime: "text/html", extension: "html" };
-      reportResult(downloadText(transcriptFilename(extension), mime, text));
+      reportResidual(transcript, downloadText(transcriptFilename(extension), mime, text));
     } catch (error) {
       reportFailure(error, `Export transcript (${format}) failed`);
+    } finally {
+      setBusy(false);
     }
   };
 
   const copyTranscript = async () => {
-    const transcript = currentTranscript();
-    if (!transcript) return;
+    if (!doc || busy) return;
+    setBusy(true);
     try {
+      const transcript = await currentTranscript();
+      if (!transcript) return;
       // 非安全來源 (http://) 或未授權時 clipboard 不存在，屬於預期情況——提示改用檔案匯出。
       await navigator.clipboard.writeText(renderTranscriptMarkdown(transcript, t.transcript));
-      setNotice({ kind: "success", message: t.transcript.copied });
+      const residual = transcript.redaction?.residualSecretBlocks ?? 0;
+      setNotice(residual > 0
+        ? { kind: "warn", message: t.transcript.redactionResidual(residual) }
+        : { kind: "success", message: t.transcript.copied });
     } catch (error) {
       setNotice({ kind: "warn", message: t.transcript.copyFailed });
       console.error("Copy transcript failed", error);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -169,14 +195,24 @@ export function ExportControls(): ReactNode {
             />
             {t.transcript.optionSubagents}
           </label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={redactSensitive}
+              onChange={(event) => setRedactSensitive(event.target.checked)}
+            />
+            {t.transcript.optionRedact}
+          </label>
         </div>
         <p className="option-hint">{t.transcript.optionSubagentsHint}</p>
+        <p className="option-hint">{t.transcript.optionRedactHint}</p>
         <div className="settings-actions export-actions">
-          <button className="btn" onClick={() => exportTranscript("md")} disabled={!doc}>{t.transcript.markdown}</button>
-          <button className="btn" onClick={() => exportTranscript("html")} disabled={!doc}>{t.transcript.html}</button>
-          <button className="btn" onClick={() => exportTranscript("json")} disabled={!doc}>{t.transcript.json}</button>
-          <button className="btn" onClick={() => void copyTranscript()} disabled={!doc}>{t.transcript.copy}</button>
+          <button className="btn" onClick={() => void exportTranscript("md")} disabled={!doc || busy}>{t.transcript.markdown}</button>
+          <button className="btn" onClick={() => void exportTranscript("html")} disabled={!doc || busy}>{t.transcript.html}</button>
+          <button className="btn" onClick={() => void exportTranscript("json")} disabled={!doc || busy}>{t.transcript.json}</button>
+          <button className="btn" onClick={() => void copyTranscript()} disabled={!doc || busy}>{t.transcript.copy}</button>
         </div>
+        {busy && <span className="cache-status">{t.transcript.redacting}</span>}
         {/* 逐字稿比 session 存檔更容易被貼出去分享，隱私提醒同樣要在場。 */}
         <p className="export-privacy-note">{t.transcript.hint} {t.export.privacyNote}</p>
       </fieldset>
