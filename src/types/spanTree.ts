@@ -84,6 +84,15 @@ export interface Span {
   text: string;
   tool?: ToolInfo;
   result?: ResultInfo;
+  /**
+   * 此節點的文字是 adapter 代為敘述的系統事件（回合中斷、上下文壓縮、無法配對的呼叫、
+   * 未知事件型別…），而不是模型或使用者真的說出口的話。
+   *
+   * 節點視圖照舊把它當一張卡片顯示——那是它該在的地方；但任何「逐字對話」的輸出
+   * （如 transcript 匯出）必須排除，否則這些敘述會冒充成 AI 的發言。
+   * 可選欄位，不影響既有 SCHEMA_VERSION 的相容性。
+   */
+  synthetic?: boolean;
   tags: SpanTag[];
   annotation?: Annotation;
   /** 原始事件，保底可回溯 (資料流可追蹤)。 */
