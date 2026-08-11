@@ -75,3 +75,26 @@ describe("normalize — session title fallback (R7B-03, B4.6)", () => {
     expect(doc.session.title).toBe("Please fix the flaky login test");
   });
 });
+
+describe("normalize — synthetic marker", () => {
+  it("marks adapter-narrated system events so verbatim outputs can drop them", () => {
+    const doc = normalize(parsed([
+      { kind: "user_text", text: "fix it", raw: {} },
+      { kind: "unknown", text: "此回合被中斷（原因：使用者取消）", raw: {} },
+      { kind: "assistant_text", text: "done", raw: {} },
+    ]));
+
+    // 型別維持 assistant_msg——節點視圖照舊顯示這張卡片，只是多了一個「這不是模型說的」的標記。
+    expect(doc.spans[1].type).toBe("assistant_msg");
+    expect(doc.spans[1].synthetic).toBe(true);
+  });
+
+  it("leaves real model and user output unmarked", () => {
+    const doc = normalize(parsed([
+      { kind: "user_text", text: "fix it", raw: {} },
+      { kind: "thinking", text: "hmm", raw: {} },
+      { kind: "assistant_text", text: "done", raw: {} },
+    ]));
+    expect(doc.spans.every((span) => span.synthetic === undefined)).toBe(true);
+  });
+});
