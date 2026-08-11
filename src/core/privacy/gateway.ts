@@ -1,6 +1,5 @@
 import {
   PrivacyError,
-  type PrivacyAction,
   type PrivacyConsent,
   type PrivacyDetector,
   type PrivacyEnvelope,
@@ -9,8 +8,8 @@ import {
   type PrivacyInspection,
   type PrivacyPolicy,
   type PrivacyRequest,
-  type SensitiveKind,
 } from "./contracts";
+import { applyFindings, resolveOverlaps } from "./apply";
 import { DEFAULT_PRIVACY_DETECTORS, secretDetector } from "./detectors";
 import { PRIVACY_POLICIES } from "./policies";
 
@@ -21,10 +20,6 @@ interface StoredInspection {
   inputDigest: string;
 }
 
-interface AppliedFinding extends PrivacyFinding {
-  action: PrivacyAction;
-}
-
 function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID()}`;
 }
@@ -33,58 +28,6 @@ async function digestText(input: string): Promise<string> {
   const bytes = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function actionPriority(action: PrivacyAction): number {
-  return { block: 4, redact: 3, replace: 2, keep_review: 1 }[action];
-}
-
-function resolveOverlaps(findings: AppliedFinding[]): AppliedFinding[] {
-  const sorted = [...findings].sort((a, b) =>
-    actionPriority(b.action) - actionPriority(a.action)
-    || (b.end - b.start) - (a.end - a.start)
-    || b.confidence - a.confidence
-    || a.start - b.start,
-  );
-  const accepted: AppliedFinding[] = [];
-  for (const finding of sorted) {
-    const overlap = accepted.find((item) => finding.start < item.end && finding.end > item.start);
-    if (!overlap) {
-      accepted.push(finding);
-      continue;
-    }
-    const contained = finding.start >= overlap.start && finding.end <= overlap.end;
-    if (!contained && finding.action === overlap.action && finding.confidence === overlap.confidence) {
-      throw new PrivacyError("PRIVACY_AMBIGUOUS_OVERLAP", "Sensitive ranges overlap and require manual review.");
-    }
-  }
-  return accepted.sort((a, b) => a.start - b.start);
-}
-
-function transform(input: string, findings: AppliedFinding[]): { text: string; summary: Partial<Record<SensitiveKind, number>> } {
-  const counters = new Map<SensitiveKind, number>();
-  const replacements = new Map<string, string>();
-  const summary: Partial<Record<SensitiveKind, number>> = {};
-  let text = input;
-
-  for (const finding of [...findings].sort((a, b) => b.start - a.start)) {
-    summary[finding.kind] = (summary[finding.kind] ?? 0) + 1;
-    if (finding.action === "keep_review") continue;
-    const original = input.slice(finding.start, finding.end);
-    let replacement = "";
-    if (finding.action === "replace") {
-      const mappingKey = `${finding.kind}\0${original}`;
-      replacement = replacements.get(mappingKey) ?? "";
-      if (!replacement) {
-        const index = (counters.get(finding.kind) ?? 0) + 1;
-        counters.set(finding.kind, index);
-        replacement = `<${finding.kind.toUpperCase()}_${index}>`;
-        replacements.set(mappingKey, replacement);
-      }
-    }
-    text = `${text.slice(0, finding.start)}${replacement}${text.slice(finding.end)}`;
-  }
-  return { text, summary };
 }
 
 export class LocalPrivacyGateway implements PrivacyGateway {
@@ -112,7 +55,7 @@ export class LocalPrivacyGateway implements PrivacyGateway {
       throw new PrivacyError("PRIVACY_SECRET_BLOCKED", "A possible secret or blocked sensitive value was found; no data was sent.");
     }
 
-    const transformed = transform(input, applied);
+    const transformed = applyFindings(input, applied);
     const postFindings = await secretDetector.detect(transformed.text, {});
     if (postFindings.length > 0) {
       throw new PrivacyError("PRIVACY_POST_SCAN_FAILED", "The sanitized text still appears to contain a secret; no data was sent.");

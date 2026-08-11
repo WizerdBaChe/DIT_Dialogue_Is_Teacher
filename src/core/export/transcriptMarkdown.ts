@@ -6,7 +6,7 @@
  * 「把 Markdown 串起來」的輸出都有的性質，逐字稿以保真為優先。
  */
 import type { TranscriptExport, TranscriptLabels, TranscriptMessage, TranscriptTurn } from "./contracts";
-import { collapseBlankLines, formatDateTime, formatTime } from "./transcriptFormat";
+import { collapseBlankLines, formatDateTime, formatTime, redactionSummaryText } from "./transcriptFormat";
 
 /** 連續的工具摘要併成一行，避免一輪裡塞了六行「⚙️ …」把對話沖散。 */
 function groupMessages(messages: TranscriptMessage[]): Array<TranscriptMessage | TranscriptMessage[]> {
@@ -51,6 +51,15 @@ function renderHeader(transcript: TranscriptExport, labels: TranscriptLabels): s
   if (started) lines.push(`- **${labels.fieldStarted}**：${started}`);
   lines.push(`- **${labels.fieldExported}**：${formatDateTime(transcript.exportedAt) ?? transcript.exportedAt}（DIT v${transcript.appVersion}）`);
   lines.push(`- **${labels.fieldContents}**：${statsLine(transcript, labels)}`);
+
+  // 內容被改寫過就必須講出來，否則讀的人分不出 <EMAIL_1> 是遮蔽還是原文。
+  if (transcript.redaction) {
+    const summary = redactionSummaryText(transcript.redaction.summary, labels.sensitiveKind);
+    lines.push(`- ${labels.redactionNote(summary || labels.redactionNothingFound)}`);
+    if (transcript.redaction.residualSecretBlocks > 0) {
+      lines.push("", `> ⚠️ ${labels.redactionResidual(transcript.redaction.residualSecretBlocks)}`);
+    }
+  }
   return lines;
 }
 

@@ -2,6 +2,7 @@
  * 匯出資料契約 (FR-8 / R6)。
  * 對應文件：docs/rounds/r6-export/PSM_R6_EXPORT_v0.1.md §4.2
  */
+import type { SensitiveKind } from "@/core/privacy/contracts";
 import type { Annotation, SessionDocument, SessionMeta } from "@/types/spanTree";
 
 /** export 包裝層版本，與資料本體的 SCHEMA_VERSION 獨立演進 (EX-INV-5)。 */
@@ -135,9 +136,26 @@ export interface TranscriptLabels {
   roleToolActivity: string;
   roleSubagentPrompt: string;
   subagentBadge: string;
+  /** 遮蔽紀錄。`redactionNote` 是列在標頭的整句說明，`redactionResidual` 是複查未過的警告。 */
+  redactionNote: (summary: string) => string;
+  redactionResidual: (blocks: number) => string;
+  redactionNothingFound: string;
+  sensitiveKind: Record<SensitiveKind, string>;
   /** HTML 檢視頁專用。 */
   outlineHeading: string;
   emptyTranscript: string;
+}
+
+/**
+ * 遮蔽紀錄。存在此欄位即代表這份逐字稿的內容被改寫過——讀的人才分得出 `<EMAIL_1>` 是遮蔽
+ * 結果，而不是原文裡本來就有的字。沒開遮蔽時整個欄位不存在，不放一個 applied: false 的空殼。
+ */
+export interface TranscriptRedaction {
+  policyId: string;
+  /** 各類敏感資訊被處理的次數。 */
+  summary: Partial<Record<SensitiveKind, number>>;
+  /** 遮蔽後仍疑似含密鑰的段落數；> 0 代表這份檔案分享前需要人工再看一遍。 */
+  residualSecretBlocks: number;
 }
 
 export interface TranscriptExport {
@@ -151,4 +169,6 @@ export interface TranscriptExport {
   options: TranscriptOptions;
   stats: TranscriptStats;
   turns: TranscriptTurn[];
+  /** 僅在使用者開啟遮蔽時存在。 */
+  redaction?: TranscriptRedaction;
 }

@@ -58,12 +58,14 @@ describe("SettingsDialog (R7 settings-dialog redesign)", () => {
     render(<SettingsDialog />);
     openDialog();
     const hints = Array.from(document.querySelectorAll(".option-hint")).map((el) => el.textContent);
-    expect(hints).toHaveLength(4);
+    expect(hints).toHaveLength(5);
     expect(hints.some((text) => text?.includes("重試失敗"))).toBe(true);
     expect(hints.some((text) => text?.includes("重新呼叫"))).toBe(true);
     expect(hints.some((text) => text?.includes("M"))).toBe(true);
     // 「包含子代理對話」預設關閉，得說明為什麼旁鏈不算主線對話。
     expect(hints.some((text) => text?.includes("子代理"))).toBe(true);
+    // 遮蔽必須講清楚是本機處理、且只是盡力而為。
+    expect(hints.some((text) => text?.includes("不會送出任何內容"))).toBe(true);
   });
 
   it("shows a plain-text missing count plus a standalone red 全部講解 button (not hidden behind a select)", () => {

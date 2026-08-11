@@ -10,7 +10,7 @@
  * 安全性：所有來自 session 的文字一律經 `escapeHtml`。頁面本身無腳本，CSP 直接禁掉 script。
  */
 import type { TranscriptExport, TranscriptLabels, TranscriptMessage, TranscriptTurn } from "./contracts";
-import { collapseBlankLines, formatDateTime, formatTime } from "./transcriptFormat";
+import { collapseBlankLines, formatDateTime, formatTime, redactionSummaryText } from "./transcriptFormat";
 
 export interface TranscriptHtmlOptions {
   /** `<html lang>`：跟著介面語言走 (zh-TW / en)。 */
@@ -158,6 +158,18 @@ function renderStats(transcript: TranscriptExport, labels: TranscriptLabels): st
   return items.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
 }
 
+/** 遮蔽紀錄放在資訊欄，跟內容統計並列——它是這份檔案的性質，不是某一輪的註腳。 */
+function renderRedaction(transcript: TranscriptExport, labels: TranscriptLabels): string {
+  const { redaction } = transcript;
+  if (!redaction) return "";
+  const summary = redactionSummaryText(redaction.summary, labels.sensitiveKind);
+  const note = `<p class="tx-redaction-note">${escapeHtml(labels.redactionNote(summary || labels.redactionNothingFound))}</p>`;
+  const residual = redaction.residualSecretBlocks > 0
+    ? `<p class="tx-redaction-warn">${escapeHtml(labels.redactionResidual(redaction.residualSecretBlocks))}</p>`
+    : "";
+  return `<div class="tx-redaction">${note}${residual}</div>`;
+}
+
 /**
  * 設計語彙沿用主應用的 editorial serif (ADR-015)：暖白紙面、ink 文字、hairline 細線、
  * 單一暗紅點綴、無陰影。此處為獨立副本而非匯入 index.css——閱讀頁必須單檔自足，
@@ -186,6 +198,9 @@ body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size
 .tx-meta dd{font-size:13px;color:var(--muted);overflow-wrap:anywhere;line-height:1.5}
 .tx-stats{list-style:none;border-top:1px solid var(--rule);padding-top:16px;display:flex;flex-wrap:wrap;gap:4px 12px}
 .tx-stats li{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tx-redaction{border-top:1px solid var(--rule);padding-top:14px;display:flex;flex-direction:column;gap:6px}
+.tx-redaction-note{font-size:12px;color:var(--muted);line-height:1.55}
+.tx-redaction-warn{font-size:12px;line-height:1.55;color:var(--accent);border-left:2px solid var(--accent);padding-left:9px;background:var(--accent-tint)}
 .tx-outline{border-top:1px solid var(--rule);padding-top:16px;min-height:0}
 .tx-outline ol{list-style:none;margin-top:10px;display:flex;flex-direction:column}
 .tx-outline a{display:grid;grid-template-columns:1.9em 1fr;gap:6px;padding:6px 8px 6px 4px;margin-left:-4px;color:var(--muted);text-decoration:none;border-radius:2px;font-size:13px;line-height:1.45}
@@ -276,6 +291,7 @@ export function renderTranscriptHtml(
 ${renderMeta(transcript, labels)}
 </dl>
 <ul class="tx-stats">${renderStats(transcript, labels)}</ul>
+${renderRedaction(transcript, labels)}
 ${outline ? `<nav class="tx-outline"><p class="tx-eyebrow">${escapeHtml(labels.outlineHeading)}</p><ol>\n${outline}\n</ol></nav>` : ""}
 <p class="tx-foot">DIT v${escapeHtml(transcript.appVersion)}<br>${escapeHtml(labels.fieldExported)} ${escapeHtml(exportedAt)}</p>
 </aside>
