@@ -213,6 +213,15 @@ VS Code 的 `Claude Code and Codex Assist` 都已支援。專注單一來源的�
 
 ## 5. 待查證清單（施工前必須先解決，不得發明）
 
+> **調查工具已就緒**：`npm run scan:codex -- "<sessions 資料夾>"`
+> （`scripts/scan-codex-sessions.mjs`，零相依、串流讀檔、支援 GB 級 rollout）。
+> 它逐檔判定 `LEGACY`／`PAGINATED`／`MIXED`／`INDETERMINATE`，統計型別分佈，
+> 量化「DIT 目前會落進寬容收納的比例」，並擷取 `item_completed.payload.item`
+> 與 `session_meta` 的 **key path 形狀**。
+> 報告**只記結構與列舉值、不記任何內容**（訊息／思考／指令／檔案路徑／cwd 一律不進報告），
+> 產出 `codex-scan-report.json`（可分享，檔案以 file-NNN 代稱）與
+> `codex-scan-files.json`（本機路徑對照，勿外傳）。合成樣本已驗證零內容外洩。
+
 - [ ] 取得 Paginated 模式的真實 rollout 檔；確認 `item_completed.payload.item` 的實際 JSON 形狀與
       `TurnItem` 變體命名（本文件只從 Rust enum 推得，**未見過實際 JSON**）。
 - [ ] 確認目前使用者手上的 Codex 版本走哪一種 `ThreadHistoryMode`，以及是否可由檔案內容自我判斷。
