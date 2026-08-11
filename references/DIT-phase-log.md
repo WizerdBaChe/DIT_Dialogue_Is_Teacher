@@ -223,3 +223,38 @@
 - `ProviderId` rename/migration scope (`cloud` is now misleading) — decide ADR once M0 is known.
 - Onboarding depth is a UX-semantic decision — ASK the user before building it (M6).
 - This design doc is PIM-grade; the implementing session must expand it to a work-card PSM before building, and must not treat it as sole-source.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 9 – Source Awareness, Codex Fidelity, and Product Scan (research)
+- Status: research complete; investigation tool shipped; implementation blocked on a local sample scan
+- Date: 2026-08-11
+- Detail: docs/rounds/r9-source-awareness/RESEARCH_R9_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md
+
+## Goals
+- Answer three user questions with evidence rather than opinion: what convenience designs existing products offer, whether the Codex adapter can be improved further from official upstream data, and whether the pipeline can identify the source harness before processing instead of checking globally.
+
+## Decisions
+- Source detection is already feature-based and correct (`detectAdapter()` reads only the first non-empty line; `normalize()` records the verdict on `doc.session.source`). The defect is downstream: `denoise()` and `distill()` never read that field and match hardcoded Claude Code tool names against every source. Proposed remedy is a `SourceProfile` table keyed by `SourceId`, resolved once at parse time.
+- Measured on a semantically identical session expressed in both formats: Claude Code yields 2 skeleton ribs, 1 edit-loop group and error x2; Codex yields zero ribs, zero groups and zero error tags. The Codex degradation is caused by the rule layer, not by missing data in the rollout.
+- Upstream `codex-rs/rollout/src/policy.rs` proves rollout files come in two history modes. Every event the R7/R7.5 Codex enrichment depends on is Legacy-mode only; Paginated mode emits `event_msg/item_completed` carrying a `TurnItem` instead, which the current adapter treats as an unknown type. This makes the Paginated case the single largest risk to the existing Codex investment.
+- Official `entered_review_mode` / `exited_review_mode` markers exist and are persisted in Legacy mode; R7.5's English-signature heuristic (`"The following is the Codex agent history"`) should become the fallback, not the primary detector.
+- `response_item/agent_message` is currently dropped silently as zero-content subagent chatter, but upstream lists `ResponseItem::AgentMessage` as a persisted first-class message item. Flagged for re-verification against real samples; deliberately left unchanged until verified.
+- Product scan: multi-harness viewing is commodity (28-agent, 25-agent and 20-agent viewers already exist). Per-session full-text search is the only convenience competitors all have, DIT entirely lacks, and that is compatible with the teaching positioning. Chasing harness breadth is rejected as it also conflicts with R7-INV-6.
+- User ruling 2026-08-11 on execution order: assess R9-A's impact first; if the impact turns out to be small, build R9-B (source profiles), then R9-C (search), and take on R9-A last.
+- The impact assessment cannot be performed from a cloud session because the rollout files exist only on the user's local machine, so the assessment was converted into a tool the user runs locally.
+
+## Changes
+- docs/rounds/r9-source-awareness/RESEARCH_R9_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md: added the PIM-grade research note with the measured parity table, the verbatim upstream persistence policy, the competitor matrix, and a to-verify checklist. Explicitly labeled non-normative.
+- docs/BACKLOG.md: added the 2026-08-11 R9 section listing R9-A/R9-B/R9-C with priority and blocking conditions.
+- scripts/scan-codex-sessions.mjs: added a zero-dependency streaming scanner and classifier for `~/.codex/sessions`. Emits a per-file LEGACY/PAGINATED/MIXED/INDETERMINATE verdict, the type histogram, the tolerant-capture ratio under the current adapter, and key-path shapes for `item_completed.payload.item` and `session_meta`. Records structure and a narrow allowlist of enum-like values only; message text, reasoning, commands, file paths and cwd never enter the shareable report. Verified against synthetic fixtures with eleven planted content strings, none of which appear in the report.
+- package.json: added the `scan:codex` script.
+- docs/rounds/r9-source-awareness/R9_KICKOFF_PROMPT.md: added the handoff prompt for the local implementation session.
+
+## Open Questions / TODO
+- Run `npm run scan:codex -- "<sessions folder>"` locally and report the mode distribution, the tolerant-capture ratio, and the observed `item_completed.payload.item` key paths. Everything downstream depends on these numbers.
+- If PAGINATED is a large share of the user's real sessions, the "impact is small" premise behind the agreed ordering fails and the order must be re-ruled by the user rather than silently changed.
+- `item_completed.payload.item` JSON field names are still unknown; they were inferred from Rust enum variant names only and must not be invented.
+- Confirm whether `response_item/agent_message` is genuinely always empty in real samples.
+- Confirm whether `function_call_output.output` carries a `success` field usable to restore `isError`, which is one direct cause of the missing error tags on Codex sources.
+- R9-C needs three UX rulings before any code: search scope layers, behavior when a hit lands inside collapsed content, and whether LLM annotations are searchable given they are generated asynchronously.
