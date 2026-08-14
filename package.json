@@ -11,7 +11,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "fixture:r5": "node scripts/generate-r5-fixture.mjs",
-    "benchmark:r5": "node scripts/render-r5-benchmark.mjs"
+    "benchmark:r5": "node scripts/render-r5-benchmark.mjs",
+    "scan:codex": "node scripts/scan-codex-sessions.mjs"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.6",

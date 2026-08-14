@@ -2,6 +2,24 @@
 
 > 已決定但尚未實作的項目。最高優先在上。對應討論：2026-06-25。
 
+## 📌 2026-08-11 R9 研究筆記產出（三項候選，待使用者裁定）
+
+> 完整證據與逐條核對見 [RESEARCH_R9_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md](rounds/r9-source-awareness/RESEARCH_R9_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md)。
+> 本段只記標題與優先序；該文件為 PIM 級研究筆記，非 sole-source PSM，裁定前不得施工。
+
+- [ ] **R9-A Codex 保真度**：upstream `codex-rs/rollout/src/policy.rs` 明載 rollout 有 `Legacy` 與
+  `Paginated` 兩種歷史模式；R7／R7.5 為 Codex 做的加值（`patch_apply_end`／`mcp_tool_call_end`／
+  `web_search_end`／`agent_reasoning`／`context_compacted`／`sub_agent_activity`）**全部只在 Legacy
+  模式持久化**，Paginated 模式改寫 `event_msg/item_completed`，DIT 目前會整批當未知型別。另有
+  `entered_review_mode`／`exited_review_mode` 官方標記可取代現行英文簽名猜測，以及
+  `response_item/agent_message` 靜默丟棄需重新查證。**前置條件：需真實 Paginated 樣本。**
+- [ ] **R9-B Source Profile 側寫化**：`detectAdapter()` 有正確辨識來源、`doc.session.source` 也有記錄，
+  但 `denoise()`／`distill()` 從不讀它，改用寫死的 Claude 工具名（`Edit/Write/…`、`Read/Grep/…`）
+  全域比對。2026-08-11 實測：語意相同的一段作業，Claude Code 產出 2 條支線 + 1 個 edit-loop 群組 +
+  error×2，Codex 產出**零支線、零群組、零 error 標籤**。爆炸半徑小（三個純函式 + 一張側寫表，UI 零改動）。
+- [ ] **R9-C Session 內全文搜尋**：競品掃描顯示這是唯一一項「競品全有、DIT 全無、且與教學定位相容」
+  的基礎便利；大 session（R5 已驗 50 MiB／29,452 items）無搜尋等同逼使用者捲動找東西。
+
 ## 📌 2026-07-23 R7 Part B 收尾新增
 
 - [ ] **Codex 子代理協作事件的專屬視覺呈現**：R7B-00／R7B-05 用真實樣本發現 Codex 已有
