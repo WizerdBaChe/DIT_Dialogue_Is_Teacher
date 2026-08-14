@@ -318,3 +318,37 @@
 - Confirm whether `response_item/agent_message` is genuinely always empty in real samples.
 - Confirm whether `function_call_output.output` carries a `success` field usable to restore `isError`, which is one direct cause of the missing error tags on Codex sources.
 - R10-C needs three UX rulings before any code: search scope layers, behavior when a hit lands inside collapsed content, and whether LLM annotations are searchable given they are generated asynchronously.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 12 - R10 Source Awareness implementation (M1 agent_message, R10-B source profiles)
+- Status: built and green on every automated gate; ZERO manual acceptance run - the round is delivered, not accepted
+- Date: 2026-08-14
+- Detail: docs/rounds/r10-source-awareness/SCAN_R10_LOCAL_ROLLOUT_RESULTS.md, docs/OUTSTANDING_2026-08-14.md
+
+## Goals
+- Clear the Step 1 decision gate with measured local data instead of inference, then build what the data justified.
+
+## Decisions
+- The scan cleared the agreed ordering: 356/356 rollouts are LEGACY, zero Paginated signals across nine CLI versions, weighted tolerant-capture ratio 0.025%. But three research premises came back false and two of them invalidated planned work.
+- User ruling 2026-08-14: F-2 (agent_message data loss) jumps the queue; investigate before speccing R10-B; Paginated becomes detect-and-degrade rather than map-the-fields; the reduced cross-source acceptance is accepted.
+- R10-A's first priority is not merely low value, it is unbuildable: with no Paginated sample there are no real key paths, and the round forbids inventing field names.
+- `response_item/agent_message` is never empty (544/544, median 84 chars, max 16,215). Dropping it was data loss. Now emitted on the sub-agent side chain with direction read from author/recipient thread paths.
+- `function_call_output.output` has no `success` field anywhere (0 of 4,142), so R10-B's stated route to error parity does not exist. What survives: patch_apply_end.success (2,186/2,186) and mcp_tool_call_end.result's Ok/Err tag (712, all Ok, so the failure shape is unproven).
+- Plain exec records no outcome at all (0 of 9,342). `isError` is therefore left undefined and `ResultInfo.outcomeUnknown` carries the distinction through normalization, rather than coercing "not recorded" into "succeeded".
+- The injection-tag split was dropped on measurement: Codex messages contain all eight tags including 145 recommended_plugins and 57 system-reminder, so splitting would stop stripping preambles that are demonstrably present.
+- `shell_command` (6,037 occurrences, the corpus's most common call) is named as unclassifiable rather than guessed into a bucket. Whether to decide it from the command string is an open ruling.
+- Round ids and phase numbers were renumbered this week after a cloud session opened a second round called R9; the contract preventing a repeat is in CLAUDE.md.
+
+## Changes
+- src/core/adapters/codexJsonl.ts: agent_message kept and directed; patch_apply_end.success and mcp Ok/Err now set isError; exec leaves it undefined.
+- src/core/source/profiles.ts: the source profile table, with Codex tool names measured over 356 rollouts.
+- src/core/denoise/denoiser.ts, src/core/distill/distiller.ts: read the profile instead of hardcoded Claude Code names. filePathMapKeys models Codex reporting edits as a map keyed by path.
+- src/types/spanTree.ts, src/core/normalize/normalizer.ts: optional outcomeUnknown; SCHEMA_VERSION unmoved.
+- src/core/source/crossSourceParity.test.ts: the acceptance test, which fails on the previous commit.
+- docs/OUTSTANDING_2026-08-14.md: 24 acceptance items across four rounds merged into one runnable sheet, plus what is unbuilt, unruled, and unverifiable.
+
+## Open Questions / TODO
+- Nothing in this round has been seen by a human in a browser. docs/OUTSTANDING_2026-08-14.md Part 1 is the sheet; test/uat-2026-08-14 is the branch that carries R9.1 and R10 together.
+- Four rulings pending: shell_command classification, R10-C's three UX questions, whether milestone returns, and when R9.1/R10 merge to main.
+- The three 2026-08-03 release blockers were re-verified as still present and remain unfixed.
