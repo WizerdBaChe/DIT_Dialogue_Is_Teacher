@@ -1,4 +1,4 @@
-# Phase Checkpoint
+﻿# Phase Checkpoint
 - Project: DIT (Dialogue Is Teacher)
 - Phase: Phase 1 – 構想評估與需求定稿
 - Status: completed
@@ -223,3 +223,98 @@
 - `ProviderId` rename/migration scope (`cloud` is now misleading) — decide ADR once M0 is known.
 - Onboarding depth is a UX-semantic decision — ASK the user before building it (M6).
 - This design doc is PIM-grade; the implementing session must expand it to a work-card PSM before building, and must not treat it as sole-source.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 9 – R9 Session Browser + State-Machine Consolidation, and R9.1 UAT Remediation
+- Status: R9 merged into `main`; R9.1 built and green in CI-equivalent gates but **manual acceptance not run** — the round is open, not closed
+- Date: 2026-07-27 .. 2026-07-29
+- Detail: docs/rounds/r9.1-uat-remediation/HANDOFF_R9.1.md
+- Note: written retroactively on 2026-08-14. Phases 9 and 10 were never checkpointed at the time; the gap is what let a cloud session open a second round numbered R9.
+
+## Goals
+- R9: let the user browse sessions by title instead of guessing at hash filenames, make one bad file a per-file outcome instead of a dead batch, and arbitrate the six blocking surfaces instead of letting them race.
+- R9.1: repair the eight root causes (RC-A..RC-H) that the R9 UAT surfaced, structurally rather than symptomatically.
+
+## Decisions
+- A line-level parse failure was already tolerated; R9 extended the same discipline to file level — one unreadable file in a batch must not fail the batch.
+- `reportFallback` is for a substitution the user **cannot observe**. A degradation already encoded in the return type and shown in the UI (e.g. `titleSource: "filename"`) reports through `Diagnostic` aggregates instead. Recorded in `CLAUDE.md` as a sharpened project invariant.
+- `BrowseState`'s `"no_directory"` became `"closed"` — the state is now reachable only by user intent.
+- `SpanType` gained `"marker"`; `SkeletonNodeKind` lost `"milestone"` (`SpanTag.milestone` is unaffected).
+- `.btn` sizing is a row-level concern (`--btn-min-h`), not a per-element one. Per-element sizing is what produced the 40/30/30 defect.
+- B5 (Firefox / Safari) is recorded as **unverifiable in this environment**, not as untested work. It is not a backlog item; the unlock condition lives in `docs/BACKLOG.md` 「無法驗證項」 and `UAT_R9.1_v1.0.md` §F. No document may claim Firefox/Safari support.
+
+## Changes
+- docs/rounds/r9-session-browser-and-fsm/: PSM work cards, the UAT with the author's inline reports, and RCA_R9_UAT_v1.0.md (root causes RC-A..RC-H, each pinned to a source line).
+- docs/rounds/r9.1-uat-remediation/: work cards M1–M11, the R9.1 UAT checklist, and HANDOFF_R9.1.md.
+- docs/design/DIT_STATE_MACHINES.md: maintained inventory DSM-1..DSM-10 plus the debt register.
+- docs/design/DIT_TEXT_RENDERING.md: Markdown/LaTeX design note — design only, no implementation (RC-H).
+- src/: see the RCA table for the fix location of each cause.
+
+## Open Questions / TODO
+- **R9.1 manual acceptance is unrun.** `UAT_R9.1_v1.0.md` A1–A3 and B1–B5. A1 is the one item that can still disprove the RC-A diagnosis.
+- Copy judgement on 「挑選 Session」/「載入單一檔案」, the 決策 category definition, and whether `milestone` should be reinstated with a criterion of its own — all await the author.
+- Push / merge / release of R9 and R9.1 remain unauthorised as of this writing.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 10 – R9.2 Conversation Transcript Export (v0.4.0)
+- Status: shipped and merged; built in a cloud session against a tree that did not contain R9
+- Date: 2026-08-11
+- Detail: commits `f1801b4`, `addfc62`, `a9b12bd`, merged as `33bc8f6`
+- Note: written retroactively on 2026-08-14. This round shipped with no round id and no round directory; R9.2 is a retroactive label. See docs/rounds/r9.2-transcript-export/RECORD_R9.2.md.
+
+## Goals
+- Get the conversation itself out of a session — what the user asked, what the AI thought, what it said back — as something a human reads, distinct from the existing session archive.
+
+## Decisions
+- The transcript is deliberately **not** the snapshot. The archive (JSON / HTML snapshot) carries raw events and tool parameters so the node view can be restored; the transcript throws those away and is not restorable.
+- Exports get their own privacy policy that **downgrades secrets to placeholder replacement** rather than blocking. Blocking is right pre-egress (nothing is lost by stopping); for a file written to the user's own disk it just makes the user turn redaction off entirely.
+- Redaction is document-wide, so one value maps to one placeholder across every turn. Session title and project path are redacted; `session.id` is not (it is a random identifier and the anchor back to the node view).
+- Turn boundaries come only from main-line `user_msg`; a side-chain `user_msg` is a subagent prompt and stays inside the current turn, so toggling subagents cannot renumber turns.
+- The HTML reading page contains no JavaScript at all — the outline works on anchors — so it needs no template and no production build.
+
+## Changes
+- src/core/export/transcript*.ts (+ tests): pure-function pipeline mirroring `buildExport.ts` discipline — no `Date.now()`, no store, no DOM.
+- src/core/privacy/apply.ts, redact.ts, policies.ts: overlap resolution and the replacement transform moved out of `gateway.ts` so both paths share the offset-slicing logic.
+- src/types/spanTree.ts: optional `synthetic` marker so verbatim outputs can drop the Codex adapter's own narration of system events; `SCHEMA_VERSION` unmoved.
+- Four defects fixed in shared code: secrets now outrank other finding kinds regardless of the action a policy assigns; placeholder numbering is a separate forward pass; the post-redaction rescan no longer flags its own placeholders; capture-group findings are located with `match.indices` instead of `indexOf`.
+
+## Open Questions / TODO
+- The round was built on a tree without R9, so the merge on 2026-08-14 needed one fixup: the export tests constructed `ParseResult` with the pre-R9 `warnings: string[]` field (commit `e7830bd`). Product code was unaffected.
+- The transcript path has had no manual acceptance either — it was verified by tests and build only.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 11 – R10 Source Awareness, Codex Fidelity, and Product Scan (research)
+- Status: research complete; investigation tool shipped; implementation blocked on a local sample scan
+- Date: 2026-08-11
+- Detail: docs/rounds/r10-source-awareness/RESEARCH_R10_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md
+
+## Goals
+- Answer three user questions with evidence rather than opinion: what convenience designs existing products offer, whether the Codex adapter can be improved further from official upstream data, and whether the pipeline can identify the source harness before processing instead of checking globally.
+
+## Decisions
+- Source detection is already feature-based and correct (`detectAdapter()` reads only the first non-empty line; `normalize()` records the verdict on `doc.session.source`). The defect is downstream: `denoise()` and `distill()` never read that field and match hardcoded Claude Code tool names against every source. Proposed remedy is a `SourceProfile` table keyed by `SourceId`, resolved once at parse time.
+- Measured on a semantically identical session expressed in both formats: Claude Code yields 2 skeleton ribs, 1 edit-loop group and error x2; Codex yields zero ribs, zero groups and zero error tags. The Codex degradation is caused by the rule layer, not by missing data in the rollout.
+- Upstream `codex-rs/rollout/src/policy.rs` proves rollout files come in two history modes. Every event the R7/R7.5 Codex enrichment depends on is Legacy-mode only; Paginated mode emits `event_msg/item_completed` carrying a `TurnItem` instead, which the current adapter treats as an unknown type. This makes the Paginated case the single largest risk to the existing Codex investment.
+- Official `entered_review_mode` / `exited_review_mode` markers exist and are persisted in Legacy mode; R7.5's English-signature heuristic (`"The following is the Codex agent history"`) should become the fallback, not the primary detector.
+- `response_item/agent_message` is currently dropped silently as zero-content subagent chatter, but upstream lists `ResponseItem::AgentMessage` as a persisted first-class message item. Flagged for re-verification against real samples; deliberately left unchanged until verified.
+- Product scan: multi-harness viewing is commodity (28-agent, 25-agent and 20-agent viewers already exist). Per-session full-text search is the only convenience competitors all have, DIT entirely lacks, and that is compatible with the teaching positioning. Chasing harness breadth is rejected as it also conflicts with R7-INV-6.
+- User ruling 2026-08-11 on execution order: assess R10-A's impact first; if the impact turns out to be small, build R10-B (source profiles), then R10-C (search), and take on R10-A last.
+- The impact assessment cannot be performed from a cloud session because the rollout files exist only on the user's local machine, so the assessment was converted into a tool the user runs locally.
+
+## Changes
+- docs/rounds/r10-source-awareness/RESEARCH_R10_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md: added the PIM-grade research note with the measured parity table, the verbatim upstream persistence policy, the competitor matrix, and a to-verify checklist. Explicitly labeled non-normative.
+- docs/BACKLOG.md: added the 2026-08-11 R10 section listing R10-A/R10-B/R10-C with priority and blocking conditions.
+- scripts/scan-codex-sessions.mjs: added a zero-dependency streaming scanner and classifier for `~/.codex/sessions`. Emits a per-file LEGACY/PAGINATED/MIXED/INDETERMINATE verdict, the type histogram, the tolerant-capture ratio under the current adapter, and key-path shapes for `item_completed.payload.item` and `session_meta`. Records structure and a narrow allowlist of enum-like values only; message text, reasoning, commands, file paths and cwd never enter the shareable report. Verified against synthetic fixtures with eleven planted content strings, none of which appear in the report.
+- package.json: added the `scan:codex` script.
+- docs/rounds/r10-source-awareness/R10_KICKOFF_PROMPT.md: added the handoff prompt for the local implementation session.
+
+## Open Questions / TODO
+- Run `npm run scan:codex -- "<sessions folder>"` locally and report the mode distribution, the tolerant-capture ratio, and the observed `item_completed.payload.item` key paths. Everything downstream depends on these numbers.
+- If PAGINATED is a large share of the user's real sessions, the "impact is small" premise behind the agreed ordering fails and the order must be re-ruled by the user rather than silently changed.
+- `item_completed.payload.item` JSON field names are still unknown; they were inferred from Rust enum variant names only and must not be invented.
+- Confirm whether `response_item/agent_message` is genuinely always empty in real samples.
+- Confirm whether `function_call_output.output` carries a `success` field usable to restore `isError`, which is one direct cause of the missing error tags on Codex sources.
+- R10-C needs three UX rulings before any code: search scope layers, behavior when a hit lands inside collapsed content, and whether LLM annotations are searchable given they are generated asynchronously.
