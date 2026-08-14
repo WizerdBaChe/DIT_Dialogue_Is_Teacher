@@ -84,8 +84,14 @@ describe("normalize — synthetic marker", () => {
       { kind: "assistant_text", text: "done", raw: {} },
     ]));
 
-    // 型別維持 assistant_msg——節點視圖照舊顯示這張卡片，只是多了一個「這不是模型說的」的標記。
-    expect(doc.spans[1].type).toBe("assistant_msg");
+    /*
+     * 這條斷言在 R9.2（逐字稿匯出）寫成時是 `assistant_msg`，因為當時 `unknown` 就對映到那裡。
+     * R9.1（RC-D）之後 `unknown` 有了自己的 `marker` 型別——兩輪各自在自己的分支上綠燈，
+     * 合併時才碰頭。以較晚且刻意的 R9.1 決定為準：標記卡不該偽裝成模型發言。
+     * 逐字稿的排除規則看的是 `synthetic` 而不是型別（transcript.ts `isOutOfScope`），
+     * 所以匯出行為不因此改變——這也是為什麼只有斷言要改，程式不用改。
+     */
+    expect(doc.spans[1].type).toBe("marker");
     expect(doc.spans[1].synthetic).toBe(true);
   });
 
