@@ -114,15 +114,20 @@ const GENERIC_PRESET_IDS: GenericChatPresetId[] = ["lmstudio", "jan", "openroute
 /**
  * DSM-4：Session 瀏覽器的狀態。
  *
- *   no_directory --pick--> picking --cancel--> no_directory
- *                          picking --got handle--> indexing --ok--> indexed
- *                                                  indexing --fail--> index_failed --retry--> picking
+ *   closed --pick--> picking --cancel--> closed
+ *                    picking --got handle--> indexing --ok--> indexed
+ *                                            indexing --fail--> index_failed --retry--> picking
  *   indexed --refresh--> indexing
  *   indexed --choose--> loading --done|fail--> indexed
  *
  * 最後那一條是這台機器存在的理由：**載入失敗必須回到清單，而不是回到空白的 app**。
+ *
+ * R9.1 RC-A：`closed` 是唯一讓瀏覽器整個消失的值（見 surfaceSelectors），因此它只能由
+ * **使用者的意思**抵達——關閉、初始、或在系統選擇器按取消。任何失敗都不得落在這裡；
+ * 舊名 `no_directory` 讓「還沒選目錄」與「失敗了但還沒有任何條目」看起來像同一件事，
+ * 於是失敗可以無聲退場。改名是為了讓「誰有資格讓瀏覽器消失」變成讀得出來的事。
  */
-export type BrowseState = "no_directory" | "picking" | "indexing" | "indexed" | "index_failed" | "loading";
+export type BrowseState = "closed" | "picking" | "indexing" | "indexed" | "index_failed" | "loading";
 
 const DEFAULT_GENERIC_PRESET_CONFIGS: Record<GenericChatPresetId, GenericPresetConfigState> = {
   lmstudio: { baseUrl: getPreset("lmstudio").baseUrl, model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
@@ -373,8 +378,24 @@ function publishPipelineResult({ doc, diagnostics }: PipelineResult, sessionOrig
  */
 let activeDirectorySource: DirectorySource | null = null;
 
+/**
+ * 上次挑選的目錄 handle，在模組載入時就先讀好 (R9.1 RC-A step 4)。
+ *
+ * `showDirectoryPicker()` 與 `requestPermission()` 都必須發生在使用者手勢裡。原本點擊路徑
+ * 的第一個 await 是 IndexedDB 開啟——而快取清空後的第一次還要跑一次 schema 升級，那是一趟
+ * 貨真價實的往返。把它移到啟動時，點擊路徑的第一個 await 就是選擇器本身。
+ *
+ * 還沒讀完就被點到時值是 null，行為退化成「開選擇器」——比毀掉手勢安全。
+ */
+let cachedDirectoryHandle: unknown | null = null;
+void readDirectoryHandle().then((handle) => { cachedDirectoryHandle = handle; });
+
+/**
+ * 整個目錄讀不起來（不是單一檔案讀不到）。R9.1 RC-A：這裡原本回報 `INDEX_FILE_UNREADABLE`
+ * 的 warn，語意與分級都比實際情況輕——使用者面對的是「一個條目都沒有」，那是 fatal。
+ */
 function toIndexDiagnostic(error: unknown): Diagnostic {
-  return { tier: "warn", code: "INDEX_FILE_UNREADABLE", count: 1, detail: error instanceof Error ? error.message : String(error) };
+  return { tier: "fatal", code: "INDEX_DIRECTORY_UNREADABLE", detail: error instanceof Error ? error.message : String(error) };
 }
 
 type SetState = (partial: Partial<SessionState>) => void;
@@ -601,7 +622,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   error: null,
   sessionLoadProgress: null,
 
-  browseState: "no_directory",
+  browseState: "closed",
   browseDirectoryName: null,
   browseProgress: null,
   indexEntries: [],
@@ -719,19 +740,41 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
+  /*
+   * R9.1 RC-A：挑選與索引是**兩個階段**，錯誤分類必須跟著分開。
+   *
+   * 原本兩段共用一個 try，而「取消」的判準是 AbortError——但 `pickDirectory` 內部已經把
+   * 任何 AbortError 轉成 DirectoryPickCancelledError，而索引階段的 `getFile()` 在剛授權的
+   * handle 上是會丟 AbortError 的。結果：索引階段的失敗被讀成「使用者按了取消」，落到當時
+   * 的 `no_directory` 讓整個瀏覽器消失，第二次因為 handle 已熱身就正常了——正是作者回報的
+   * 「第一次靜默失敗、第二次才成功」。
+   *
+   * 因此：**只有第一段可以產生取消**；拿到 handle 之後的任何失敗一律是 index_failed。
+   */
   pickAndIndexDirectory: async () => {
     set({ browseState: "picking" });
+    let picked: Awaited<ReturnType<typeof pickDirectory>>;
     try {
-      const { source, handle } = await pickDirectory();
-      void saveDirectoryHandle(handle);
-      await runIndex(set, source);
+      picked = await pickDirectory();
     } catch (error) {
       if (error instanceof DirectoryPickCancelledError) {
-        set({ browseState: get().indexEntries.length > 0 ? "indexed" : "no_directory" });
+        set({ browseState: get().indexEntries.length > 0 ? "indexed" : "closed" });
         return;
       }
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+      return;
     }
+    cachedDirectoryHandle = picked.handle;
+    // 記不住目錄不該擋住索引，但也不該無人知曉：診斷在索引完成後併進清單 (RC-A step 5)。
+    const persisted = saveDirectoryHandle(picked.handle);
+    try {
+      await runIndex(set, picked.source);
+    } catch (error) {
+      set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+      return;
+    }
+    const storeNotice = await persisted;
+    if (storeNotice) set({ indexDiagnostics: [...get().indexDiagnostics, storeNotice] });
   },
 
   indexFileList: async (files, name) => {
@@ -741,29 +784,39 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   resumeLastDirectory: async () => {
     if (!isDirectoryPickerSupported()) {
       // 後備路徑沒有持久化能力，只能請使用者重選；UI 會直接開 <input>。
-      set({ browseState: "no_directory" });
+      set({ browseState: "closed" });
       return;
     }
-    const stored = await readDirectoryHandle();
+    // 同步讀模組層快取，不在點擊路徑上碰 IndexedDB——見 cachedDirectoryHandle。
+    const stored = cachedDirectoryHandle;
     if (!stored) {
       await get().pickAndIndexDirectory();
       return;
     }
     set({ browseState: "picking" });
+    let source: DirectorySource;
     try {
-      const source = await restoreDirectorySource(stored as Parameters<typeof restoreDirectorySource>[0]);
-      await runIndex(set, source);
+      // 權限可能已被撤回，這裡會在使用者手勢內重新要一次。
+      source = await restoreDirectorySource(stored as Parameters<typeof restoreDirectorySource>[0]);
     } catch (error) {
       if (error instanceof DirectoryPermissionError) {
+        cachedDirectoryHandle = null;
         void clearDirectoryHandle();
         set({ browseState: "index_failed", indexDiagnostics: [{ tier: "fatal", code: "INDEX_PERMISSION_LOST" }] });
         return;
       }
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+      return;
+    }
+    // 授權之後的失敗與「權限沒拿到」是兩件事，不共用一個 catch (RC-A)。
+    try {
+      await runIndex(set, source);
+    } catch (error) {
+      set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
     }
   },
 
-  closeBrowser: () => set({ browseState: "no_directory", browseProgress: null }),
+  closeBrowser: () => set({ browseState: "closed", browseProgress: null }),
 
   toggleBrowseFilter: (kind) => set((state) => ({
     browseFilter: { ...state.browseFilter, [kind]: !state.browseFilter[kind] },

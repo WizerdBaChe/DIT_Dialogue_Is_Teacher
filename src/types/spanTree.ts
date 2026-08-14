@@ -21,7 +21,13 @@ export type SpanType =
   | "tool_use"
   | "tool_result"
   | "subagent"
-  | "group";
+  | "group"
+  /**
+   * 結構性事件，不是誰說的話 (R9.1 RC-D)：對話被壓縮、API 出錯、模型拒答。
+   * 原本這些被映射成 assistant_msg，標記的身分在 normalize 這一步就消失了，
+   * 於是蒸餾層只能靠位置猜——一個結尾的壓縮標記因此被加冕為整段對話的「結果」。
+   */
+  | "marker";
 
 /** 由降噪/規則產生的標籤，用於標示學習價值高的節點。 */
 export type SpanTag = "retry" | "error" | "decision" | "milestone";
@@ -140,7 +146,14 @@ export interface SessionMeta {
  * 與視圖無關 (view-agnostic)：高密度模式可忽略，認知/魚骨模式直接渲染此結構。
  * 格式為預設第一版，後續可再調整 (見 docs/BACKLOG.md)。
  */
-export type SkeletonNodeKind = "objective" | "decision" | "milestone" | "outcome";
+/**
+ * R9.1 RC-D：`milestone` 已移除。它在型別裡宣告了但蒸餾器從未產生過，圖例卻照樣列出它，
+ * 等於對使用者說謊；`sessionMap` 的章節邊界判斷也因此有一條永遠走不到的分支。
+ * 不補產生規則是刻意的——現成的 `milestone` **標籤**掛在每一則使用者訊息上，拿它當主線
+ * 站的判準會把整條主線變成使用者訊息清單，等於改寫已驗收的地圖行為。要恢復它需要一條
+ * 自己的判準，已登 BACKLOG。`SpanTag` 的 milestone 不受影響，仍在卡片徽章上使用。
+ */
+export type SkeletonNodeKind = "objective" | "decision" | "outcome";
 export type SkeletonRibKind = "investigation" | "error" | "retry" | "edit-loop";
 
 /** 主線節點：一次任務的關鍵轉折。 */

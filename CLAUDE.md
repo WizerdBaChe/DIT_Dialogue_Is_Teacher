@@ -47,6 +47,11 @@ Rules:
   skipped. As of R9 the same discipline applies at file level: one unreadable file in a
   batch must not fail the batch.
 - Every fallback (`?? somethingElse`) must call `reportFallback`. A silent fallback has
-  already caused one class of wrong-target bug in this codebase.
+  already caused one class of wrong-target bug in this codebase. As of R9.1 the invariant is
+  sharpened: `reportFallback` is for a substitution the **user cannot observe**. A degradation
+  that is already encoded in the return type and surfaced in the UI (e.g. `titleSource:
+  "filename"`, rendered with its own badge) is a *named* degradation — it reports through
+  `Diagnostic` aggregates, not through the fallback channel. Putting named degradations on the
+  fallback channel floods the console and buries the silent ones it exists to catch.
 - No `window.confirm` / `alert` / `prompt` in `src/`. Blocking surfaces go through the
   blocking-surface machine (R9 M4).

@@ -16,6 +16,8 @@ export const SPAN_DOT: Record<SpanType, string> = {
   tool_result: "↳",
   subagent: "◆",
   group: "■",
+  /** 結構性事件（壓縮、API 錯誤、拒答）。與 thinking 的 ◇ 區分：實心方塊表示「發生了一件事」。 */
+  marker: "▣",
 };
 
 /** 群組卡片的節點記號。 */
@@ -30,12 +32,13 @@ export const SPAN_LEGEND_ORDER: SpanType[] = [
   "tool_result",
   "subagent",
   "group",
+  "marker",
 ];
 
 /** 地圖地標種類 → 顯示文字 (span/skeleton 共用命名，Session Map 圖與地標清單同源)。 */
 export function landmarkKindLabel(t: Messages, landmark: MapLandmark): string {
   if (landmark.kind === "subagent") return t.workspace.tabs.subagents;
-  if (landmark.kind === "objective" || landmark.kind === "decision" || landmark.kind === "milestone" || landmark.kind === "outcome") {
+  if (landmark.kind === "objective" || landmark.kind === "decision" || landmark.kind === "outcome") {
     return t.skeletonNode[landmark.kind];
   }
   return t.skeletonRib[landmark.kind];
@@ -60,7 +63,6 @@ export function mapTargetOrdinal(target: SessionMapTarget): string {
 export const SKELETON_NODE_CLS: Record<SkeletonNodeKind, string> = {
   objective: "objective",
   decision: "decision",
-  milestone: "milestone",
   outcome: "outcome",
 };
 
