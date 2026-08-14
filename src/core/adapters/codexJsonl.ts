@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CodexJsonlAdapter
  * 解析 Codex CLI 的 session transcript (`~/.codex/sessions/**\/rollout-*.jsonl`)。
  *
@@ -369,7 +369,11 @@ export class CodexJsonlAccumulator {
           timestamp,
           text: flattenOutput(payload?.output),
           toolUseId: typeof callId === "string" ? callId : undefined,
-          isError: false,
+          // R10-B: left undefined on purpose. Measured on 9,342 real outputs, Codex records no
+          // status field for a plain exec — `output` is a string or a content-block array and
+          // nothing else. Writing `false` here would assert a success the rollout never claimed.
+          // A later patch_apply_end / mcp_tool_call_end may fill it in; exec never can.
+          isError: undefined,
           raw: payload,
         };
         this.pushEvent(event);
@@ -441,6 +445,9 @@ export class CodexJsonlAccumulator {
         const success = Boolean(payload?.success);
         const detail = success ? String(payload?.stdout ?? "") : `[修改失敗] ${String(payload?.stderr ?? "")}`;
         entry.toolResult.text = [entry.toolResult.text, detail].filter(Boolean).join("\n");
+        // R10-B: `success` was already read for the text but never for the outcome, so a failed
+        // patch reached the skeleton untagged. Present on all 2,186 measured occurrences.
+        entry.toolResult.isError = !success;
       }
       return;
     }
@@ -460,11 +467,24 @@ export class CodexJsonlAccumulator {
         entry.toolUse.toolName = `mcp__${invocation.server}__${invocation.tool}`;
       }
       if (entry.toolResult) {
-        const result = payload?.result as { Ok?: { content?: unknown } } | undefined;
+        const result = payload?.result as { Ok?: { content?: unknown }; Err?: unknown } | undefined;
         const content = result?.Ok?.content;
         if (content !== undefined) {
           const detail = typeof content === "string" ? content : flattenTextBlocks(content);
           entry.toolResult.text = [entry.toolResult.text, detail].filter(Boolean).join("\n");
+        }
+        /*
+         * R10-B: `result` is a serialized Rust Result, so the outcome is the tag itself. All 712
+         * measured occurrences were `Ok`, which means the failure shape is NOT proven by local
+         * data — hence the deliberate asymmetry: a present `Err` is treated as an error, a present
+         * `Ok` as success, and anything else leaves the outcome unknown rather than assuming success.
+         */
+        if (result && "Err" in result) {
+          entry.toolResult.isError = true;
+          const detail = typeof result.Err === "string" ? result.Err : "";
+          entry.toolResult.text = [entry.toolResult.text, detail && `[MCP 呼叫失敗] ${detail}`].filter(Boolean).join("\n");
+        } else if (result && "Ok" in result) {
+          entry.toolResult.isError = false;
         }
       }
       return;

@@ -61,7 +61,9 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({ kind: "tool_use", toolName: "shell_command", toolUseId: "call_1" });
-    expect(result.events[1]).toMatchObject({ kind: "tool_result", toolUseId: "call_1", text: "ok", isError: false });
+    // R10-B: a plain exec output carries no status field in any of the 9,342 measured occurrences,
+    // so the outcome is undefined (unknown), not false (succeeded).
+    expect(result.events[1]).toMatchObject({ kind: "tool_result", toolUseId: "call_1", text: "ok", isError: undefined });
   });
 
   it("parses function_call arguments as JSON, falling back to a raw wrapper when invalid", () => {

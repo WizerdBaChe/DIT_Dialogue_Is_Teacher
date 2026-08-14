@@ -9,14 +9,22 @@
  * 4. decision — 思考/回覆中出現決策語彙者，標 decision (保守啟發式)。
  */
 import type { Span, SpanGroup, SessionDocument } from "@/types/spanTree";
+import { profileFor, type SourceProfile } from "@/core/source/profiles";
 
-const EDIT_TOOLS = new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]);
 const DECISION_RE = /(決定|改用|改成|應該改|換成|instead|let me switch|i'?ll use|we should)/i;
 
-function filePathOf(span: Span): string | null {
+function filePathOf(span: Span, profile: SourceProfile): string | null {
   const p = span.tool?.params ?? {};
-  for (const k of ["file_path", "filePath", "path", "notebook_path"]) {
+  for (const k of profile.filePathKeys) {
     if (typeof p[k] === "string") return p[k] as string;
+  }
+  for (const k of profile.filePathMapKeys) {
+    const map = p[k];
+    if (map && typeof map === "object" && !Array.isArray(map)) {
+      // A single-file edit is the edit-loop case; a multi-file patch has no one file to loop on.
+      const paths = Object.keys(map as Record<string, unknown>);
+      if (paths.length === 1) return paths[0];
+    }
   }
   return null;
 }
@@ -30,6 +38,8 @@ function addTag(span: Span, tag: Span["tags"][number]): void {
 }
 
 export function denoise(doc: SessionDocument): SessionDocument {
+  // R10-B: the harness was always identified; the rule layer just never asked.
+  const profile = profileFor(doc.session.source);
   const spans = doc.spans;
   const groups: SpanGroup[] = doc.groups.filter((group) => group.kind === "subagent");
 
@@ -87,8 +97,8 @@ export function denoise(doc: SessionDocument): SessionDocument {
   };
 
   for (const s of spans) {
-    if (s.type === "tool_use" && EDIT_TOOLS.has(s.tool?.name ?? "")) {
-      const f = filePathOf(s);
+    if (s.type === "tool_use" && profile.editTools.has(s.tool?.name ?? "")) {
+      const f = filePathOf(s, profile);
       if (f && f === runFile) {
         run.push(s);
       } else {

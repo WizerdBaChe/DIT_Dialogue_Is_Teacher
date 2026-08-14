@@ -24,7 +24,7 @@ import {
   type SkeletonRib,
 } from "@/types/spanTree";
 
-const INVESTIGATION_TOOLS = new Set(["Read", "Grep", "Glob", "WebFetch", "WebSearch", "NotebookRead"]);
+import { profileFor } from "@/core/source/profiles";
 
 function shorten(text: string, max = 28): string {
   const t = text.replace(/\s+/g, " ").trim();
@@ -32,6 +32,9 @@ function shorten(text: string, max = 28): string {
 }
 
 export function distill(doc: SessionDocument): SessionDocument {
+  // R10-B: investigation is source-specific. Claude Code splits reading from writing across
+  // tools; Codex funnels both through shell_command, which stays unclassified rather than guessed.
+  const profile = profileFor(doc.session.source);
   const spans = doc.spans;
   const groupBySpanId = new Map<string, string>();
   for (const g of doc.groups) for (const sid of g.spanIds) groupBySpanId.set(sid, g.id);
@@ -84,7 +87,7 @@ export function distill(doc: SessionDocument): SessionDocument {
     let kind: SkeletonRib["kind"] | null = null;
     if (s.tags.includes("error")) kind = "error";
     else if (s.tags.includes("retry")) kind = "retry";
-    else if (s.type === "tool_use" && INVESTIGATION_TOOLS.has(s.tool?.name ?? "")) kind = "investigation";
+    else if (s.type === "tool_use" && profile.investigationTools.has(s.tool?.name ?? "")) kind = "investigation";
 
     if (kind) {
       ribs.push({ spanId: s.id, attachTo: attachFor(s.order), kind, label: shorten(s.summary), order: s.order });
