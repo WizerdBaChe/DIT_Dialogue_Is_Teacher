@@ -158,7 +158,12 @@ export function normalize(parsed: ParseResult): SessionDocument {
       if (ev.toolUseId) toolUseSpanByUseId.set(ev.toolUseId, id);
     }
     if (ev.kind === "tool_result") {
-      span.result = { isError: Boolean(ev.isError), text: ev.text ?? "" };
+      // R10-B: `undefined` means the source recorded no outcome — keep that distinct from "succeeded".
+      span.result = {
+        isError: Boolean(ev.isError),
+        ...(ev.isError === undefined ? { outcomeUnknown: true } : {}),
+        text: ev.text ?? "",
+      };
     }
 
     spans.push(span);

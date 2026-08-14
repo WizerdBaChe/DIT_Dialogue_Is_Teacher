@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ClaudeCodeJsonlAdapter
  * 解析 Claude Code 的 session transcript (~/.claude/projects/<專案>/*.jsonl)。
  *

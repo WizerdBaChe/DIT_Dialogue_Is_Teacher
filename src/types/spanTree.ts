@@ -64,6 +64,13 @@ export interface ToolInfo {
 /** 工具結果的結構化資訊 (僅 type === "tool_result")。 */
 export interface ResultInfo {
   isError: boolean;
+  /**
+   * R10-B：來源根本沒有記錄這次呼叫的成敗時為 true。`isError: false` 有兩種來源——「來源說成功」
+   * 與「來源沒說」——把後者顯示成前者就是無中生有的保證。Codex 的 `patch_apply_end.success` 與
+   * `mcp_tool_call_end.result.Err` 有記錄；一般 exec（實測 9,342 筆）完全沒有任何狀態欄位。
+   * 選用欄位，缺席即代表「有記錄」，因此舊的匯出檔仍可讀，`SCHEMA_VERSION` 不動。
+   */
+  outcomeUnknown?: boolean;
   /** 結果文字 (可能很長，渲染端可摺疊)。 */
   text: string;
 }
