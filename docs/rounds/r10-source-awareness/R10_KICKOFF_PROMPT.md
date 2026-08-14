@@ -1,23 +1,29 @@
-# DIT — R9 Implementation Kickoff Prompt（本機 session 用）
+﻿# DIT — R10 Implementation Kickoff Prompt（本機 session 用）
+
+> **2026-08-14 改號說明。** 這一輪原本被雲端 session 開成 R9，與本機早三週的
+> `r9-session-browser-and-fsm` 撞號。全案已改為 **R10**，工作項改為 R10-A / R10-B / R10-C，
+> phase log 的 checkpoint 改為 Phase 11。下文提到的分支 `claude/product-features-codex-optimization-e2idcs`
+> 已合併進 `main`，實作分支請用 `feat/r10-source-awareness`。
 
 > 用法：把下面 `---` 之後的整段，當作本機 DIT session 的第一則訊息貼上。
-> 本檔與 `RESEARCH_R9_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md` 同步；衝突時研究筆記的證據為準，
+> 本檔與 `RESEARCH_R10_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md` 同步；衝突時研究筆記的證據為準，
 > 但研究筆記是 **PIM 級、非 sole-source PSM**，不得直接當施工合約用。
 
 ---
 
 You are the implementation AI for **DIT (Dialogue Is Teacher)** at `D:\AIWork\DIT_Dialogue_Is_Teacher`.
-Work on branch `claude/product-features-codex-optimization-e2idcs`. Start by running
-`git pull` — a cloud session pushed research and tooling you do not have locally yet (`a631e11`).
+Work on branch `feat/r10-source-awareness`, cut from `main`. The cloud research and tooling
+(`a631e11`) is already merged into `main` as of 2026-08-14; no pull is needed.
 
 **This session starts with an investigation, not with code.** Do not write product code until the
 gate in Step 1 is cleared by the user.
 
 ## Read first, in this order
-1. `docs/rounds/r9-source-awareness/RESEARCH_R9_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md` — the
+1. `docs/rounds/r10-source-awareness/RESEARCH_R10_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md` — the
    evidence base for this round. PIM grade, non-normative; §5 lists what is still unverified.
-2. `references/DIT-phase-log.md` — the last entry (Phase 9) is this round's checkpoint.
-3. `docs/BACKLOG.md` — the 2026-08-11 R9 section (R9-A / R9-B / R9-C).
+2. `references/DIT-phase-log.md` — the last entry (Phase 11) is this round's checkpoint.
+   Phase 9 (R9 + R9.1) and Phase 10 (R9.2) are the two rounds this one is built on.
+3. `docs/BACKLOG.md` — the 2026-08-11 R10 section (R10-A / R10-B / R10-C).
 4. `docs/PSM_DIT_v1.0.md` §0 behavior rules, §2 frozen contracts, §4 ADR log.
 5. `docs/rounds/r7-multi-source-and-layout/PSM_R7_MULTI_SOURCE_AND_LAYOUT_v0.1.md` Part B and
    `docs/rounds/r7.5-codex-noise-and-settings-card/PSM_R7.5_CODEX_NOISE_AND_SETTINGS_CARD_v0.1.md`
@@ -64,12 +70,12 @@ Report back to the user, in Traditional Chinese, exactly these numbers:
 
 Then **STOP and present the decision gate**:
 - If PAGINATED + MIXED is a **small** share, the user's agreed order holds:
-  **R9-B → R9-C → R9-A**.
+  **R10-B → R10-C → R10-A**.
 - If PAGINATED + MIXED is a **large** share, the premise behind that order has failed — most of the
   user's real Codex sessions are already degraded in DIT. Say so plainly with the numbers and ask the
   user to re-rule the order. **Do not silently reorder.**
 
-## Step 2 — R9-B｜Source Profile（只有在使用者確認後才開工）
+## Step 2 — R10-B｜Source Profile（只有在使用者確認後才開工）
 
 **Problem.** `detectAdapter()` identifies the harness correctly and `normalize()` records it on
 `doc.session.source`, but `denoise()` and `distill()` never read it. They match hardcoded Claude Code
@@ -118,7 +124,7 @@ as Claude Code must produce an equivalent skeleton (same rib kinds, same group k
 That test is the deliverable's proof, and it is what the current code fails. Plus `npm.cmd test`,
 `npm.cmd run typecheck`, `npm.cmd run build`, `git diff --check`.
 
-## Step 3 — R9-C｜Session 內全文搜尋（需要先取得三個 UX 裁定）
+## Step 3 — R10-C｜Session 內全文搜尋（需要先取得三個 UX 裁定）
 
 Competitors all have it, DIT has none — `src/` contains no search UI and no search i18n key. R5 has
 already validated 50 MiB / 29,452 view items, so scrolling is the only way to find anything today.
@@ -141,7 +147,7 @@ in a real browser, not in a sandbox).
 **Out of scope:** cross-session search (RPD D-5 `SessionLibrary` is still frozen) and semantic/vector
 search (needs an embedding model, violates the offline/no-egress line).
 
-## Step 4 — R9-A｜Codex 保真度（最後才做，需要 Step 1 的形狀資料）
+## Step 4 — R10-A｜Codex 保真度（最後才做，需要 Step 1 的形狀資料）
 
 Blocked until the scan produces real key paths. Then, in priority order:
 1. `event_msg/item_completed` → `TurnItem` mapping for Paginated mode. Without it, Paginated rollouts
@@ -165,7 +171,7 @@ both vocabularies in one file. Silent misparsing is the one outcome R7-INV-7/8 f
 ## Definition of done (per slice)
 1. Stated acceptance passes; `npm.cmd test`, `npm.cmd run typecheck`, `npm.cmd run build`,
    `git diff --check` all green — paste the output, do not summarize it.
-2. `docs/PROGRESS.md` gets a new section (newest on top); `docs/BACKLOG.md` R9 items get ticked;
+2. `docs/PROGRESS.md` gets a new section (newest on top); `docs/BACKLOG.md` R10 items get ticked;
    `references/DIT-phase-log.md` gets a new checkpoint; new ADR entries appended for every decision
    the user ruled on.
 3. End with a numbered manual acceptance checklist for the user, then stop before the next slice.
