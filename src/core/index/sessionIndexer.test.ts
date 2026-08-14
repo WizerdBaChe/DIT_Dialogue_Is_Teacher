@@ -219,3 +219,33 @@ describe("buildSessionIndex", () => {
     expect(entries.map((entry) => entry.path)).toEqual(["p/new.jsonl", "p/old.jsonl"]);
   });
 });
+
+/**
+ * R9.1 RC-B：具名降級走診斷通道，不走 console 的 fallback 通道。
+ * 作者實測回報 console 反覆出現 `sessionIndexer/pickTitle|no-title-signal`。
+ */
+describe("title degradation is reported once, as a diagnostic (R9.1 RC-B)", () => {
+  const titleless = (id: string) => transcript(
+    line({ type: "assistant", uuid: id, sessionId: id, timestamp: "2026-07-20T00:00:00Z", message: { role: "assistant", content: [{ type: "text", text: "只有機器發言" }] } }),
+  );
+
+  it("emits one aggregate INDEX_TITLE_FROM_FILENAME carrying the count", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([
+      ["proj/a.jsonl", titleless("a")],
+      ["proj/b.jsonl", titleless("b")],
+    ]));
+
+    expect(entries.every((entry) => entry.titleSource === "filename")).toBe(true);
+    const titleDiagnostics = diagnostics.filter((d) => d.code === "INDEX_TITLE_FROM_FILENAME");
+    expect(titleDiagnostics).toHaveLength(1);
+    expect(titleDiagnostics[0]).toMatchObject({ tier: "info", count: 2 });
+  });
+
+  it("says nothing when every session has a usable title", async () => {
+    const { diagnostics } = await buildSessionIndex(sourceOf([
+      ["proj/a.jsonl", transcript(userLine("修一下登入流程"), assistantLine("好"))],
+    ]));
+
+    expect(diagnostics.some((d) => d.code === "INDEX_TITLE_FROM_FILENAME")).toBe(false);
+  });
+});

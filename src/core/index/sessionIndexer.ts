@@ -9,10 +9,10 @@
  * 全目錄總讀取量約 25 MB。故取 128 KB。
  *
  * 沒掃到標題不是失敗：`titleSource` 會降級到「第一則真人訊息」，那往往比 AI 生成的標題
- * 更能說明這個 session 在幹嘛。**降級一律留下痕跡**，不靜默假裝知道。
+ * 更能說明這個 session 在幹嘛。**降級一律留下痕跡**，不靜默假裝知道——但痕跡留在
+ * `SessionIndex.diagnostics` 這條使用者看得到的通道，不是 console 的 fallback 通道 (R9.1 RC-B)。
  */
 import { detectAdapter } from "@/core/adapters";
-import { reportFallback } from "@/core/diagnostics";
 import type { Diagnostic } from "@/core/diagnostics/contracts";
 import { stripInjectedPreamble } from "@/core/text/preamble";
 import { classifySession, isSubagentPath, isSyntheticPrompt } from "./classifySession";
@@ -233,8 +233,15 @@ function pickTitle(stats: ScanStats, path: string): { title: string; titleSource
   if (stats.customTitle) return { title: firstLine(stats.customTitle, TITLE_MAX_LENGTH), titleSource: "custom" };
   if (stats.aiTitle) return { title: firstLine(stats.aiTitle, TITLE_MAX_LENGTH), titleSource: "ai" };
   if (stats.firstHumanText) return { title: firstLine(stats.firstHumanText, TITLE_MAX_LENGTH), titleSource: "derived" };
-  // 連第一則真人訊息都沒有，只能顯示 HASH——這正是使用者抱怨的狀態，所以要留下記錄。
-  reportFallback("sessionIndexer/pickTitle", "no-title-signal", { path });
+  /*
+   * 連第一則真人訊息都沒有，只能顯示 HASH。
+   *
+   * R9.1 RC-B：這裡原本呼叫 `reportFallback`，每索引一次就把 console 洗一輪。那條通道是為了
+   * 抓「使用者看不見的替代」——本專案已經因為無聲降級吃過一次指向錯目標的虧。但這一處不是：
+   * `titleSource: "filename"` 是回傳型別的一部分，清單上有自己的 class 與 tooltip，使用者本來
+   * 就看得到「這是檔名不是標題」。**已經說出口的降級不必再從暗處喊一次**；改由索引器在
+   * 收尾時出一條聚合診斷（見 buildSessionIndex 的 INDEX_TITLE_FROM_FILENAME）。
+   */
   return { title: baseName(path).replace(/\.jsonl$/i, ""), titleSource: "filename" };
 }
 
@@ -335,6 +342,11 @@ export async function buildSessionIndex(
 
   if (unreadable > 0) {
     diagnostics.push({ tier: "warn", code: "INDEX_FILE_UNREADABLE", count: unreadable, detail: unreadableDetail });
+  }
+  // 具名降級的出口：一條聚合 info，而不是每個檔案一次 console (RC-B)。
+  const titleFromFilename = entries.filter((entry) => entry.titleSource === "filename").length;
+  if (titleFromFilename > 0) {
+    diagnostics.push({ tier: "info", code: "INDEX_TITLE_FROM_FILENAME", count: titleFromFilename });
   }
   if (entries.length === 0) diagnostics.push({ tier: "info", code: "INDEX_EMPTY" });
 

@@ -150,7 +150,8 @@ body {
 @container dit-app (min-width: 1280px) {
   .header { --chrome-scale: 1.5; }
 }
-.settings-toggle-btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+/* display/align/white-space 現由 .btn 契約提供 (R9.1 RC-E)；這裡只留這顆按鈕真正特有的間距。 */
+.settings-toggle-btn { gap: 5px; }
 .settings-toggle-btn.active { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 
 /* 設定對話框 (2026-07-23 設計改版，見 docs/rounds/r7-multi-source-and-layout/DESIGN_R7_SETTINGS_DIALOG_v0.1.md)。
@@ -341,11 +342,24 @@ select {
 }
 select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 
+/* R9.1 RC-E：`.btn` 過去只是一組外觀宣告（背景、框線、padding、字級），沒有說任何一句
+   關於「一顆按鈕多大」的話。它同時貼在 <button>（inline-block）與 <label>（inline）上，
+   再加上呼叫端各自補的 min-height，於是同一排三顆按鈕有三種高度——那是這個設計的必然結果，
+   不是哪裡漏寫。這裡把它補成一份**尺寸契約**：
+     · display/align：不論底層是什麼元素，盒模型一致；
+     · min-height 走 --btn-min-h 變數：需要更大或更小的呼叫端改變數，不再各自寫 padding；
+     · line-height/box-sizing：讓 min-height 是可預測的。 */
 .btn {
+  --btn-min-h: 30px;
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  min-height: var(--btn-min-h); line-height: 1; white-space: nowrap;
   background: transparent; color: var(--text-main);
   border: 1px solid var(--rule-strong); border-radius: 2px;
   padding: 5px 12px; font-size: calc(12.5px * var(--ui-scale)); cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
+/* 尺寸變體 = 覆寫變數，不是再寫一組 padding。新的尺寸需求應該加在這裡，不要加在呼叫端。 */
+.btn.lg { --btn-min-h: 40px; padding-inline: 20px; }
+.btn.sm { --btn-min-h: 22px; padding: 3px 12px; font-size: calc(11px * var(--ui-scale)); }
 .btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .btn.primary { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 .btn.primary:hover { background: var(--accent-primary); color: #fff; }
@@ -472,7 +486,8 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .ap-label { font-weight: 600; color: var(--text-dark); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(11.5px * var(--ui-scale)); }
 .ap-label.done { color: var(--success); }
 .ap-count { color: var(--text-muted); white-space: nowrap; font-family: var(--font-mono); }
-.ap-stop, .ap-close { margin-left: auto; font-size: calc(11px * var(--ui-scale)); padding: 3px 12px; }
+/* 進度條裡的緊湊按鈕：改用 .btn 的 sm 變體語彙，只留這裡真正特有的靠右對齊。 */
+.ap-stop, .ap-close { --btn-min-h: 22px; margin-left: auto; font-size: calc(11px * var(--ui-scale)); padding: 3px 12px; }
 .ap-bar { height: 3px; background: var(--rule); overflow: hidden; }
 .ap-fill { height: 100%; background: var(--accent-secondary); transition: width 0.3s ease; }
 .ap-fill.done { background: var(--success); }
@@ -489,7 +504,8 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 }
 .structure-rail:hover { background: var(--accent-tint); }
 .structure-rail:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
-.structure-drawer-trigger { display: none; min-width: 0; align-items: center; gap: 6px; }
+/* display:none 是可見性規則，不是尺寸規則，必須留著；窄版斷點會改回 inline-flex。 */
+.structure-drawer-trigger { display: none; min-width: 0; gap: 6px; }
 .structure-drawer {
   width: min(88vw, 320px); max-width: none; height: 100dvh; max-height: none; margin: 0 auto 0 0; padding: 0;
   border: 0; border-right: 1px solid var(--rule-strong); background: var(--bg-main); color: var(--text-main);
@@ -514,6 +530,13 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   content: attr(data-label);
   position: absolute; left: 7px; bottom: 5px; padding: 2px 5px; background: var(--accent-primary); color: #fff;
   font-family: var(--font-sans); font-size: calc(9px * var(--ui-scale));
+}
+/* R9.1 RC-G：長條是密度不是節點。把編碼寫在圖上，否則它跟 Session Map 的節點長得一樣。 */
+.reader-minimap::before {
+  content: attr(data-caption);
+  position: absolute; right: 7px; top: 4px;
+  font-family: var(--font-sans); font-size: calc(9px * var(--ui-scale)); color: var(--text-muted);
+  letter-spacing: 0.04em; pointer-events: none;
 }
 .session-map-dialog {
   width: min(88vw, 1440px); max-width: none; height: min(84dvh, 900px); max-height: none; padding: 0;
@@ -639,8 +662,11 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .overview-step-number { color: var(--accent-secondary); font-family: var(--font-mono); font-size: calc(14px * var(--ui-scale)); padding-top: 2px; }
 .overview-steps h3 { margin: 0 0 5px; font-size: calc(17px * var(--ui-scale)); font-weight: 600; }
 .overview-steps p { margin: 0; color: var(--text-muted); font-size: calc(13px * var(--ui-scale)); line-height: 1.65; overflow-wrap: break-word; }
+/* R9.1 RC-E：**一排動作共用一個尺寸**，層級靠顏色與粗細表達，不靠高度。
+   尺寸掛在「排」上而不是掛在每一顆按鈕上——這排裡有主要 CTA、有主按鈕、也有 <label>，
+   逐顆指定就是回到那個造成 40/30/30 的老路。同一個 .btn 在 header 與對話框仍是 30px。 */
 .overview-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; }
-.overview-primary-action { min-height: 40px; padding-inline: 20px; }
+.overview-actions .btn { --btn-min-h: 40px; padding-inline: 20px; }
 .overview-empty { gap: 18px; }
 .overview-legend { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--text-muted); }
 .overview-legend summary { cursor: pointer; font-size: calc(13px * var(--ui-scale)); font-weight: 600; color: var(--text-dark); }
@@ -649,10 +675,28 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .overview-legend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: calc(12px * var(--ui-scale)); }
 .overview-legend-list li { display: flex; align-items: baseline; gap: 8px; overflow-wrap: break-word; }
 .overview-legend-list span { font-family: var(--font-mono); font-size: calc(15px * var(--ui-scale)); color: var(--text-muted); min-width: 1.2em; }
+/* R9.1 RC-G：骨架分類改成三段式定義（是什麼／怎麼判／長什麼樣），因此需要比單行清單更多的
+   縱向空間。判準一行刻意做得比定義暗一階：它是給「想知道能不能信這個標記」的人看的補充。 */
+.overview-legend-defs { margin: 0; display: flex; flex-direction: column; gap: 12px; font-size: calc(12px * var(--ui-scale)); }
+.overview-legend-def dt { display: flex; align-items: baseline; gap: 8px; font-weight: 700; color: var(--text-dark); }
+.overview-legend-def dt span { font-family: var(--font-mono); font-size: calc(15px * var(--ui-scale)); color: var(--text-muted); min-width: 1.2em; }
+.overview-legend-def dd { margin: 3px 0 0 calc(1.2em + 8px); display: flex; flex-direction: column; gap: 2px; }
+.overview-legend-def p { margin: 0; line-height: 1.55; overflow-wrap: break-word; }
+.overview-legend-what { color: var(--text-main); }
+.overview-legend-rule { color: var(--text-muted); }
+.overview-legend-example { color: var(--text-dark); font-style: italic; }
 
 /* ---- Session file loading ---- */
 .session-load-status {
-  flex-shrink: 0; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(120px, 320px) auto;
+  /* R9.1 RC-F：這條列有兩個宿主（header 與設定對話框），但欄寬假設原本只綁在第一個上：
+     文案 minmax(220px,1fr)、進度條 minmax(120px,320px) 都帶硬下限，只有按鈕欄是 auto、
+     沒有任何保護，於是在對話框那個窄宿主裡最先被擠爆，文字換行。
+
+     修法不是加斷點，是**改讓誰讓步**：真正可以壓縮的是進度條（少 40px 仍看得出在動），
+     文案其次，按鈕永不壓縮——按鈕文字斷行等於讀不懂。三欄都改成內在可壓縮之後，
+     這條列不再需要知道自己被放在多寬的宿主裡，viewport 斷點只剩極窄版的換列處理。
+     （`.btn` 的 white-space:nowrap 是這件事的另一半保障，見尺寸契約。） */
+  flex-shrink: 0; display: grid; grid-template-columns: minmax(0, 2fr) minmax(40px, 1fr) auto;
   align-items: center; gap: 16px; padding: 9px 28px; border-bottom: 1px solid var(--rule);
   background: var(--bg-card); font-family: var(--font-sans); font-size: calc(12px * var(--ui-scale));
 }

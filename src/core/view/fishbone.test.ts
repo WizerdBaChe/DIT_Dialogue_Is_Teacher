@@ -61,7 +61,7 @@ describe("fishbone view item resolution", () => {
 
   it("drops a skeleton node whose span is absent instead of pointing it at the first item", () => {
     const doc = docWithHiddenSpans();
-    doc.skeleton!.nodes.push({ spanId: "ghost", kind: "milestone", label: "不存在", order: 9 });
+    doc.skeleton!.nodes.push({ spanId: "ghost", kind: "decision", label: "不存在", order: 9 });
     const viewItems = buildViewModel(doc);
     const stations = buildFishbone(doc, viewItems);
 

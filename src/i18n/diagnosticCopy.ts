@@ -86,6 +86,13 @@ const zhTW: CopyTable = {
     body: () => "瀏覽器已收回對上次選擇之資料夾的存取權限（重開瀏覽器或清除網站資料都會造成這個結果）。請重新選擇一次資料夾。",
   },
   INDEX_EMPTY: { line: () => "這個目錄裡沒有找到 Claude Code 的 session 檔案。" },
+  INDEX_DIRECTORY_UNREADABLE: {
+    line: (d) => `這個資料夾讀不起來（${d.detail}）。`,
+    title: "資料夾讀取失敗",
+    body: (d) => `已取得資料夾，但讀取內容時失敗（${d.detail}）。上一份 session 未被更動。請重試一次，或改選另一個資料夾。`,
+  },
+  INDEX_TITLE_FROM_FILENAME: { line: (d) => `${n(d)} 筆沒有可用的標題訊號，清單上以檔名顯示。` },
+  INDEX_HANDLE_NOT_PERSISTED: { line: (d) => `這次無法記住所選資料夾，下次要重新選一次（${d.detail}）。` },
 };
 
 const en: CopyTable = {
@@ -150,6 +157,13 @@ const en: CopyTable = {
     body: () => "The browser revoked access to the folder you picked last time (restarting the browser or clearing site data does this). Please pick the folder again.",
   },
   INDEX_EMPTY: { line: () => "No Claude Code session files were found in this directory." },
+  INDEX_DIRECTORY_UNREADABLE: {
+    line: (d) => `This folder could not be read (${d.detail}).`,
+    title: "The folder could not be read",
+    body: (d) => `The folder was granted, but reading its contents failed (${d.detail}). Your previous session is untouched. Try again, or pick a different folder.`,
+  },
+  INDEX_TITLE_FROM_FILENAME: { line: (d) => `${n(d)} session(s) had no usable title signal and are listed by file name.` },
+  INDEX_HANDLE_NOT_PERSISTED: { line: (d) => `This folder could not be remembered; you will have to pick it again next time (${d.detail}).` },
 };
 
 const TABLES: Record<Locale, CopyTable> = { "zh-TW": zhTW, en };

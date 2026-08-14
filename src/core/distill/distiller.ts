@@ -54,7 +54,14 @@ export function distill(doc: SessionDocument): SessionDocument {
       spineSpanIds.add(s.id);
     }
   }
-  const last = spans[spans.length - 1];
+  /*
+   * R9.1 RC-D：`outcome` 是語意欄位，不是「陣列的最後一格」。
+   *
+   * 原本無條件把最後一個 span 加冕為結果。壓縮標記是在原時序位置產生的結構事件，剛好落在
+   * 檔尾時就會被當成整段對話的結果——它不是結果，是「這裡發生過一件事」。標記一律不佔主線站，
+   * 結果取最後一個有內容的 span。
+   */
+  const last = [...spans].reverse().find((s) => s.type !== "marker");
   if (last && !spineSpanIds.has(last.id)) {
     nodes.push({ spanId: last.id, kind: "outcome", label: shorten(last.summary), order: last.order });
     spineSpanIds.add(last.id);
@@ -73,6 +80,8 @@ export function distill(doc: SessionDocument): SessionDocument {
     if (spineSpanIds.has(s.id)) continue;
     // 工具結果巢狀於其操作之下；錯誤已上拋到父 tool_use，故略過 tool_result 避免重複支線。
     if (s.type === "tool_result") continue;
+    // 標記是結構事件，既不是主線站也不是支線；它在時序卡片上自我說明，不進因果骨架 (RC-D)。
+    if (s.type === "marker") continue;
 
     const groupId = groupBySpanId.get(s.id);
     if (groupId) {

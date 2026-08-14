@@ -8,6 +8,7 @@
  * - 純視覺、與語言無關的常數 (節點記號、CSS class、Provider 排序) 留在 components/labels.ts。
  */
 import type { ProviderId, SkeletonNodeKind, SkeletonRibKind, SpanTag, SpanType } from "@/types/spanTree";
+import type { CategoryDefinitionTable } from "@/core/view/categoryDefinitions";
 
 export type Locale = "zh-TW" | "en";
 
@@ -24,10 +25,10 @@ const zhTW = {
     brand: "DIT — Dialogue Is Teacher",
     tagline: "把 agent 執行軌跡轉成「可學習」的節點",
     modeGroupLabel: "檢視模式",
-    loadFile: "載入 .jsonl",
-    loadFileTitle: "Claude Code 通常在 ~/.claude/projects/<專案>/*.jsonl；Codex CLI 通常在 ~/.codex/sessions/rollout-*.jsonl",
-    loadFolder: "載入 Session 資料夾",
-    loadFolderTitle: "同時讀取主檔與 subagents/*.jsonl",
+    loadFile: "載入單一檔案",
+    loadFileTitle: "已經知道是哪個檔時用這個。Claude Code 通常在 ~/.claude/projects/<專案>/*.jsonl；Codex CLI 通常在 ~/.codex/sessions/rollout-*.jsonl。不確定要載哪一個，請改用左邊的「挑選 Session」。",
+    loadFolder: "挑選 Session",
+    loadFolderTitle: "選一個 ~/.claude/projects/ 底下的資料夾，用可讀的標題挑，不必先知道檔名；子代理紀錄會一併帶入。瀏覽器每次重新載入頁面都會再問一次是否允許讀取該資料夾，那是瀏覽器的安全設計，不是 DIT 記不住。",
     reset: "重置",
     resetTitle: "回到內建範例與預設設定",
     showAnnotations: "顯示教學講解",
@@ -99,8 +100,10 @@ const zhTW = {
     startReading: "開始閱讀",
     continueReading: "繼續閱讀",
     startBrowsing: "開始逐步瀏覽",
-    loadFile: "載入 .jsonl",
-    loadFolder: "載入 Session 資料夾",
+    loadFile: "載入單一檔案",
+    loadFileTitle: "已經知道是哪個檔時用這個；不確定就用「挑選 Session」。",
+    loadFolder: "挑選 Session",
+    loadFolderTitle: "選一個資料夾，用可讀的標題挑一份 session，不必先知道檔名。",
     legend: {
       label: "符號說明",
       spanHeading: "Span 層 · transcript 發生了什麼",
@@ -227,6 +230,9 @@ const zhTW = {
     returnReader: "回到閱讀",
     invalidTarget: (id: string) => `地圖目標已失效：${id}`,
     minimapLabel: "開啟 Session 地圖；微縮圖顯示目前位置與 Reader 可見範圍",
+    /* R9.1 RC-G：長條是密度不是節點，而且每份 session 各自正規化——這兩件事必須說出口。 */
+    minimapDensityCaption: "地標密度",
+    minimapDensityLabel: "開啟 Session 地圖。微縮圖上的長條是每一段的地標密度（不是單一節點），高度以這份 session 自己的最密處為滿格，所以不同 session 之間不能互相比較；紅點是目前位置，淡色底塊是 Reader 可見範圍。",
     viewport: "Reader 可見範圍",
     clusterKind: "聚合區段",
   },
@@ -532,6 +538,7 @@ const zhTW = {
     tool_result: "結果",
     subagent: "子代理",
     group: "群組",
+    marker: "系統事件",
   } as Record<SpanType, string>,
 
   tag: {
@@ -570,7 +577,6 @@ const zhTW = {
   skeletonNode: {
     objective: "目標",
     decision: "決策",
-    milestone: "里程碑",
     outcome: "結果",
   } as Record<SkeletonNodeKind, string>,
 
@@ -580,6 +586,48 @@ const zhTW = {
     retry: "重試",
     "edit-loop": "反覆修改",
   } as Record<SkeletonRibKind, string>,
+
+  /**
+   * 分類的**唯一定義來源** (R9.1 RC-G)。圖例、Session Map 說明與使用者指南都讀這一份。
+   * 每一則三段式：是什麼／DIT 怎麼判／長什麼樣。判準要照實寫，包括它的侷限。
+   */
+  categoryDefinition: {
+    objective: {
+      what: "這段對話想達成什麼。",
+      rule: "取整份 transcript 的第一則使用者訊息，不做語意判斷。",
+      example: "「幫我修好登入頁面重新整理後就登出的問題」。",
+    },
+    decision: {
+      what: "走向被改變的那一刻——選了某條路，於是後面的事都不一樣了。",
+      rule: "只看 AI 的思考層節點，且該節點被降噪規則標為 decision（出現權衡、選擇、改變方向的語句）。一般回覆與工具操作不算，所以一段對話可能一個決策點都沒有。",
+      example: "「與其逐頁修，不如把 session 檢查移到中介層一次處理」。",
+    },
+    outcome: {
+      what: "這段對話最後停在哪裡。",
+      rule: "取最後一個有內容的節點。壓縮標記、API 錯誤這類系統事件不算內容，不會被當成結果。",
+      example: "「三個測試都過了，登出問題不再重現」。",
+    },
+    investigation: {
+      what: "為了搞清楚狀況而去看、去查的動作。",
+      rule: "工具名稱屬於取證類（Read / Grep / Glob / WebFetch / WebSearch / NotebookRead）。",
+      example: "讀 `src/auth/session.ts`、搜尋 `refreshToken` 的所有出現位置。",
+    },
+    error: {
+      what: "出錯了，而且錯誤被記錄下來。",
+      rule: "工具回傳結果帶有錯誤旗標；標籤會同時掛到發動它的那個操作上，所以卡片上看得到。",
+      example: "測試指令以非零狀態結束、檔案不存在。",
+    },
+    retry: {
+      what: "同一件事再試一次。",
+      rule: "在一次錯誤之後，**同一個工具**再度被呼叫。換了工具就不算重試。",
+      example: "`npm test` 失敗後改了程式再跑一次 `npm test`。",
+    },
+    "edit-loop": {
+      what: "對同一個目標來回修改的一段過程。",
+      rule: "連續針對同一個檔案的編輯操作會被收成一個群組；中間夾雜思考或工具結果不會打斷，換檔案或使用者再次發言才打斷。",
+      example: "同一個元件被連續改了四次才通過測試。",
+    },
+  } as CategoryDefinitionTable,
 };
 
 /** 字典型別以 zh-TW 為準；EN 必須提供相同形狀。 */
@@ -590,10 +638,10 @@ const en: Messages = {
     brand: "DIT — Dialogue Is Teacher",
     tagline: "Turn an agent's execution trace into learnable nodes",
     modeGroupLabel: "View mode",
-    loadFile: "Load .jsonl",
-    loadFileTitle: "Claude Code: usually ~/.claude/projects/<project>/*.jsonl; Codex CLI: usually ~/.codex/sessions/rollout-*.jsonl",
-    loadFolder: "Load session folder",
-    loadFolderTitle: "Read the main transcript and subagents/*.jsonl together",
+    loadFile: "Load a single file",
+    loadFileTitle: "Use this when you already know which file you want. Claude Code: usually ~/.claude/projects/<project>/*.jsonl; Codex CLI: usually ~/.codex/sessions/rollout-*.jsonl. If you are not sure, use “Browse sessions” instead.",
+    loadFolder: "Browse sessions",
+    loadFolderTitle: "Pick a folder under ~/.claude/projects/ and choose by readable title — no file names needed; subagent records come along. The browser asks for folder access again on every fresh page load; that is the browser’s security design, not DIT forgetting.",
     reset: "Reset",
     resetTitle: "Return to the built-in sample and defaults",
     showAnnotations: "Show teaching notes",
@@ -665,8 +713,10 @@ const en: Messages = {
     startReading: "Start reading",
     continueReading: "Continue reading",
     startBrowsing: "Start step-through browsing",
-    loadFile: "Load .jsonl",
-    loadFolder: "Load session folder",
+    loadFile: "Load a single file",
+    loadFileTitle: "Use this when you already know which file you want; otherwise use “Browse sessions”.",
+    loadFolder: "Browse sessions",
+    loadFolderTitle: "Pick a folder and choose a session by its readable title — no file names needed.",
     legend: {
       label: "Symbol guide",
       spanHeading: "Span layer · what happened in the transcript",
@@ -791,6 +841,8 @@ const en: Messages = {
     returnReader: "Return to Reader",
     invalidTarget: (id: string) => `The map target is no longer available: ${id}`,
     minimapLabel: "Open the session map; the minimap shows the current position and visible Reader range",
+    minimapDensityCaption: "Landmark density",
+    minimapDensityLabel: "Open the session map. The bars show how many landmarks fall in each stretch — they are not individual nodes. Height is scaled to this session’s own densest stretch, so bar heights are not comparable across sessions. The dot is your current position; the tinted block is the visible Reader range.",
     viewport: "Visible Reader range",
     clusterKind: "Cluster",
   },
@@ -802,7 +854,7 @@ const en: Messages = {
     skeleton: (nodes: number, ribs: number) => `Distilled skeleton: ${nodes} spine · ${ribs} ribs`,
     legendLabel: "Node symbol legend",
     legendSummary: "Legend",
-    legendNote: "Important nodes are also marked with text labels (objective / decision / milestone / outcome) — see the Session Map.",
+    legendNote: "Important nodes are also marked with text labels (objective / decision / outcome) — see the Session Map.",
   },
 
   main: {
@@ -1094,6 +1146,7 @@ const en: Messages = {
     tool_result: "Result",
     subagent: "Subagent",
     group: "Group",
+    marker: "System event",
   },
 
   tag: {
@@ -1132,7 +1185,6 @@ const en: Messages = {
   skeletonNode: {
     objective: "Objective",
     decision: "Decision",
-    milestone: "Milestone",
     outcome: "Outcome",
   },
 
@@ -1141,6 +1193,44 @@ const en: Messages = {
     error: "Error",
     retry: "Retry",
     "edit-loop": "Edit loop",
+  },
+
+  categoryDefinition: {
+    objective: {
+      what: "What this conversation set out to do.",
+      rule: "The first user message in the transcript, taken as-is — no semantic judgement.",
+      example: "“Fix the login page logging me out after a refresh.”",
+    },
+    decision: {
+      what: "The moment the direction changed — a path was chosen and everything after it differs.",
+      rule: "Only AI thinking-layer nodes, and only those the denoiser tagged as a decision (weighing options, choosing, changing course). Replies and tool calls never qualify, so a conversation may legitimately have none.",
+      example: "“Rather than patching each page, move the session check into the middleware once.”",
+    },
+    outcome: {
+      what: "Where the conversation ended up.",
+      rule: "The last node that carries content. System events such as compaction markers and API errors are not content and can never be crowned the outcome.",
+      example: "“All three tests pass; the logout no longer reproduces.”",
+    },
+    investigation: {
+      what: "Looking things up to understand the situation.",
+      rule: "The tool is an evidence-gathering one (Read / Grep / Glob / WebFetch / WebSearch / NotebookRead).",
+      example: "Reading `src/auth/session.ts`; searching for every use of `refreshToken`.",
+    },
+    error: {
+      what: "Something failed, and the failure was recorded.",
+      rule: "A tool result carried an error flag. The tag is also raised onto the action that triggered it, so it is visible on the card.",
+      example: "A test command exited non-zero; a file did not exist.",
+    },
+    retry: {
+      what: "The same thing attempted again.",
+      rule: "After an error, the **same tool** is called again. Switching tools does not count as a retry.",
+      example: "`npm test` fails, the code is edited, `npm test` runs again.",
+    },
+    "edit-loop": {
+      what: "A stretch of back-and-forth edits against one target.",
+      rule: "Consecutive edits to the same file are collected into one group. Interleaved thinking or tool results do not break the run; a different file or a new user message does.",
+      example: "The same component edited four times before the tests passed.",
+    },
   },
 };
 

@@ -31,7 +31,13 @@ export function isDirectoryPickerSupported(): boolean {
   return typeof window !== "undefined" && typeof (window as unknown as DirectoryPickerWindow).showDirectoryPicker === "function";
 }
 
-/** 使用者按了取消。呼叫端據此回到 `no_directory`，而不是報錯。 */
+/**
+ * 使用者按了取消。呼叫端據此回到 `closed`，而不是報錯。
+ *
+ * **不變式 (R9.1 RC-A)**：只有 `pickDirectory` 內部的選擇器呼叫可以產生這個錯誤。
+ * 拿到 handle 之後的任何失敗（列目錄、讀檔、索引）都不是取消，即使瀏覽器丟的也是
+ * `AbortError`——把兩者混為一談，會讓索引失敗偽裝成「使用者不想選了」而無聲退場。
+ */
 export class DirectoryPickCancelledError extends Error {
   constructor() {
     super("Directory selection was cancelled.");
