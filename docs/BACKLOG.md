@@ -2,6 +2,33 @@
 
 > 已決定但尚未實作的項目。最高優先在上。對應討論：2026-06-25。
 
+## 🚨 2026-08-03 深度審查的三個 blocker（2026-08-14 重新核對，**全部仍然存在**）
+
+> 全文見 [`docs/misc/REVIEW_2026-08-03_DEEP_PROJECT_HEALTH.md`](misc/REVIEW_2026-08-03_DEEP_PROJECT_HEALTH.md)（對 R9.1 分支）
+> 與 [`_MAIN.md`](misc/REVIEW_2026-08-03_DEEP_PROJECT_HEALTH_MAIN.md)（對 main）。兩份的 blocker 是同三個，
+> 編號不同（F-01/02/03 ↔ B-01/02/03）。每一項在 2026-08-14 以現行程式碼逐行核對過，**沒有一項被修掉**。
+
+- [ ] **B1 Indexer 放大檔頭後沒有重新判定 adapter**（F-02／B-02）：`sessionIndexer.ts:189` 在第一個
+  128 KiB 視窗上算 `isClaudeCode`，`:203-207` 放大到 1 MiB 重讀卻沒有重算，`:297` 依舊用舊判定
+  `continue` 把檔案剔除。**合法 session 會從清單消失**——首筆訊息夾帶截圖 base64 就會踩到。
+- [ ] **B2 Snapshot 仍會 fetch `dit.config.json`**（F-03／B-03）：`App.tsx:32` 無條件呼叫
+  `loadPersistedConfig()`，`sessionStore.ts:933` 沒有 snapshot guard，`configFile.ts:44` 實際發出
+  `fetch`。違反 R6 `EX-INV-1/3` 與 `USER_GUIDE.md` 對「快照零網路請求」的明文承諾。
+- [ ] **B3 WebKit 目錄後備路徑沒有入口也沒有失敗出口**（F-01／B-01）：`sessionStore.ts:737-739` 的
+  `indexFileList` 沒有 catch，`runIndex` 失敗就永遠停在 `indexing`；不支援 FSA 時
+  `resumeLastDirectory` 只把 state 設回去就 return。與 R9.1 UAT §F 記錄的 B5「無法驗證」是同一塊
+  區域，但**這是靜態可證的程式碼缺陷，不是無法驗證項**。
+
+兩份報告另有 8 + 13 項 should-fix 與 work cards WC-01..WC-12，尚未逐項複核。
+
+### 兩份報告的已知盲區（不要誤讀為「已審查過」）
+
+- 兩份都寫於 v0.4.0 逐字稿匯出（R9.2）併入之前，因此 `src/core/export/transcript*.ts` 與
+  `src/core/privacy/apply.ts`／`redact.ts` 約 1,400 行**從未被任何審查看過**。
+- `_MAIN.md` 審的是不含 R9.1 的 main，所以它的 C-02（具名 title 降級走 fallback channel）
+  等項目**在 R9.1 分支上已經修掉**（RC-B），對 main 才成立。
+- `_MAIN.md` §C-07 的相依套件 advisory 屬於易變外部事實，引用前需重查。
+
 ## 📌 2026-08-11 R10 研究筆記產出（三項候選，待使用者裁定）
 
 > 完整證據與逐條核對見 [RESEARCH_R10_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md](rounds/r10-source-awareness/RESEARCH_R10_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md)。
