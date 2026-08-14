@@ -147,6 +147,11 @@ export function normalize(parsed: ParseResult): SessionDocument {
       raw: ev.raw,
     };
 
+    // `unknown` 是 adapter 對系統事件的代述 (回合中斷 / 上下文壓縮 / 配對失敗 / 未知型別)，
+    // 型別上落到 assistant_msg 好讓節點視圖照常顯示，但它不是模型真的說的話——標記起來，
+    // 讓逐字對話輸出能把它排除，不至於冒充成 AI 發言。
+    if (ev.kind === "unknown") span.synthetic = true;
+
     if (ev.kind === "tool_use") {
       if (!ev.toolName) reportFallback("normalizer/toolName", "tool-use-without-name", { spanId: id });
       span.tool = { name: ev.toolName ?? "unknown", params: ev.toolInput ?? {} };
