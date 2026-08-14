@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { normalize } from "@/core/normalize/normalizer";
 import { buildSessionDocument } from "@/core/pipeline";
 import { sampleSession, subagentSession } from "@/fixtures";
@@ -10,7 +10,7 @@ import { DEFAULT_TRANSCRIPT_OPTIONS, TRANSCRIPT_EXPORT_VERSION, type TranscriptO
 const BUILD = { exportedAt: "2026-08-11T12:00:00.000Z", appVersion: "0.3.1" };
 
 function docFrom(events: RawEvent[]): SessionDocument {
-  return normalize({ meta: { id: "s1", title: "T" }, events, warnings: [] });
+  return normalize({ meta: { id: "s1", title: "T" }, events, diagnostics: [] });
 }
 
 function transcriptOf(events: RawEvent[], options: Partial<TranscriptOptions> = {}) {
