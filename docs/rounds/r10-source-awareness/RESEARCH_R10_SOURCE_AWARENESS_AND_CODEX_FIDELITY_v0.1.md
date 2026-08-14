@@ -1,4 +1,7 @@
-# DIT — R9 研究筆記｜來源感知管線、Codex 官方格式核對、既有產品掃描 v0.1
+﻿# DIT — R10 研究筆記｜來源感知管線、Codex 官方格式核對、既有產品掃描 v0.1
+
+> **2026-08-14 改號說明。** 本輪原以 R9 開立，與本機 `r9-session-browser-and-fsm` 撞號，
+> 已整體改為 R10（工作項 R10-A / R10-B / R10-C）。內容未變。
 
 > 日期：2026-08-11
 > 定位：**PIM 級研究筆記，非 sole-source PSM，未經使用者裁定不得據此施工。**
@@ -197,14 +200,14 @@ VS Code 的 `Claude Code and Codex Assist` 都已支援。專注單一來源的�
 
 ## 4. 建議排程（待使用者裁定，未裁定前不施工）
 
-1. **R9-A｜Codex 保真度**（風險最高，且會使 R7／R7.5 的既有投資失效）：
+1. **R10-A｜Codex 保真度**（風險最高，且會使 R7／R7.5 的既有投資失效）：
    Paginated `item_completed` 映射、`entered/exited_review_mode` 官方標記優先、
    `agent_message` 重新查證、`session_meta`／`turn_context` 補讀。
    **前置條件**：需要真實的 Paginated 模式 rollout 樣本；同時可補上 backlog 那項
    「真實樣本 ≥5 份」的未達門檻。
-2. **R9-B｜Source Profile 側寫化**（爆炸半徑小、收益立即可量化）：
-   讓 Codex session 的骨架從「零支線」回到與 Claude Code 對等。可獨立於 R9-A 施工。
-3. **R9-C｜Session 內全文搜尋**（唯一的基礎便利缺口）。
+2. **R10-B｜Source Profile 側寫化**（爆炸半徑小、收益立即可量化）：
+   讓 Codex session 的骨架從「零支線」回到與 Claude Code 對等。可獨立於 R10-A 施工。
+3. **R10-C｜Session 內全文搜尋**（唯一的基礎便利缺口）。
 4. 其餘（成本分析、resume 指令、目錄 handle 記憶）列候選，不進本輪。
 
 **明確不做**：追競品的多 harness 廣度、跨 session 統計（RPD D-5 仍凍結）、React Flow（R5 已拒絕）。
