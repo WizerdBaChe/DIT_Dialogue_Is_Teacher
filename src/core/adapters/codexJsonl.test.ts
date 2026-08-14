@@ -202,6 +202,54 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     expect(result.diagnostics.some((d) => d.code === "UNKNOWN_RECORD_TYPE")).toBe(false);
   });
 
+  it("keeps agent_message content instead of dropping it, on the sub-agent side chain (R10-M1/F-2)", () => {
+    // R7.5 recorded agent_message as zero-content noise. Measured on 356 local rollouts: all 544
+    // occurrences carry non-empty input_text. Dropping them is data loss, not denoising.
+    const raw = [
+      line("response_item", {
+        type: "agent_message",
+        author: "/root",
+        recipient: "/root/m32_core_impl",
+        content: [{ type: "input_text", text: "實作 manifest 的載入路徑" }],
+      }),
+      line("response_item", {
+        type: "agent_message",
+        author: "/root/m32_core_impl",
+        recipient: "/root",
+        content: [
+          { type: "input_text", text: "已完成，兩個測試新增" },
+          { type: "encrypted_content", encrypted_content: "AAAA" },
+        ],
+      }),
+    ].join("\n");
+    const result = codexJsonlAdapter.parse(raw);
+
+    expect(result.events).toHaveLength(2);
+    // Parent -> child is the prompt handed to a sub-agent; child -> parent is the report back.
+    expect(result.events[0]).toMatchObject({ kind: "user_text", isSidechain: true });
+    expect(result.events[0].text).toBe("實作 manifest 的載入路徑");
+    expect(result.events[1]).toMatchObject({ kind: "assistant_text", isSidechain: true });
+    // encrypted_content cannot be read back, so it must not leak into the text.
+    expect(result.events[1].text).toBe("已完成，兩個測試新增");
+    expect(result.diagnostics.some((d) => d.code === "CODEX_COORDINATION_SKIPPED")).toBe(false);
+  });
+
+  it("falls back to assistant_text when the agent_message addressing is unusable (R10-M1)", () => {
+    const raw = [
+      line("response_item", { type: "agent_message", content: [{ type: "input_text", text: "無定址" }] }),
+      line("response_item", {
+        type: "agent_message",
+        author: "/root/a",
+        recipient: "/root/b",
+        content: [{ type: "input_text", text: "手足之間" }],
+      }),
+    ].join("\n");
+    const result = codexJsonlAdapter.parse(raw);
+
+    expect(result.events.map((e) => e.kind)).toEqual(["assistant_text", "assistant_text"]);
+    expect(result.events.every((e) => e.isSidechain)).toBe(true);
+  });
+
   it("other unknown types are unaffected by the known-noise drop and still aggregate per-type (R7-INV-7 v2 part (a))", () => {
     const lines = Array.from({ length: 3 }, () => line("some_brand_new_type", {}));
     const result = codexJsonlAdapter.parse(lines.join("\n"));

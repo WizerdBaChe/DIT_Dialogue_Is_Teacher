@@ -36,7 +36,7 @@
  * 容錯原則：單行 JSON 解析失敗只記 warning 並跳過，絕不整體拋例外。
  */
 import type { Diagnostic } from "@/core/diagnostics/contracts";
-import type { SourceAdapter, ParseResult, RawEvent } from "./types";
+import type { SourceAdapter, ParseResult, RawEvent, RawEventKind } from "./types";
 import { stripInjectedPreamble } from "@/core/text/preamble";
 
 /** `custom_tool_call.name` 恆為 "exec"；真實工具名藏在 input 的 `tools.<name>(...)` 呼叫裡。 */
@@ -122,6 +122,17 @@ function flattenTextBlocks(content: unknown): string {
 /** `custom_tool_call_output`／`function_call_output` 的 output 一律是 input_text 區塊陣列。 */
 function flattenOutput(output: unknown): string {
   return flattenTextBlocks(output);
+}
+
+/**
+ * `agent_message` 的 `author`／`recipient` 是執行緒路徑（`/root`、`/root/<task>`），實測 author
+ * 恆不等於 recipient。父對子是交付給子代理的提示，子對父是回報——與 Claude Code 旁鏈裡
+ * 「side-chain user_msg 就是子代理的提示」同一個讀法，所以兩邊在下游長得一樣。
+ * 判不出親子關係時退回 assistant_text：把回報誤標成提示，比反過來安全（提示會被當成回合邊界）。
+ */
+function agentMessageKind(author: unknown, recipient: unknown): RawEventKind {
+  if (typeof author !== "string" || typeof recipient !== "string") return "assistant_text";
+  return recipient.startsWith(`${author}/`) ? "user_text" : "assistant_text";
 }
 
 const NO_EVENT_EVENT_MSG_TYPES = new Set([
@@ -369,10 +380,25 @@ export class CodexJsonlAccumulator {
         return;
       }
 
-      case "agent_message":
-        // 子代理間通訊，零可讀內容；本輪靜默丟棄 + 聚合診斷 (R7-INV-7 v2，見 R7.5 §3.2)。
-        this.dropKnownNoise();
+      case "agent_message": {
+        // R10-M1：R7.5 記為「零可讀內容」而靜默丟棄。2026-08-14 本機 356 份 rollout 實測推翻了
+        // 這個前提——544 筆全部帶非空 input_text，中位數 84 字、最長 16,215 字。丟棄不是降噪，
+        // 是資料遺失。證據見 docs/rounds/r10-source-awareness/SCAN_R10_LOCAL_ROLLOUT_RESULTS.md F-2。
+        const text = flattenTextBlocks(payload?.content);
+        if (!text.trim()) {
+          // 真的空的那幾筆仍照舊當噪音，不無中生有一張空卡片。
+          this.dropKnownNoise();
+          return;
+        }
+        this.pushEvent({
+          kind: agentMessageKind(payload?.author, payload?.recipient),
+          timestamp,
+          text,
+          isSidechain: true,
+          raw: payload,
+        });
         return;
+      }
 
       default:
         this.recordUnknown(`response_item/${subType}`);
