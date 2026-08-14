@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { normalize } from "@/core/normalize/normalizer";
 import { buildSessionDocument } from "@/core/pipeline";
 import { sampleSession } from "@/fixtures";
@@ -12,7 +12,7 @@ const zh: TranscriptLabels = MESSAGES["zh-TW"].transcript;
 const BUILD = { exportedAt: "2026-08-11T12:30:00.000Z", appVersion: "0.3.1" };
 
 function render(events: RawEvent[], options: Partial<TranscriptOptions> = {}, lang = "zh-TW"): string {
-  const doc = normalize({ meta: { id: "demo-todo", title: "修好列表不更新" }, events, warnings: [] });
+  const doc = normalize({ meta: { id: "demo-todo", title: "修好列表不更新" }, events, diagnostics: [] });
   return renderTranscriptHtml(
     buildTranscript(doc, { ...BUILD, options: { ...DEFAULT_TRANSCRIPT_OPTIONS, ...options } }),
     zh,
@@ -106,7 +106,7 @@ describe("renderTranscriptHtml — 跳脫與程式碼", () => {
   });
 
   it("session 標題裡的標記也跳脫", () => {
-    const doc = normalize({ meta: { id: "x", title: '<img src=x>' }, events: BASIC, warnings: [] });
+    const doc = normalize({ meta: { id: "x", title: '<img src=x>' }, events: BASIC, diagnostics: [] });
     const html = renderTranscriptHtml(buildTranscript(doc, { ...BUILD, options: DEFAULT_TRANSCRIPT_OPTIONS }), zh, { lang: "zh-TW" });
     expect(html).not.toContain("<img src=x>");
     expect(html).toContain("&lt;img src=x&gt;");

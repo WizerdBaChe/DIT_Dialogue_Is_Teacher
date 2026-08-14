@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { normalize } from "@/core/normalize/normalizer";
 import { MESSAGES } from "@/i18n/locales";
 import type { RawEvent } from "@/core/adapters/types";
@@ -22,7 +22,7 @@ function render(events: RawEvent[], options: Partial<TranscriptOptions> = {}, la
       startedAt: events[0]?.timestamp ?? null,
     },
     events,
-    warnings: [],
+    diagnostics: [],
   });
   return renderTranscriptMarkdown(
     buildTranscript(doc, { ...BUILD, options: { ...DEFAULT_TRANSCRIPT_OPTIONS, ...options } }),

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { normalize } from "@/core/normalize/normalizer";
 import { MESSAGES } from "@/i18n/locales";
 import type { RawEvent } from "@/core/adapters/types";
@@ -12,7 +12,7 @@ const zh: TranscriptLabels = MESSAGES["zh-TW"].transcript;
 const BUILD = { exportedAt: "2026-08-11T12:30:00.000Z", appVersion: "0.3.1" };
 
 async function redactedOf(events: RawEvent[], meta: Record<string, unknown> = {}) {
-  const doc = normalize({ meta: { id: "s1", title: "T", ...meta }, events, warnings: [] });
+  const doc = normalize({ meta: { id: "s1", title: "T", ...meta }, events, diagnostics: [] });
   return redactTranscript(buildTranscript(doc, { ...BUILD, options: DEFAULT_TRANSCRIPT_OPTIONS }));
 }
 
@@ -105,7 +105,7 @@ describe("redactTranscript — 不破壞原資料", () => {
     const doc = normalize({
       meta: { id: "s1", title: "T" },
       events: [{ kind: "user_text", uuid: "u1", text: "寄到 alice@example.com", raw: {} }],
-      warnings: [],
+      diagnostics: [],
     });
     const original = buildTranscript(doc, { ...BUILD, options: DEFAULT_TRANSCRIPT_OPTIONS });
     const snapshot = JSON.stringify(original);
@@ -142,7 +142,7 @@ describe("遮蔽後的輸出必須自我標示", () => {
   });
 
   it("沒開遮蔽時完全不提這件事，不放空殼欄位", async () => {
-    const doc = normalize({ meta: { id: "s1", title: "T" }, events: SENSITIVE, warnings: [] });
+    const doc = normalize({ meta: { id: "s1", title: "T" }, events: SENSITIVE, diagnostics: [] });
     const transcript = buildTranscript(doc, { ...BUILD, options: DEFAULT_TRANSCRIPT_OPTIONS });
     expect(transcript.redaction).toBeUndefined();
     expect(renderTranscriptMarkdown(transcript, zh)).not.toContain("遮蔽");
