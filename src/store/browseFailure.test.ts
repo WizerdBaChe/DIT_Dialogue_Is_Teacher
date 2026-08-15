@@ -11,10 +11,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DirectorySource } from "@/core/index";
 
 const pickDirectoryMock = vi.fn();
+const isDirectoryPickerSupportedMock = vi.fn();
+const directorySourceFromFileListMock = vi.fn();
 
 vi.mock("@/core/index", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/core/index")>();
-  return { ...actual, pickDirectory: () => pickDirectoryMock() };
+  return {
+    ...actual,
+    pickDirectory: () => pickDirectoryMock(),
+    isDirectoryPickerSupported: () => isDirectoryPickerSupportedMock(),
+    directorySourceFromFileList: (files: unknown, name: string) =>
+      directorySourceFromFileListMock(files, name) ?? actual.directorySourceFromFileList(files as never, name),
+  };
 });
 
 const { useSessionStore } = await import("./sessionStore");
@@ -29,6 +37,8 @@ function explodingSource(error: unknown): DirectorySource {
 
 beforeEach(() => {
   pickDirectoryMock.mockReset();
+  isDirectoryPickerSupportedMock.mockReset();
+  directorySourceFromFileListMock.mockReset();
 });
 
 afterEach(() => {
@@ -96,5 +106,42 @@ describe("closed is the only browseState that hides the browser", () => {
     });
     const active = selectActiveSurface(selectSurfaceWants(useSessionStore.getState()));
     expect(active).toBe(browseState === "closed" ? null : "session-browser");
+  });
+});
+
+/**
+ * R11 M3 · the WebKit (non-FSA) fallback needs the same failure exit the FSA path has.
+ */
+describe("WebKit fallback failure exit (R11 M3)", () => {
+  it("indexFileList lands on index_failed instead of leaving the UI pinned on indexing", async () => {
+    directorySourceFromFileListMock.mockReturnValue(explodingSource(new Error("could not read fallback file list")));
+
+    await useSessionStore.getState().indexFileList([] as never, "projects");
+
+    expect(useSessionStore.getState().browseState).toBe("index_failed");
+    expect(useSessionStore.getState().indexDiagnostics[0]).toMatchObject({
+      tier: "fatal",
+      code: "INDEX_DIRECTORY_UNREADABLE",
+    });
+  });
+
+  /**
+   * The finding from investigating the stated assumption: `resumeLastDirectory()` used to set
+   * `browseState: "closed"` when FSA is unsupported, on the comment's claim that "the UI then
+   * opens an <input>". But `selectSurfaceWants()` only opens the session-browser surface when
+   * `browseState !== "closed"` — so that <input> (which lives inside `SessionBrowserDialog`)
+   * never mounted. There was no entry point at all. This test pins the fix: the dialog must
+   * actually open so the fallback "Choose folder" button (and the <input> behind it) is reachable.
+   */
+  it("resumeLastDirectory opens the browser (not closed) when the directory picker is unsupported", async () => {
+    isDirectoryPickerSupportedMock.mockReturnValue(false);
+
+    await useSessionStore.getState().resumeLastDirectory();
+
+    const state = useSessionStore.getState();
+    expect(state.browseState).not.toBe("closed");
+    expect(selectActiveSurface(selectSurfaceWants(state))).toBe("session-browser");
+    // pickDirectory() throws when unsupported (RC-A) — the fallback path must never call it.
+    expect(pickDirectoryMock).not.toHaveBeenCalled();
   });
 });
