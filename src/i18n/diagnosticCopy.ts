@@ -31,7 +31,11 @@ const zhTW: CopyTable = {
   NO_EVENTS: { line: (d) => `${at(d)}這個檔案沒有可呈現的內容。` },
 
   CODEX_EXEC_TOOL_NAME_UNRESOLVED: { line: (d) => `${at(d)}有 ${n(d)} 次無法從 exec 參數判斷真正的工具名，已保留為 exec。` },
-  CODEX_EVENT_UNPAIRED: { line: (d) => `${at(d)}${d.detail} ×${n(d)} 找不到對應的原始呼叫，已降級為獨立事件（多半是該呼叫已被歷史壓縮取代）。` },
+  CODEX_EVENT_UNPAIRED: {
+    line: (d) =>
+      `${at(d)}${d.detail} ×${n(d)} 找不到對應的原始呼叫——匯出檔沒有提供可驗證的關聯；`
+      + "可能原因包含歷史壓縮、記錄邊界或未支援的包裝，已降級為獨立事件呈現。",
+  },
   CODEX_COORDINATION_SKIPPED: { line: (d) => `${at(d)}略過 ${n(d)} 筆子代理協調事件（無可呈現內容）。` },
   CODEX_AUTO_REVIEW_CONDENSED: {
     line: (d) => `${at(d)}偵測到 ${n(d)} 筆 Codex 自動核准審查紀錄，已在原位置精簡為標記卡，原始資料未刪除。`,
@@ -104,7 +108,12 @@ const en: CopyTable = {
   NO_EVENTS: { line: (d) => `${at(d)}This file has no renderable content.` },
 
   CODEX_EXEC_TOOL_NAME_UNRESOLVED: { line: (d) => `${at(d)}${n(d)} exec call(s) had no resolvable tool name; kept as "exec".` },
-  CODEX_EVENT_UNPAIRED: { line: (d) => `${at(d)}${d.detail} ×${n(d)} had no matching call and became standalone events (usually the call was replaced by history compaction).` },
+  CODEX_EVENT_UNPAIRED: {
+    line: (d) =>
+      `${at(d)}${d.detail} ×${n(d)} had no matching call — the export does not provide a verifiable link back `
+      + "to the original call; possible reasons include history compaction, record boundaries, or unsupported "
+      + "wrappers. Shown as a standalone event.",
+  },
   CODEX_COORDINATION_SKIPPED: { line: (d) => `${at(d)}Skipped ${n(d)} subagent coordination event(s) with nothing to render.` },
   CODEX_AUTO_REVIEW_CONDENSED: {
     line: (d) => `${at(d)}Found ${n(d)} Codex auto-review record(s); condensed in place, nothing deleted.`,

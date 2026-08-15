@@ -10,8 +10,14 @@
 
 export const SCHEMA_VERSION = "0.1" as const;
 
-/** 來源識別碼，新增來源時擴充此聯集。 */
-export type SourceId = "claude-code" | "codex" | "paste";
+/**
+ * 來源識別碼，新增來源時擴充此聯集。
+ * R11 M4 WC-4.4(3) / D-008：`"paste"` 已移除——宣告了，但沒有 adapter 或 UI 路徑產生過它，
+ * 兩個既有 adapter 都各自寫死自己的 `"claude-code"`／`"codex"`。跟 R9.1 移除 `milestone`
+ * 是同一個模式：型別裡宣告、從未產生、圖例/清單卻照樣列出。要恢復需要一個真正的 paste
+ * 入口點，屆時再加回來，而不是先宣告一個沒人要求的能力。
+ */
+export type SourceId = "claude-code" | "codex";
 
 /** Span 的語意型別。 */
 export type SpanType =

@@ -48,7 +48,7 @@ function createLargeMapFixture(stationCount: number, ribCount = 0): { doc: Sessi
     schemaVersion: SCHEMA_VERSION,
     session: {
       id: "map-fixture",
-      source: "paste",
+      source: "claude-code",
       tool: "test",
       title: "Map fixture",
       projectPath: null,
