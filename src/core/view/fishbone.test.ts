@@ -22,7 +22,7 @@ function span(id: string, order: number, type: Span["type"], parentId: string | 
 function docWithHiddenSpans(): SessionDocument {
   return {
     schemaVersion: SCHEMA_VERSION,
-    session: { id: "s", source: "paste", tool: "test", title: "t", projectPath: null, startedAt: null, model: null },
+    session: { id: "s", source: "claude-code", tool: "test", title: "t", projectPath: null, startedAt: null, model: null },
     spans: [
       span("user-1", 0, "user_msg"),
       span("edit-a", 1, "tool_use"),

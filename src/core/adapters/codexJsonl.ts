@@ -125,6 +125,26 @@ function flattenOutput(output: unknown): string {
 }
 
 /**
+ * R11 M4 WC-4.4(1)：`[external_agent_tool_call: <Name>]…[/external_agent_tool_call]` 與
+ * `[external_agent_tool_result]`／`[external_agent_tool_result: error]`…`[/external_agent_tool_result]`
+ * 是這台機器上「Codex 呼叫外部 agent 工具」時，工具呼叫/結果邊界的方括號包裝，出現在
+ * `response_item/message`（role=assistant）的內文裡——不是 `INJECTION_TAGS` 白名單處理的角括號
+ * 前言區塊（那組只認 `<tag>…</tag>` 且只在文字最開頭剝除一次）；這組是方括號、可能出現在文字
+ * 中段、同一則訊息裡可能重複多次。summary/title 目前直接取整段文字的前 90 字，於是包裝標記本身
+ * （常常比真正內容更早出現）被當成卡片標題，吃掉真正的內容。
+ *
+ * 實測本機 358 份 rollout：50,221 次出現，全部在 response_item/message（role=assistant）；
+ * 99.99%（50,218/50,221）包裝本身完整（開頭在段落起點、有對應收尾標籤、收尾後沒有殘留文字），
+ * 只有 3 例是「先有真人可讀的敘述句，後面才接上包裝」。因此只拿掉標記本身（開頭／收尾兩種
+ * token），中間與前後的內容原樣保留——不是新的剝除規則，是「不要把它當標題來源」的最小修正。
+ */
+const EXTERNAL_AGENT_WRAPPER_RE = /\[\/?external_agent_tool_(?:call|result)(?::[^\]]*)?\]\n?/g;
+
+function stripExternalAgentWrapperMarkers(text: string): string {
+  return text.replace(EXTERNAL_AGENT_WRAPPER_RE, "");
+}
+
+/**
  * `agent_message` 的 `author`／`recipient` 是執行緒路徑（`/root`、`/root/<task>`），實測 author
  * 恆不等於 recipient。父對子是交付給子代理的提示，子對父是回報——與 Claude Code 旁鏈裡
  * 「side-chain user_msg 就是子代理的提示」同一個讀法，所以兩邊在下游長得一樣。
@@ -292,7 +312,7 @@ export class CodexJsonlAccumulator {
           // 不是預期的裁決 JSON，不裝作看懂，落回一般內容處理（下方）。
         }
 
-        const text = stripInjectedPreamble(flattened);
+        const text = stripInjectedPreamble(stripExternalAgentWrapperMarkers(flattened));
         if (!text.trim()) return;
         this.pushEvent({
           kind: role === "assistant" ? "assistant_text" : "user_text",
@@ -303,14 +323,24 @@ export class CodexJsonlAccumulator {
         return;
       }
 
-      case "reasoning": {
-        // encrypted_content 無法還原；只有 summary 有明文時才出事件，空則略過 (F-6)。
-        const summary = payload?.summary;
-        const text = Array.isArray(summary) ? flattenTextBlocks(summary) : "";
-        if (!text.trim()) return;
-        this.pushEvent({ kind: "thinking", timestamp, text, raw: payload });
+      case "reasoning":
+        // R11 M4 WC-4.4(2) / P-001：Codex 把每一步推理寫兩次——`event_msg/agent_reasoning`
+        // 純文字（見 handleEventMsg），以及這裡的 `response_item/reasoning`，其 `summary` 是
+        // 同一段文字的重述（`encrypted_content` 本身無法還原，不可能拿來當唯一內容來源）。
+        // 兩者過去各自成一個 thinking span，於是同一步推理在卡片列表裡出現兩次；不對齊也不是
+        // 1:1——一則 `reasoning` 常把前面好幾則 `agent_reasoning` 的文字合併成一段 summary，
+        // 有時 summary 是空的（此時 encrypted_content 仍在，但無明文可顯示）。
+        //
+        // 本機 358 份 rollout 實測：12,876 筆 `agent_reasoning`、16,397 筆 `reasoning`
+        // （10,508 筆 summary 為空、5,889 筆非空）。5,889 筆非空 summary 中 5,885 筆
+        // （99.93%）恰好等於「自上一則 reasoning 起累積的 agent_reasoning 文字以 \n 串接」；
+        // 零筆是「summary 有內容但完全沒有對應的 agent_reasoning」孤兒案例。也就是說
+        // `agent_reasoning` 才是明文的權威來源、且沒有測到遺漏；`reasoning.summary` 對本語料
+        // 而言是完全冗餘的重述。因此這裡不再產生任何 span——含 encrypted_content 而 summary
+        // 為空的紀錄本來就不出卡片；summary 非空的紀錄現在也不出卡片，因為同樣的文字已經由
+        // `agent_reasoning` 出過了。不是拿 render 端去重（那樣如果日後語料出現孤兒案例會悄悄
+        // 丟資料而不自知），是直接讓第二個信封不再產生第二個 span。
         return;
-      }
 
       case "custom_tool_call": {
         const callId = payload?.call_id;
@@ -534,11 +564,20 @@ export class CodexJsonlAccumulator {
 
   finish(): ParseResult {
     const diagnostics: Diagnostic[] = [];
+    // R11 M4 WC-4.1 / P-001: these two used to be "warn", which reads as "this session went
+    // wrong". RCA_R10.1 measured 357 local rollouts / 218,517 lines: 93.9% of unpaired *_end
+    // events have no recoverable candidate anywhere in the exported stream at all — that is a
+    // limit of what Codex's export records, not a per-session fault, and no amount of pairing-
+    // heuristic tuning closes it. Both are named capability limits: the card still renders
+    // (as "exec" / as a standalone event) with nothing lost. "info" is the existing tier for
+    // exactly this — "a known condition handled by policy... counted, not narrated" — so it is
+    // reused rather than adding a new one; see CODEX_COORDINATION_SKIPPED and
+    // CODEX_AUTO_REVIEW_CONDENSED just below for the same pattern.
     if (this.execToolNameUnresolved > 0) {
-      diagnostics.push({ tier: "warn", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: this.execToolNameUnresolved });
+      diagnostics.push({ tier: "info", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: this.execToolNameUnresolved });
     }
     for (const [subType, count] of this.unpairedEventCounts) {
-      diagnostics.push({ tier: "warn", code: "CODEX_EVENT_UNPAIRED", detail: subType, count });
+      diagnostics.push({ tier: "info", code: "CODEX_EVENT_UNPAIRED", detail: subType, count });
     }
     for (const [type, count] of this.unknownTypeCounts) {
       diagnostics.push(

@@ -41,15 +41,55 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     ]);
   });
 
-  it("maps response_item/reasoning to thinking only when summary has text, skips when empty", () => {
+  it("never emits a span for response_item/reasoning — encrypted_content is unreadable and summary is dropped either way", () => {
+    // R11 M4 WC-4.4(2) / P-001: `response_item/reasoning` used to become a "thinking" span
+    // whenever `summary` was non-empty. Measured on 358 local rollouts: 5,885/5,889 non-empty
+    // summaries are byte-identical to the concatenation of the preceding `event_msg/agent_reasoning`
+    // fragments, and zero are "summary has content but no agent_reasoning backs it" — so emitting
+    // a span here duplicated a card that `agent_reasoning` (see below) already produced.
     const raw = [
       line("response_item", { type: "reasoning", summary: [], encrypted_content: "gAAA..." }),
       line("response_item", { type: "reasoning", summary: [{ type: "summary_text", text: "planning next step" }] }),
     ].join("\n");
 
     const result = codexJsonlAdapter.parse(raw);
-    expect(result.events).toHaveLength(1);
-    expect(result.events[0]).toMatchObject({ kind: "thinking", text: "planning next step" });
+    expect(result.events).toHaveLength(0);
+  });
+
+  it("does not duplicate a reasoning step: agent_reasoning produces the thinking span, the matching response_item/reasoning produces nothing (P-001 real-sample shape)", () => {
+    // Mirrors the real rollout evidence: event_msg/agent_reasoning (plaintext) immediately
+    // followed by response_item/reasoning carrying the same text as `summary` plus opaque
+    // encrypted_content. Before the fix this produced two byte-identical "thinking" cards.
+    const raw = [
+      line("event_msg", { type: "agent_reasoning", text: "**Inspecting scan report output**" }),
+      line("response_item", {
+        type: "reasoning",
+        summary: [{ type: "summary_text", text: "**Inspecting scan report output**" }],
+        encrypted_content: "gAAA...",
+      }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    const thinkingEvents = result.events.filter((e) => e.kind === "thinking");
+    expect(thinkingEvents).toHaveLength(1);
+    expect(thinkingEvents[0].text).toBe("**Inspecting scan report output**");
+  });
+
+  it("does not duplicate the many-to-one case: one response_item/reasoning summarizing several preceding agent_reasoning fragments still yields exactly those agent_reasoning spans", () => {
+    const raw = [
+      line("event_msg", { type: "agent_reasoning", text: "step one" }),
+      line("response_item", { type: "message", role: "user", content: [{ type: "input_text", text: "continue" }] }),
+      line("event_msg", { type: "agent_reasoning", text: "step two" }),
+      line("response_item", {
+        type: "reasoning",
+        summary: [{ type: "summary_text", text: "step one\nstep two" }],
+        encrypted_content: "gAAA...",
+      }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    const thinkingEvents = result.events.filter((e) => e.kind === "thinking");
+    expect(thinkingEvents.map((e) => e.text)).toEqual(["step one", "step two"]);
   });
 
   it("pairs custom_tool_call/custom_tool_call_output into tool_use/tool_result via call_id", () => {
@@ -133,7 +173,12 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events[0]).toMatchObject({ toolName: "update_plan" });
     expect(result.events[1]).toMatchObject({ toolName: "exec" });
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED" }));
+    // R11 M4 WC-4.1 / P-001: a named capability limit ("the export doesn't let us tell"), not a
+    // parse failure — downgraded from "warn" to "info" so it stops reading as "this session went
+    // wrong" (RCA_R10.1: 93.9% of these have no recoverable candidate in the export at all).
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({ tier: "info", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED" }),
+    );
   });
 
   it("pairs patch_apply_end back into the originating apply_patch exec call (§B4.4)", () => {
@@ -174,7 +219,12 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toHaveLength(1);
     expect(result.events[0].kind).toBe("unknown");
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "CODEX_EVENT_UNPAIRED", detail: "patch_apply_end" }));
+    // R11 M4 WC-4.1 / P-001: same downgrade as CODEX_EXEC_TOOL_NAME_UNRESOLVED — a named
+    // capability limit, "info" not "warn". The data itself is unaffected: still one standalone
+    // "unknown" event, nothing dropped.
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({ tier: "info", code: "CODEX_EVENT_UNPAIRED", detail: "patch_apply_end" }),
+    );
   });
 
   it("emits self-explanatory lifecycle marker events for turn_aborted/thread_rolled_back/context_compacted", () => {
@@ -268,6 +318,49 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     });
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toEqual([expect.objectContaining({ kind: "user_text", text: "Please fix the flaky login test" })]);
+  });
+
+  it("strips external_agent_tool_result/call wrapper markers without touching the content between them (R11 M4 WC-4.4(1))", () => {
+    // Real shape from a local rollout: the whole assistant message IS a wrapped tool-result
+    // dump. Before the fix, `[external_agent_tool_result]` became the card's summary/title
+    // (normalizer takes the first ~90 chars of `text`), eating the real content that follows it.
+    const raw = line("response_item", {
+      type: "message",
+      role: "assistant",
+      content: [{ type: "output_text", text: "[external_agent_tool_result]\n1\t# OPS notes\n2\t\nreal content here\n[/external_agent_tool_result]" }],
+    });
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].text).not.toContain("[external_agent_tool_result]");
+    expect(result.events[0].text).not.toContain("[/external_agent_tool_result]");
+    expect(result.events[0].text).toContain("# OPS notes");
+    expect(result.events[0].text).toContain("real content here");
+  });
+
+  it("strips the tool-call variant (with its `: <ToolName>` suffix and the error-result variant), and handles narration text preceding the wrapper", () => {
+    const raw = line("response_item", {
+      type: "message",
+      role: "assistant",
+      content: [
+        {
+          type: "output_text",
+          text: "Starting with the integration layer:\n\n[external_agent_tool_call: Write]\nfile: core_utils.py\n[/external_agent_tool_call]",
+        },
+      ],
+    });
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events[0].text).not.toContain("external_agent_tool_call");
+    expect(result.events[0].text).toContain("Starting with the integration layer");
+    expect(result.events[0].text).toContain("file: core_utils.py");
+
+    const errorRaw = line("response_item", {
+      type: "message",
+      role: "assistant",
+      content: [{ type: "output_text", text: "[external_agent_tool_result: error]\nFile does not exist.\n[/external_agent_tool_result]" }],
+    });
+    const errorResult = codexJsonlAdapter.parse(errorRaw);
+    expect(errorResult.events[0].text).not.toContain("external_agent_tool_result");
+    expect(errorResult.events[0].text).toContain("File does not exist.");
   });
 
   it("drops a user message that is entirely injected preamble — no user_text card at all (R7.5 W1/RC-1)", () => {

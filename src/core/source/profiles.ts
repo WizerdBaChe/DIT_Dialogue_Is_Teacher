@@ -77,27 +77,17 @@ const CODEX: SourceProfile = {
   outcomeFidelity: "partial",
 };
 
-/**
- * Pasted text has no harness identity, so nothing may be narrowed: it keeps the union of every
- * source's tools and tags. Narrowing here would silently stop stripping a preamble that the old
- * global whitelist did strip.
- */
-const PASTE: SourceProfile = {
-  id: "paste",
-  editTools: new Set([...CLAUDE_CODE.editTools, ...CODEX.editTools]),
-  investigationTools: new Set([...CLAUDE_CODE.investigationTools, ...CODEX.investigationTools]),
-  ambiguousTools: new Set([...CLAUDE_CODE.ambiguousTools, ...CODEX.ambiguousTools]),
-  filePathKeys: ["file_path", "filePath", "path", "notebook_path"],
-  filePathMapKeys: ["changes"],
-  outcomeFidelity: "partial",
-};
+// R11 M4 WC-4.4(3) / D-008: the "paste" profile is removed along with the SourceId member it
+// existed only to serve — no adapter or UI path ever produced a "paste" SourceId (see
+// src/types/spanTree.ts). `PROFILES` is now total over the narrowed `SourceId` union, so
+// `profileFor` needs no runtime fallback: every caller passes a value the type system already
+// guarantees is a key.
 
 const PROFILES: Record<SourceId, SourceProfile> = {
   "claude-code": CLAUDE_CODE,
   codex: CODEX,
-  paste: PASTE,
 };
 
 export function profileFor(source: SourceId): SourceProfile {
-  return PROFILES[source] ?? PASTE;
+  return PROFILES[source];
 }
