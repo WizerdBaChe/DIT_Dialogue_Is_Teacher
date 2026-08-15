@@ -1,9 +1,41 @@
 # DIT — Decision & Process Journal
 
-## Now (updated 2026-08-15)
-frontier: Manual UAT pass on `test/uat-2026-08-14` (R9.1 + R9.2 + R10, 24 items) complete; author ruled on all four pending Part-3 questions. Merge to `main` is authorized once the newly-surfaced defects below are triaged and fixed — not immediately.
-premises: (user) the reduced R10-B error-parity acceptance stands; (user) `shell_command` stays unclassified unless the R10.1 RCA yields new evidence; (model) the folder-browser's Claude-Code-only filter (`sessionIndexer.ts:298`) is a pre-R7 ruling, not an R10 regression — but it now conflicts with R10's multi-source premise and needs a fresh ruling.
-open: D-001..D-004 all decided; P-001 open (root-caused, unimplemented); folder-browser Codex exclusion needs a ruling (see phase-log Phase 13 Open Questions); several newly-found UI/export defects are triaged in `docs/OUTSTANDING_2026-08-14.md` Part 1 remarks column but not yet turned into work cards.
+## Now (updated 2026-08-15, Phase 14)
+frontier: R11 (`feat/r11-release-readiness`) is open. M0 landed and green (typecheck clean, 462/462, build clean). M1..M9 are specced in `docs/rounds/r11-release-readiness/PSM_R11_RELEASE_READINESS_v1.0.md` and awaiting dispatch. R11's exit condition IS D-004's merge gate.
+premises: (user) the reduced R10-B error-parity acceptance stands; (user) `shell_command` stays unclassified unless new evidence appears — the R10.1 RCA was that analysis and reinforced it; (user) the render layer is out of R11; (user) high-entropy redaction defaults off; (user) the Codex skeleton gap gets measurement before any edit; (model) lifting the folder-browser's Claude-Code-only filter is now settled by the author's own UAT C1 defect report, so it needs no separate ruling.
+open: D-001..D-008 decided; P-001 open (root-caused, P0 specced as R11-M4, unimplemented). Three deferred rulings need real output first: R11-Q1 (git SHA sensitivity — after M7), R11-Q2 (picker interleaving — after M1), R11-Q3 (M5's root cause into R11 or R12). Everything else previously "untriaged" is now a numbered card.
+
+## D-008 2026-08-15 `paste` SourceId is removed, not given an entry point
+status: decided
+context: `SourceId` declares `"paste"` and `profiles.ts` defines a `PASTE` profile, but no adapter or UI path ever produces it — both adapters hardcode their own id. UAT D4 asked the author to test "the paste entry" and they correctly answered 「完全不知道這則在說甚麼」: there is nothing to test.
+options: build a paste entry point / remove the declaration
+choice+why: decided by the model under the decision charter (reversible, internal type, no UX change). This is the exact pattern R9.1 removed `milestone` for — declared in the type, never produced, documented anyway — and D-003 confirmed the precedent holds. Nobody has asked for a paste entry; inventing one to justify a type member is backwards.
+revisit-if: a paste/drop entry is actually requested as a feature.
+links: src/types/spanTree.ts; src/core/source/profiles.ts; PSM_R11 WC-4.4
+
+## D-007 2026-08-15 the Codex skeleton-coverage gap gets measurement before any edit
+status: decided
+context: UAT C3 surfaced something worse than the label bug it was testing — Codex sessions often produce a skeleton of only {start, end} with everything else a rib, so ordinary user intents and replies never become spine nodes. R10-B's `crossSourceParity.test.ts` passes regardless, which is itself evidence the test asserts the wrong property.
+options: investigate and fix in R11 / investigate only in R11 / defer entirely
+choice+why: author chose investigate-only. D-001 and the R10.1 RCA §P2 independently forbid guessing tool semantics, and R10-B already spent a round believing a source-profile fix was sufficient before measurement showed otherwise. Editing before measuring would repeat that loop.
+revisit-if: M5's measurement produces a root cause cheap enough to fold back into R11 (tracked as R11-Q3).
+links: PSM_R11 M5; docs/OUTSTANDING_2026-08-14.md C3/D3
+
+## D-006 2026-08-15 high-entropy redaction ships default-off with honest reporting
+status: decided
+context: UAT B3 found the secret detector catches only prefixed known shapes (`ghp_`, `sk-`, JWT, connection-string passwords), so unprefixed API tokens, session UUIDs and git SHAs pass through untouched. Any rule that catches them necessarily over-catches harmless identifiers.
+options: add the rule default-on (security first) / add it default-off behind its own checkbox / do not add it
+choice+why: author chose default-off. Transcript readability is a trade the reader owns, not one a default should make for them. The gap is closed by *disclosure* rather than by redaction: the summary must report 「另偵測到 N 筆疑似高熵字串（未遮）」 whether or not the rule is enabled, so a silent miss becomes an announced one.
+revisit-if: R11-Q1 — after seeing M7's real output, the author may decide git commit hashes should be excluded from the rule, or that default-on is acceptable after all.
+links: PSM_R11 M7; src/core/privacy/detectors.ts; docs/OUTSTANDING_2026-08-14.md B3
+
+## D-005 2026-08-15 the Markdown/LaTeX render layer is split out of R11 into R11.1
+status: decided
+context: UAT B1 reported that Markdown is never rendered — literal backticks and syntax show through in the Reader and in every export. It is the largest single item the UAT surfaced, roughly equal in volume to the rest of R11 combined.
+options: include in R11 / split into its own round / ship a minimal read-only subset inside R11
+choice+why: author chose the split. It is a new capability rather than a repair, it must land on both render paths simultaneously (Reader and snapshot) or the exports silently diverge, and it turns untrusted transcript content into DOM — an injection surface that needs its own security acceptance. Bundling it would let a feature hold D-004's merge gate hostage.
+revisit-if: nothing pending; `docs/design/DIT_TEXT_RENDERING.md` is the standing design guidance for R11.1.
+links: docs/design/DIT_TEXT_RENDERING.md; PSM_R11 §8; docs/OUTSTANDING_2026-08-14.md B1
 
 ## D-004 2026-08-15 R9.1 and R10 merge to `main` once this UAT batch is fixed up
 status: decided

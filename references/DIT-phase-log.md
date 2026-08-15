@@ -390,3 +390,35 @@
 - P-001's P0 remediation (downgrade warning severity/copy, de-emphasize unpaired cards) is the cheapest next slice if this round continues rather than pausing for merge.
 - The three 2026-08-03 release blockers (P2-1/2/3 in OUTSTANDING) remain unfixed and unaddressed by this phase.
 - `docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_CODEX_SESSION_PROVENANCE_2026-08-15.md` is untracked in git as of this checkpoint — needs `git add` in the next commit that touches this round.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 14 – R11 Release Readiness opened (M0 landed, work cards specced, three rulings closed)
+- Status: in-progress — M0 shipped and green; M1..M9 specced but not dispatched at write time
+- Date: 2026-08-15
+- Detail: docs/rounds/r11-release-readiness/PSM_R11_RELEASE_READINESS_v1.0.md
+
+## Goals
+- Triage Phase 13's seven untriaged defects plus the three 2026-08-03 release blockers into one executable round, so D-004's merge gate has a definite closing condition.
+- Land the findings small enough to fix without a work card, and spec the rest.
+
+## Decisions
+- Round id `r11-release-readiness` allocated before any file was written; branch `feat/r11-release-readiness` cut from `test/uat-2026-08-14`. Scope is a fix-up pass, not a feature round.
+- Author ruling: the Markdown/LaTeX render layer is split out as `r11.1-text-rendering`. It is a new capability, not a repair, spans both render paths, and carries an injection surface that needs its own security acceptance — keeping it in R11 would let it hold the main merge hostage.
+- Author ruling: high-entropy redaction ships **default off** with honest "N detected, not redacted" reporting. Catching unprefixed tokens necessarily over-catches git SHAs and UUIDs, and transcript readability is the user's trade to make, not a default's.
+- Author ruling: the Codex skeleton-coverage gap (UAT C3's serious half) gets an investigation card only. D-001 and the R10.1 RCA §P2 both forbid guessing; measuring before editing avoids repeating R10-B's "believed fixed, measured empty" loop.
+- P2-1 and C1 are merged into one card: they are the same 15 lines of `sessionIndexer.ts`, and the stale-adapter recompute has to land before the Codex filter is lifted or the lifted filter inherits the stale verdict.
+- Only P0 of the R10.1 RCA is in scope. P1/P2/P3 each need their own measurement and are named as out-of-scope so a dispatched agent cannot drift into them.
+- `paste` is a declared-but-unproducible `SourceId` — the exact pattern R9.1 removed `milestone` for. Decided under the decision charter (reversible, no UX change): remove it rather than build an entry point nobody requested. This is what made UAT D4 untestable.
+
+## Changes
+- src/i18n/locales.ts: entry-point copy drops "session"; export group names distinguish snapshot from transcript; new `card.groupKindTag` table keyed on `GroupKind`.
+- src/components/GroupCard.tsx: label reads `group.kind` instead of a hardcoded 群組 — subagent groups now show the category the legend documents.
+- src/core/export/contracts.ts: `DEFAULT_TRANSCRIPT_OPTIONS.includeToolSummary` true → false; the stats header still reports the omission.
+- src/core/export/{transcript,transcriptMarkdown,transcriptHtml}.test.ts, src/components/SettingsDialog.test.tsx: four tests now request tool summaries explicitly instead of inheriting the old default; one legend assertion updated.
+- docs/rounds/r11-release-readiness/PSM_R11_RELEASE_READINESS_v1.0.md: the round spec — UAT-finding-to-card traceability table, seven cards with agent assignment, degradation order, twelve manual acceptance items, and an explicit not-in-this-round list.
+
+## Open Questions / TODO
+- M1..M9 are specced but undispatched. Guaranteed core is M1+M2+M3 (the three release blockers); everything after is cut back-to-front if budget runs short, and anything cut must reappear by number in the next OUTSTANDING sheet.
+- Three deferred rulings need real output before they can be answered: R11-Q1 (is a git commit SHA sensitive — decide after seeing M7's output), R11-Q2 (should Codex and Claude Code sessions interleave in the picker), R11-Q3 (does M5's root cause land in R11 or R12).
+- Phase 13's note that the R10.1 RCA was untracked is stale — it was committed as f9dda37.
