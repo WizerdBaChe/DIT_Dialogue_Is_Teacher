@@ -7,7 +7,7 @@
  * - 所有面向使用者的中文都住在這裡；元件內不得再出現硬編中文 (見 PSM R7 驗收)。
  * - 純視覺、與語言無關的常數 (節點記號、CSS class、Provider 排序) 留在 components/labels.ts。
  */
-import type { ProviderId, SkeletonNodeKind, SkeletonRibKind, SpanTag, SpanType } from "@/types/spanTree";
+import type { GroupKind, ProviderId, SkeletonNodeKind, SkeletonRibKind, SpanTag, SpanType } from "@/types/spanTree";
 import type { CategoryDefinitionTable } from "@/core/view/categoryDefinitions";
 
 export type Locale = "zh-TW" | "en";
@@ -25,9 +25,9 @@ const zhTW = {
     brand: "DIT — Dialogue Is Teacher",
     tagline: "把 agent 執行軌跡轉成「可學習」的節點",
     modeGroupLabel: "檢視模式",
-    loadFile: "載入單一檔案",
-    loadFileTitle: "已經知道是哪個檔時用這個。Claude Code 通常在 ~/.claude/projects/<專案>/*.jsonl；Codex CLI 通常在 ~/.codex/sessions/rollout-*.jsonl。不確定要載哪一個，請改用左邊的「挑選 Session」。",
-    loadFolder: "挑選 Session",
+    loadFile: "選擇一則對話",
+    loadFileTitle: "已經知道是哪個檔時用這個。Claude Code 通常在 ~/.claude/projects/<專案>/*.jsonl；Codex CLI 通常在 ~/.codex/sessions/rollout-*.jsonl。不確定要載哪一個，請改用左邊的「從對話集選擇」。",
+    loadFolder: "從對話集選擇",
     loadFolderTitle: "選一個 ~/.claude/projects/ 底下的資料夾，用可讀的標題挑，不必先知道檔名；子代理紀錄會一併帶入。瀏覽器每次重新載入頁面都會再問一次是否允許讀取該資料夾，那是瀏覽器的安全設計，不是 DIT 記不住。",
     reset: "重置",
     resetTitle: "回到內建範例與預設設定",
@@ -100,9 +100,9 @@ const zhTW = {
     startReading: "開始閱讀",
     continueReading: "繼續閱讀",
     startBrowsing: "開始逐步瀏覽",
-    loadFile: "載入單一檔案",
-    loadFileTitle: "已經知道是哪個檔時用這個；不確定就用「挑選 Session」。",
-    loadFolder: "挑選 Session",
+    loadFile: "選擇一則對話",
+    loadFileTitle: "已經知道是哪個檔時用這個；不確定就用「從對話集選擇」。",
+    loadFolder: "從對話集選擇",
     loadFolderTitle: "選一個資料夾，用可讀的標題挑一份 session，不必先知道檔名。",
     legend: {
       label: "符號說明",
@@ -274,7 +274,14 @@ const zhTW = {
   },
 
   card: {
+    /** 群組卡的分類標籤。R11：原本寫死「群組」，子代理群組因此從未按屬性顯示 (UAT C3/D3)。 */
     kindTag: "群組",
+    groupKindTag: {
+      "edit-loop": "反覆修改",
+      retry: "重試",
+      subagent: "子代理",
+      verbose: "聚合區段",
+    } as Record<GroupKind, string>,
     paramsTitle: "參數",
     resultTitle: "結果",
     resultErrorTitle: "結果 · 錯誤",
@@ -437,7 +444,7 @@ const zhTW = {
   },
 
   export: {
-    group: "匯出",
+    group: "匯出閱讀頁面快照",
     json: "匯出 JSON",
     html: "匯出 HTML 快照",
     privacyNote: "匯出檔包含完整逐字內容，可能含密鑰，分享前請自行確認。",
@@ -450,12 +457,12 @@ const zhTW = {
 
   /** 對話紀錄匯出：前半是匯出 UI 的文案，後半是寫進匯出檔本身的文案 (TranscriptLabels)。 */
   transcript: {
-    group: "對話紀錄",
+    group: "匯出純對話紀錄",
     hint: "只收使用者提問、AI 思考與每輪回覆文字；工具輸出全文不收。",
     markdown: "匯出 Markdown",
     json: "匯出 JSON",
     html: "匯出 HTML 檢視頁",
-    copy: "複製 Markdown",
+    copy: "以 MD 形式複製到剪貼簿",
     copied: "已複製到剪貼簿",
     copyFailed: "無法存取剪貼簿，請改用匯出檔案",
     optionThinking: "包含 AI 思考",
@@ -638,9 +645,9 @@ const en: Messages = {
     brand: "DIT — Dialogue Is Teacher",
     tagline: "Turn an agent's execution trace into learnable nodes",
     modeGroupLabel: "View mode",
-    loadFile: "Load a single file",
-    loadFileTitle: "Use this when you already know which file you want. Claude Code: usually ~/.claude/projects/<project>/*.jsonl; Codex CLI: usually ~/.codex/sessions/rollout-*.jsonl. If you are not sure, use “Browse sessions” instead.",
-    loadFolder: "Browse sessions",
+    loadFile: "Open one conversation",
+    loadFileTitle: "Use this when you already know which file you want. Claude Code: usually ~/.claude/projects/<project>/*.jsonl; Codex CLI: usually ~/.codex/sessions/rollout-*.jsonl. If you are not sure, use “Choose from your conversations” instead.",
+    loadFolder: "Choose from your conversations",
     loadFolderTitle: "Pick a folder under ~/.claude/projects/ and choose by readable title — no file names needed; subagent records come along. The browser asks for folder access again on every fresh page load; that is the browser’s security design, not DIT forgetting.",
     reset: "Reset",
     resetTitle: "Return to the built-in sample and defaults",
@@ -713,9 +720,9 @@ const en: Messages = {
     startReading: "Start reading",
     continueReading: "Continue reading",
     startBrowsing: "Start step-through browsing",
-    loadFile: "Load a single file",
-    loadFileTitle: "Use this when you already know which file you want; otherwise use “Browse sessions”.",
-    loadFolder: "Browse sessions",
+    loadFile: "Open one conversation",
+    loadFileTitle: "Use this when you already know which file you want; otherwise use “Choose from your conversations”.",
+    loadFolder: "Choose from your conversations",
     loadFolderTitle: "Pick a folder and choose a session by its readable title — no file names needed.",
     legend: {
       label: "Symbol guide",
@@ -884,6 +891,12 @@ const en: Messages = {
 
   card: {
     kindTag: "Group",
+    groupKindTag: {
+      "edit-loop": "Edit loop",
+      retry: "Retry",
+      subagent: "Subagent",
+      verbose: "Aggregated section",
+    },
     paramsTitle: "Params",
     resultTitle: "Result",
     resultErrorTitle: "Result · Error",
@@ -1046,7 +1059,7 @@ const en: Messages = {
   },
 
   export: {
-    group: "Export",
+    group: "Export reading-page snapshot",
     json: "Export JSON",
     html: "Export HTML snapshot",
     privacyNote: "The exported file contains the full verbatim content and may include secrets — check before sharing.",
@@ -1058,12 +1071,12 @@ const en: Messages = {
   },
 
   transcript: {
-    group: "Conversation log",
+    group: "Export plain transcript",
     hint: "Keeps your prompts, the AI's thinking, and each turn's reply text; full tool output is left out.",
     markdown: "Export Markdown",
     json: "Export JSON",
     html: "Export HTML page",
-    copy: "Copy Markdown",
+    copy: "Copy as Markdown to clipboard",
     copied: "Copied to clipboard",
     copyFailed: "Clipboard unavailable — export a file instead",
     optionThinking: "Include AI thinking",

@@ -74,7 +74,7 @@ describe("renderTranscriptMarkdown — 內文", () => {
       { kind: "tool_use", uuid: "t1", toolName: "Read", toolInput: { file_path: "src/TodoList.jsx" }, toolUseId: "t1", raw: {} },
       { kind: "tool_use", uuid: "t2", toolName: "Edit", toolInput: { file_path: "src/TodoList.jsx" }, toolUseId: "t2", raw: {} },
       { kind: "tool_use", uuid: "t3", toolName: "Bash", toolInput: { command: "npm test" }, toolUseId: "t3", raw: {} },
-    ]);
+    ], { includeToolSummary: true });
     expect(md).toContain("> ⚙️ 工具活動：Read TodoList.jsx → Edit TodoList.jsx → Bash npm test");
   });
 
