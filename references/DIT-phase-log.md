@@ -352,3 +352,41 @@
 - Nothing in this round has been seen by a human in a browser. docs/OUTSTANDING_2026-08-14.md Part 1 is the sheet; test/uat-2026-08-14 is the branch that carries R9.1 and R10 together.
 - Four rulings pending: shell_command classification, R10-C's three UX questions, whether milestone returns, and when R9.1/R10 merge to main.
 - The three 2026-08-03 release blockers were re-verified as still present and remain unfixed.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 13 – Manual UAT pass on test/uat-2026-08-14 (24 items) + rulings + Codex provenance RCA
+- Status: UAT run, all 4 pending rulings closed; merge to main authorized but gated on a fix-up pass first — round not yet closed
+- Date: 2026-08-15
+- Detail: docs/OUTSTANDING_2026-08-14.md (filled-in results, remarks column), references/DIT-decisions.md (D-001..D-004, P-001), docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_CODEX_SESSION_PROVENANCE_2026-08-15.md
+
+## Goals
+- Run the 24-item consolidated UAT sheet (Part 1 of OUTSTANDING_2026-08-14.md) covering R9.1, R9.2, R10-M1, and R10-B in one pass on the combined branch.
+- Close the four pending Part-3 rulings (shell_command classification, R10-C's three UX questions, milestone reinstatement, main-merge timing).
+
+## Decisions
+- All four Part-3 rulings closed — see references/DIT-decisions.md D-001 (shell_command stays unclassified, reinforced by the R10.1 RCA rather than overturned), D-002 (R10-C: text+params default, parent-card "N hits" collapse handling, annotations not searchable yet), D-003 (milestone stays removed), D-004 (main merge authorized once the fix-up pass lands, not immediately).
+- The R10-B reduced acceptance items (D2/D5/D4/D6 in the sheet) mostly landed as "無法判定" rather than clean pass/fail — the acceptance criteria for D2 (blocked by a separate C1 finding), D4 (test location too vague), and D5 (most sample files lack injection tags) need sharper UAT wording before they can be re-run, not necessarily code changes.
+- P-001 opened: the Codex exec-name/`*_end` pairing problem is root-caused as structurally unrecoverable for ~94% of currently-unpaired events (not a heuristic-tuning problem) via an author-run external Codex CLI investigation, with a four-stage P0-P3 remediation plan proposed and NOT yet implemented.
+
+## New defects surfaced (not pre-existing known blockers; not yet triaged into work cards)
+- **Folder-browser excludes Codex sessions entirely** (C1): `sessionIndexer.ts:298` — `if (headScanUsable && !result.isClaudeCode) continue;` — is a pre-R7 ruling ("本輪只索引 Claude Code") that predates R10 and is therefore not a regression, but it now contradicts R10's multi-source premise: Codex sessions can only be reached via single-file load, never via "挑選 Session" folder browsing. Needs a fresh ruling, not a bug fix — flagged in `## Now` above.
+- **Reader itself does not render Markdown** (B1): literal backtick/syntax text (e.g. `` `span.synthetic === true` ``) is shown unrendered both in the Reader and in exported outputs — broader than the export scope the UAT item was testing.
+- **Transcript export still includes tool activity** (B1) when the author expected pure conversation; export entry-point naming is unclear ("匯出"/"對話紀錄" don't read as distinct); "複製 Markdown" should read "以 MD 形式複製到剪貼簿".
+- **Redaction gaps** (B3): long random tokens (session ids, likely API-key-shaped strings) are not being caught by the secret detector; whether git commit hashes in commands should be redacted is an open question, not yet a ruling.
+- **Subagent messages classified into the generic "群組" bucket instead of the "子代理" category** the legend documents (C3/D3), on both Codex and Claude Code sessions — the legend's 9-symbol vocabulary (from A7's redesign) and the actual rendered classification have drifted apart.
+- **Entry-point copy** (A4): author proposes "挑選 Session"→"從對話集選擇", "載入單一檔案"→"選擇一則對話" for a non-technical audience that shouldn't need to know the word "session".
+- **Legend/tooltip redesign** (A7): the Overview page's collapsed-by-default 符號說明 has no discovery affordance; author wants it replaced by hover tooltips at `.tree-legend` and `.map-legend` without changing the existing layout otherwise.
+
+## Changes
+- docs/OUTSTANDING_2026-08-14.md: all 24 Part-1 rows filled in with results/observations by the author; all 4 Part-3 rulings recorded inline.
+- references/DIT-decisions.md: created (first use in this project) — D-001..D-004, P-001.
+- docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_CODEX_SESSION_PROVENANCE_2026-08-15.md: author-run external Codex CLI investigation, not yet committed to git at checkpoint time.
+- package-lock.json: refreshed by `npm install` on the UAT branch (routine, not a dependency change).
+
+## Open Questions / TODO
+- Whether the folder-browser's Claude-Code-only filter should be lifted for Codex now that R10 exists — this is a ruling, not a code question (see `## Now`).
+- The seven "New defects surfaced" items above are not yet work cards — they need triage (which round, what priority) before D-004's merge gate can be considered met.
+- P-001's P0 remediation (downgrade warning severity/copy, de-emphasize unpaired cards) is the cheapest next slice if this round continues rather than pausing for merge.
+- The three 2026-08-03 release blockers (P2-1/2/3 in OUTSTANDING) remain unfixed and unaddressed by this phase.
+- `docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_CODEX_SESSION_PROVENANCE_2026-08-15.md` is untracked in git as of this checkpoint — needs `git add` in the next commit that touches this round.
