@@ -1,9 +1,41 @@
 # DIT — Decision & Process Journal
 
 ## Now (updated 2026-08-15, Phase 14)
-frontier: R11 (`feat/r11-release-readiness`) is open. M0 landed and green (typecheck clean, 462/462, build clean). M1..M9 are specced in `docs/rounds/r11-release-readiness/PSM_R11_RELEASE_READINESS_v1.0.md` and awaiting dispatch. R11's exit condition IS D-004's merge gate.
-premises: (user) the reduced R10-B error-parity acceptance stands; (user) `shell_command` stays unclassified unless new evidence appears — the R10.1 RCA was that analysis and reinforced it; (user) the render layer is out of R11; (user) high-entropy redaction defaults off; (user) the Codex skeleton gap gets measurement before any edit; (model) lifting the folder-browser's Claude-Code-only filter is now settled by the author's own UAT C1 defect report, so it needs no separate ruling.
-open: D-001..D-008 decided; P-001 open (root-caused, P0 specced as R11-M4, unimplemented). Three deferred rulings need real output first: R11-Q1 (git SHA sensitivity — after M7), R11-Q2 (picker interleaving — after M1), R11-Q3 (M5's root cause into R11 or R12). Everything else previously "untriaged" is now a numbered card.
+frontier: R11 (`feat/r11-release-readiness`) — every work card has landed and been committed: M0, M1, M2, M3, M4, M5, M6, M7, M9, plus the M7 security review and the two defects it and M9 surfaced (disclosure undercount, consent scope). Gates green at typecheck clean, 491/491, build clean. What remains is the author's manual acceptance and then D-004's merge gate, which IS R11's exit condition.
+premises: (user) the reduced R10-B error-parity acceptance stands; (user) `shell_command` stays unclassified unless new evidence appears — the R10.1 RCA was that analysis and reinforced it; (user) the render layer is out of R11; (user) high-entropy redaction defaults off; (user) commit hashes stay inside that rule; (user) R11 is a presentation-fix round, so the Codex skeleton work goes to R12; (model) lifting the folder-browser's Claude-Code-only filter was settled by the author's own UAT C1 defect report.
+open: D-001..D-012 decided; P-001 open (P0 implemented as R11-M4; P1/P2/P3 remain). R11-Q2 (picker interleaving) still needs the author on real hardware. Two review findings are deliberately unactioned and need a ruling: the high-entropy checkbox is inert while the master redaction toggle is off (UX semantics, three possible directions), and the single-file snapshot export runs no redaction and carries no disclosure (pre-existing; either extend the disclosure or record the exclusion). The other ten M9 findings, the three remaining SECREVIEW suggestions, and the src/ comment-language unification are R12 candidates, none triaged.
+
+## D-012 2026-08-15 S-03 (privacy consent scope) is promoted into R11
+status: decided
+context: M9's review found the approval path builds the consent scope in a different format from the three reviewer call sites, so the strings can never match: "approve once per scope" had never worked, every annotation reopened the privacy review, and a non-cloud approval recorded cloud's endpoint and model.
+options: fix in R11 / defer to R12 with the other ten review findings
+choice+why: author agreed with the model's recommendation to fix in R11. It is both an observable nuisance and a consent record that names the wrong counterparty, and R11's exit condition is the merge gate — shipping a consent mechanism that has never functioned is not a good thing to carry into `main`. The other ten findings stay in R12.
+revisit-if: nothing pending. Fixed in commit `3cbde1f`, pinned by `src/store/privacyConsentScope.test.ts`.
+links: docs/rounds/r11-release-readiness/REVIEW_R11_BLIND_SPOTS.md S-03
+
+## D-011 2026-08-15 the Codex skeleton-coverage fix lands in R12; R11 stays presentational
+status: decided
+context: R11-Q3 asked whether M5's measured root cause — `decision` is structurally unreachable for Codex because DECISION_RE was tuned against Claude Code's raw chain-of-thought — should be folded back into R11.
+options: fold the fix into R11 / take only the test-assertion slice / defer wholly to R12
+choice+why: author: R12, and R11 is a presentation-fix round (「R11 專修版面」). The fix is a design change rather than a repair, and M5's own recommendation was the same. The test-assertion slice is not taken separately either — it belongs with the change it describes.
+revisit-if: nothing pending; the measurement stands as R12's entry evidence.
+links: docs/rounds/r11-release-readiness/RCA_R11_CODEX_SKELETON_COVERAGE.md; D-007
+
+## D-010 2026-08-15 WC-4.3 is removed from R11 and recorded against R12
+status: decided
+context: PSM card M4 carries WC-4.3 — de-emphasise unpaired `*_end` cards visually, escalating to warn only when several candidates make the pick ambiguous. The dispatch that implemented M4 omitted it, and the agent flagged the gap rather than dropping it silently.
+options: implement in R11 / move to R12 / drop
+choice+why: author moved it to R12. Implementing the "only when ambiguous" clause requires the candidate count, which is P1 provenance data that this round explicitly excludes — so it could not have been done correctly in R11 regardless of the dispatch omission.
+revisit-if: R12 implements RCA P1, which is WC-4.3's precondition.
+links: docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_CODEX_SESSION_PROVENANCE_2026-08-15.md P1; PSM_R11 M4 WC-4.3
+
+## D-009 2026-08-15 R11-Q1 — commit hashes stay in the high-entropy rule
+status: decided
+context: M7's detector catches full 40/64-char commit SHAs through its hex rule (abbreviated ones fall below the floor). Of 14,716 hex-run findings on the real corpus, roughly 6,238 are commit-SHA-shaped by a proxy that cannot separate a SHA from any other lowercase hex hash.
+options: exclude hashes from the rule / keep them / make it a separate toggle
+choice+why: author: keep them — without the surrounding context and path a hash cannot readily be reversed, so treating it as sensitive costs little and the rule is default-off anyway. Not excluding also avoids a special case that the proxy could not implement accurately.
+revisit-if: real use shows the hash class dominates the findings enough to make the rule unusable when enabled.
+links: PSM_R11 M7; src/core/privacy/detectors.ts; D-006
 
 ## D-008 2026-08-15 `paste` SourceId is removed, not given an entry point
 status: decided
