@@ -164,10 +164,13 @@ function renderRedaction(transcript: TranscriptExport, labels: TranscriptLabels)
   if (!redaction) return "";
   const summary = redactionSummaryText(redaction.summary, labels.sensitiveKind);
   const note = `<p class="tx-redaction-note">${escapeHtml(labels.redactionNote(summary || labels.redactionNothingFound))}</p>`;
+  const highEntropyNote = redaction.highEntropyNotRedacted > 0
+    ? `<p class="tx-redaction-note">${escapeHtml(labels.redactionHighEntropyNote(redaction.highEntropyNotRedacted))}</p>`
+    : "";
   const residual = redaction.residualSecretBlocks > 0
     ? `<p class="tx-redaction-warn">${escapeHtml(labels.redactionResidual(redaction.residualSecretBlocks))}</p>`
     : "";
-  return `<div class="tx-redaction">${note}${residual}</div>`;
+  return `<div class="tx-redaction">${note}${highEntropyNote}${residual}</div>`;
 }
 
 /**
