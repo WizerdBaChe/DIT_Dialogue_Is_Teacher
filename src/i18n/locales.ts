@@ -253,7 +253,6 @@ const zhTW = {
     empty: "尚未載入 session。",
     skeleton: (nodes: number, ribs: number) => `蒸餾骨架：主線 ${nodes} · 支線 ${ribs}`,
     legendLabel: "屬性符號圖例",
-    legendSummary: "符號說明",
     legendNote: "重要節點另以文字標籤標示（目標／決策／里程碑／結果），詳見 Session 地圖。",
   },
 
@@ -556,6 +555,22 @@ const zhTW = {
     subagent: "子代理",
     group: "群組",
     marker: "系統事件",
+  } as Record<SpanType, string>,
+
+  /**
+   * 符號說明的 tooltip 內容。R11 M6：符號旁邊那行字只是名字，說不出「這在讀什麼」；
+   * 骨架分類有 core/view/categoryDefinitions 那張三段式定義表，但 Span 層符號不在裡面，
+   * 所以定義文字在這裡補齊。一句話講完，這是 tooltip 不是說明書。
+   */
+  spanKindDefinition: {
+    user_msg: "你對 AI 提出的要求；一段對話從這裡開始。",
+    assistant_msg: "AI 說給你聽的話，不含它私下的推理與實際操作。",
+    thinking: "AI 動手前的盤算。這不是說給你聽的，而是它自己的推理過程。",
+    tool_use: "AI 實際做的動作——讀檔、搜尋、執行指令。",
+    tool_result: "上一個操作回傳的東西。來源沒記錄成功與否時，會標成未知而不是成功。",
+    subagent: "主線分派出去的另一個工作階段，有自己完整的對話。",
+    group: "連續而且同性質的段落被收成一張卡，例如反覆修改或重試。",
+    marker: "不是對話內容的事件——脈絡壓縮、API 錯誤、拒答。",
   } as Record<SpanType, string>,
 
   tag: {
@@ -881,7 +896,6 @@ const en: Messages = {
     empty: "No session loaded yet.",
     skeleton: (nodes: number, ribs: number) => `Distilled skeleton: ${nodes} spine · ${ribs} ribs`,
     legendLabel: "Node symbol legend",
-    legendSummary: "Legend",
     legendNote: "Important nodes are also marked with text labels (objective / decision / outcome) — see the Session Map.",
   },
 
@@ -1181,6 +1195,17 @@ const en: Messages = {
     subagent: "Subagent",
     group: "Group",
     marker: "System event",
+  },
+
+  spanKindDefinition: {
+    user_msg: "What you asked the AI to do; where a stretch of conversation starts.",
+    assistant_msg: "What the AI said to you — not its private reasoning or its actual actions.",
+    thinking: "The AI working things out before acting. Not addressed to you; this is it thinking.",
+    tool_use: "Something the AI actually did — read a file, searched, ran a command.",
+    tool_result: "What that action returned. If the source recorded no outcome, this says unknown rather than success.",
+    subagent: "A separate work session the main thread handed off to, with a full conversation of its own.",
+    group: "Consecutive steps of the same kind folded into one card, such as an edit loop or a retry.",
+    marker: "An event that is not conversation — context compaction, an API error, a refusal.",
   },
 
   tag: {
