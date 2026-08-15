@@ -778,13 +778,28 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   indexFileList: async (files, name) => {
-    await runIndex(set, directorySourceFromFileList(files, name));
+    // WebKit fallback (no File System Access API): symmetric with pickAndIndexDirectory's
+    // try/catch above `runIndex`. Without this, a throw here pinned the UI at "indexing"
+    // forever — there is no picker step before this call to fail out of instead (R11 M3).
+    try {
+      await runIndex(set, directorySourceFromFileList(files, name));
+    } catch (error) {
+      set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+    }
   },
 
   resumeLastDirectory: async () => {
     if (!isDirectoryPickerSupported()) {
-      // 後備路徑沒有持久化能力，只能請使用者重選；UI 會直接開 <input>。
-      set({ browseState: "closed" });
+      // 後備路徑沒有持久化能力，只能請使用者重選。
+      // R11 M3 finding: this used to set browseState "closed", but selectSurfaceWants()
+      // only opens the session-browser surface when browseState !== "closed" — so the
+      // dialog (and the <input type="file" webkitdirectory> fallback that lives inside it,
+      // see SessionBrowserDialog.tsx) never mounted. The old comment's claim that "the UI
+      // opens the <input>" was false; there was no entry point at all. "picking" opens the
+      // dialog and shows "waiting for you to choose a folder" — the user then clicks the
+      // "Choose folder" header button, whose choose() falls back to fileInputRef.click()
+      // when isDirectoryPickerSupported() is false.
+      set({ browseState: "picking" });
       return;
     }
     // 同步讀模組層快取，不在點擊路徑上碰 IndexedDB——見 cachedDirectoryHandle。
@@ -984,6 +999,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   loadPersistedConfig: async () => {
+    // EX-INV-1/3: a snapshot must issue zero network requests. `loadConfigFile()` fetches
+    // `./dit.config.json`, so this is the one enforcement point for every caller (M2, R11).
+    if (get().snapshotMode) return;
     const fileConfig = await loadConfigFile();
     if (!fileConfig) return;
     set((s) => {
