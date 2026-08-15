@@ -70,7 +70,10 @@ export interface TranscriptTurn {
 export interface TranscriptOptions {
   /** 納入 AI 思考內容。 */
   includeThinking: boolean;
-  /** 納入工具呼叫的單行摘要。 */
+  /**
+   * 納入工具呼叫的單行摘要。預設關閉 (R11 B1 驗收)——逐字稿的定位是「人讀的對話」，
+   * 工具活動屬於 session 存檔的職責。統計標頭仍會誠實寫出「工具呼叫 N（未納入）」。
+   */
   includeToolSummary: boolean;
   /** 納入子代理旁鏈的對話。預設關閉——旁鏈是子代理的內部發言，不是主線對話。 */
   includeSubagents: boolean;
@@ -78,7 +81,7 @@ export interface TranscriptOptions {
 
 export const DEFAULT_TRANSCRIPT_OPTIONS: TranscriptOptions = {
   includeThinking: true,
-  includeToolSummary: true,
+  includeToolSummary: false,
   includeSubagents: false,
 };
 

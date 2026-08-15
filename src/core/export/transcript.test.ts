@@ -28,11 +28,13 @@ const ONE_TURN: RawEvent[] = [
 
 describe("buildTranscript — 分輪", () => {
   it("以主線 user_msg 切輪，並保留該輪之後的所有 AI 輸出", () => {
+    // R11: tool summaries are off by default now, so this turn-splitting case asks for
+    // them explicitly — it is testing the turn boundary, not the default.
     const transcript = transcriptOf([
       ...ONE_TURN,
       { kind: "user_text", uuid: "u3", text: "Q2", raw: {} },
       { kind: "assistant_text", uuid: "a2", parentUuid: "u3", text: "A2", raw: {} },
-    ]);
+    ], { includeToolSummary: true });
 
     expect(transcript.turns).toHaveLength(2);
     expect(transcript.turns[0].index).toBe(1);
@@ -65,7 +67,7 @@ describe("buildTranscript — 分輪", () => {
 
 describe("buildTranscript — 排除規則", () => {
   it("工具結果不進逐字稿（由 tool_use 的單行摘要代表）", () => {
-    const transcript = transcriptOf(ONE_TURN);
+    const transcript = transcriptOf(ONE_TURN, { includeToolSummary: true });
     const summaries = transcript.turns[0].messages.filter((m) => m.kind === "tool_summary");
     expect(summaries.map((m) => m.text)).toEqual(["Read App.tsx"]);
     expect(JSON.stringify(transcript)).not.toContain("file contents");
@@ -85,7 +87,7 @@ describe("buildTranscript — 排除規則", () => {
 
 describe("buildTranscript — 選項", () => {
   it("關掉思考後內容不輸出，但統計仍誠實記錄它存在", () => {
-    const transcript = transcriptOf(ONE_TURN, { includeThinking: false });
+    const transcript = transcriptOf(ONE_TURN, { includeThinking: false, includeToolSummary: true });
     expect(transcript.turns[0].messages.map((m) => m.kind)).toEqual(["assistant", "tool_summary"]);
     expect(transcript.stats.thinkingBlocks).toBe(1);
   });

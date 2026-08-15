@@ -27,8 +27,9 @@ describe("SettingsDialog (R7 settings-dialog redesign)", () => {
     const groups = Array.from(document.querySelectorAll(".settings-panel-group"));
     const legends = groups.map((el) => el.querySelector("legend")?.textContent);
     // ExportControls renders its own .settings-panel-group sections (not double-wrapped): the
-    // session archive ("匯出") and the human-readable conversation log ("對話紀錄"), both last.
-    expect(legends).toEqual(["Session", "教學講解", "語言", "導航", "匯出", "對話紀錄"]);
+    // session archive and the human-readable transcript, both last. R11 renamed both legends
+    // because "匯出" / "對話紀錄" did not read as two distinct things (UAT B1).
+    expect(legends).toEqual(["Session", "教學講解", "語言", "導航", "匯出閱讀頁面快照", "匯出純對話紀錄"]);
   });
 
   it("shows the language name only once — as the card legend, not also as a visible label (R7.5 W4/AN-4)", () => {
