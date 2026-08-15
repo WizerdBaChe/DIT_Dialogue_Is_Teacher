@@ -46,6 +46,34 @@ export interface RedactionReport {
   highEntropyNotRedacted: number;
 }
 
+/**
+ * 高熵規則命中、但實際上仍有字元原封不動留在輸出裡的筆數。
+ *
+ * 「已經被別的規則遮掉了」不算沒遮，否則揭露筆數會灌水；但判準必須是**涵蓋**
+ * (containment) 而不是**重疊** (overlap)。資安複核 (SECREVIEW_R11_M7) 抓到的就是這一點：
+ * 原本寫成「只要有任何重疊就整筆排除」，於是 `0912345678QXZKMBNVCF` 這種前 10 碼被電話
+ * 規則吃掉、後 10 碼裸露在外的情形，會因為「有重疊」而整筆不計數——輸出裡留著沒遮的高熵
+ * 字串，摘要卻一聲不吭。那正是這個計數存在要防的事。
+ *
+ * 因此這裡逐筆算「扣掉所有真正改寫過文字的區間之後，還剩幾個字元」，只要還有剩就計數。
+ * 順帶處理兩段各遮一半、合起來才蓋滿的情況。`keep_review` 不改寫文字，不算覆蓋。
+ */
+function countUncovered(
+  entropyFindings: ReadonlyArray<{ start: number; end: number }>,
+  applied: ReadonlyArray<{ start: number; end: number; action: string }>,
+): number {
+  const covering = applied.filter((item) => item.action !== "keep_review");
+  let count = 0;
+  for (const finding of entropyFindings) {
+    let uncovered = finding.end - finding.start;
+    for (let position = finding.start; position < finding.end; position += 1) {
+      if (covering.some((item) => position >= item.start && position < item.end)) uncovered -= 1;
+    }
+    if (uncovered > 0) count += 1;
+  }
+  return count;
+}
+
 /** 有狀態的遮蔽器：同一個實例處理過的所有文字共用一組佔位符編號。 */
 export class TextRedactor {
   private readonly detectors: PrivacyDetector[];
@@ -87,12 +115,7 @@ export class TextRedactor {
     }
 
     if (!this.highEntropyEnabled) {
-      // entropyFindings 沒被送進 apply，所以這裡要自己排掉「其實已經被別的規則遮掉了」的部分
-      // （例如同一段字串先被密鑰規則吃掉）——那些不算「沒遮」，避免揭露筆數灌水。
-      const stillUnredacted = entropyFindings.filter(
-        (finding) => !applied.some((item) => finding.start < item.end && finding.end > item.start),
-      );
-      this.highEntropyNotRedactedTotal += stillUnredacted.length;
+      this.highEntropyNotRedactedTotal += countUncovered(entropyFindings, applied);
     }
 
     // 與 gateway 同樣的事後複查：遮完再掃一次，確認沒有漏網的密鑰。
