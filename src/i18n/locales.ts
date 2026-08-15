@@ -7,7 +7,7 @@
  * - 所有面向使用者的中文都住在這裡；元件內不得再出現硬編中文 (見 PSM R7 驗收)。
  * - 純視覺、與語言無關的常數 (節點記號、CSS class、Provider 排序) 留在 components/labels.ts。
  */
-import type { GroupKind, ProviderId, SkeletonNodeKind, SkeletonRibKind, SpanTag, SpanType } from "@/types/spanTree";
+import type { GroupKind, ProviderId, SkeletonNodeKind, SkeletonRibKind, SourceId, SpanTag, SpanType } from "@/types/spanTree";
 import type { CategoryDefinitionTable } from "@/core/view/categoryDefinitions";
 
 export type Locale = "zh-TW" | "en";
@@ -139,7 +139,8 @@ const zhTW = {
     indexing: (done: number, total: number) => `讀取中… ${done}/${total}`,
     indexFailedTitle: "讀不到這個資料夾",
     retry: "重新選擇",
-    empty: "這個資料夾裡沒有找到 Claude Code 的 session。",
+    // R11 WC-1.2：這個資料夾現在也會列出讀得懂的 Codex session，不再只有 Claude Code。
+    empty: "這個資料夾裡沒有找到看得懂的 session（Claude Code 或 Codex）。",
     emptyFiltered: "目前的篩選條件下沒有 session；把上面的分類打開就會出現。",
     loading: "載入中…",
     filterLabel: "分類篩選",
@@ -164,7 +165,10 @@ const zhTW = {
       "synthetic-prompts-only": "所有訊息都是機器代打的固定句（這條是推測，可能誤判）",
       "has-human-prompt": "有真人輸入的訊息",
       "insufficient-signal": "訊號不足以判定",
-      "not-claude-code": "不是 Claude Code 格式",
+      "not-claude-code": "不是任何已知格式",
+      // R11 WC-1.2：認得出來源（例如 Codex），但分類訊號讀的是 Claude Code 的欄位名，
+      // 對這份檔案必定讀不到——誠實回答「無法判定」，不套用那些規則硬猜。
+      "codex-unclassified": "認得出來源，但目前的分類規則是 Claude Code 專用，無法細分",
     },
     titleSources: {
       custom: "你自己設定的標題",
@@ -172,6 +176,12 @@ const zhTW = {
       derived: "取自第一則你說的話",
       filename: "沒有標題可用，顯示檔名",
     },
+    /** R11 WC-1.2：清單上標出來源，讓 Codex 與 Claude Code 的 session 分得出來。 */
+    sourceLabels: {
+      "claude-code": "Claude Code",
+      codex: "Codex",
+      paste: "貼上文字",
+    } as Record<SourceId, string>,
     counts: (human: number, assistant: number, exact: boolean) =>
       exact ? `${human} 問 / ${assistant} 答` : `≥ ${human} 問 / ≥ ${assistant} 答`,
     subagentCount: (count: number) => `子代理 ${count}`,
@@ -758,7 +768,8 @@ const en: Messages = {
     indexing: (done: number, total: number) => `Reading… ${done}/${total}`,
     indexFailedTitle: "Could not read that folder",
     retry: "Choose again",
-    empty: "No Claude Code sessions were found in this folder.",
+    // R11 WC-1.2: this folder now also lists readable Codex sessions, not only Claude Code.
+    empty: "No recognizable sessions (Claude Code or Codex) were found in this folder.",
     emptyFiltered: "No sessions match the current filter; turn the categories above back on.",
     loading: "Loading…",
     filterLabel: "Filter by kind",
@@ -783,7 +794,11 @@ const en: Messages = {
       "synthetic-prompts-only": "Every prompt is a machine-issued fixed phrase (a guess — this one can be wrong)",
       "has-human-prompt": "Contains messages a person typed",
       "insufficient-signal": "Not enough signal to decide",
-      "not-claude-code": "Not a Claude Code transcript",
+      "not-claude-code": "Not a recognized transcript format",
+      // R11 WC-1.2: a source was identified (e.g. Codex), but the classification signals read
+      // Claude Code's own field names, which this file will never have. Honestly "undetermined"
+      // instead of guessing via rules built for a different envelope shape.
+      "codex-unclassified": "Source recognized, but the classification rules are Claude-Code-specific and cannot sub-classify it",
     },
     titleSources: {
       custom: "Title you set yourself",
@@ -791,6 +806,12 @@ const en: Messages = {
       derived: "Taken from your first message",
       filename: "No title available; showing the filename",
     },
+    /** R11 WC-1.2: label the source in the list so Codex and Claude Code sessions are distinguishable. */
+    sourceLabels: {
+      "claude-code": "Claude Code",
+      codex: "Codex",
+      paste: "Pasted text",
+    } as Record<SourceId, string>,
     counts: (human: number, assistant: number, exact: boolean) =>
       exact ? `${human} asked / ${assistant} replied` : `≥ ${human} asked / ≥ ${assistant} replied`,
     subagentCount: (count: number) => `${count} subagents`,

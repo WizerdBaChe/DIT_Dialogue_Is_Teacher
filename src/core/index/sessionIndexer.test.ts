@@ -212,6 +212,84 @@ describe("buildSessionIndex", () => {
     expect(entries[0]).toMatchObject({ kind: "unknown", kindReason: "insufficient-signal" });
   });
 
+  /**
+   * WC-1.2 (P2-1's UAT sibling, C1): an unreadable head must still be **listed**, not
+   * silently dropped — "couldn't read it" and "confidently not one of ours" are different
+   * facts and must not collapse to the same "gone from the list" outcome. `source` must be
+   * honestly `null` here too: no adapter ever got a complete first line to test.
+   */
+  it("REGRESSION C1: an unreadable head is listed as undetermined, not dropped, and carries no guessed source", async () => {
+    const monstrous = line({ type: "user", uuid: "u1", sessionId: "sm", message: { role: "user", content: "y".repeat(2 * 1024 * 1024) } });
+    const { entries } = await buildSessionIndex(sourceOf([["p/monster2.jsonl", `${monstrous}\n${transcript(...Array.from({ length: 40 }, (_, i) => assistantLine(`t${i}`)))}`]]));
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ kind: "unknown", kindReason: "insufficient-signal", source: null });
+  });
+
+  /**
+   * WC-1.2 (C1): the pre-R11 skip (`if (headScanUsable && !result.isClaudeCode) continue;`)
+   * dropped every recognised Codex file from the folder browser. A Codex rollout must now
+   * survive indexing, carry `source: "codex"`, and — since `hasAgentId`/`allSidechain`/
+   * `humanTurnCount` read Claude-Code-shaped top-level fields that a Codex envelope never has —
+   * classify as honestly `unknown` rather than a guessed `machine`/`dialogue`. It also has no
+   * `<id>/subagents/` sibling layout, so `subagentPaths` must be the deliberate empty branch.
+   */
+  it("REGRESSION C1: a recognised Codex rollout is indexed with its source recorded, kind honestly unknown", async () => {
+    const codexRollout = [
+      JSON.stringify({ timestamp: "2026-08-01T00:00:00Z", type: "session_meta", payload: { session_id: "cx-1", cwd: "/tmp/proj" } }),
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:01Z",
+        type: "response_item",
+        payload: { type: "message", role: "user", content: [{ type: "input_text", text: "幫我看一下這段程式碼" }] },
+      }),
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:02Z",
+        type: "response_item",
+        payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: "好的，我看看" }] },
+      }),
+    ].join("\n");
+
+    const { entries } = await buildSessionIndex(sourceOf([["proj/rollout-cx1.jsonl", codexRollout]]));
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ source: "codex", kind: "unknown", kindReason: "codex-unclassified", subagentPaths: [] });
+  });
+
+  /**
+   * P2-1: `detectAdapter` only looks at the first complete line. When that line itself is
+   * the oversized one (not a later line, unlike the REGRESSION test above — that fixture stays
+   * under the whole-file threshold and never exercises the widen path at all), the initial
+   * 128 KiB window holds nothing but a truncated fragment of it, so `detectAdapter` fails and
+   * the pre-fix code latched that failure permanently. The widened re-read recovers the line
+   * for counting purposes either way; this test pins that the adapter verdict is recomputed
+   * from the widened text too, or the file is wrongly excluded a moment later at the
+   * `headScanUsable && !source` gate.
+   */
+  it("REGRESSION P2-1: the adapter verdict is recomputed after the head window widens", async () => {
+    const huge = line({
+      type: "user",
+      uuid: "u-first",
+      sessionId: "sfirst",
+      timestamp: "2026-07-20T00:00:00Z",
+      message: {
+        role: "user",
+        content: [{ type: "image", source: { data: "x".repeat(300 * 1024) } }, { type: "text", text: "第一行就帶了截圖" }],
+      },
+    });
+    const tail = Array.from({ length: 5 }, (_, i) => assistantLine(`tail-${i}`));
+    const content = transcript(huge, ...tail);
+    // `Buffer` is not typed in this project (browser-only lib target) — use TextEncoder instead.
+    const byteLength = (text: string): number => new TextEncoder().encode(text).length;
+    expect(byteLength(content)).toBeGreaterThan(INDEX_SCAN_HEAD_BYTES + INDEX_SCAN_TAIL_BYTES);
+    expect(byteLength(huge)).toBeGreaterThan(INDEX_SCAN_HEAD_BYTES);
+
+    const { entries } = await buildSessionIndex(sourceOf([["p/first-line-huge.jsonl", content]]));
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ source: "claude-code", kind: "dialogue", humanPromptCount: 1 });
+    expect(entries[0].title).toContain("第一行就帶了截圖");
+  });
+
   it("sorts newest first", async () => {
     const older = transcript(line({ type: "user", uuid: "u1", sessionId: "s1", timestamp: "2026-01-01T00:00:00Z", message: { role: "user", content: "old" } }));
     const newer = transcript(line({ type: "user", uuid: "u1", sessionId: "s2", timestamp: "2026-07-01T00:00:00Z", message: { role: "user", content: "new" } }));

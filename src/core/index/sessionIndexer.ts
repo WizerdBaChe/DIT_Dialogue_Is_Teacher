@@ -15,6 +15,7 @@
 import { detectAdapter } from "@/core/adapters";
 import type { Diagnostic } from "@/core/diagnostics/contracts";
 import { stripInjectedPreamble } from "@/core/text/preamble";
+import type { SourceId } from "@/types/spanTree";
 import { classifySession, isSubagentPath, isSyntheticPrompt } from "./classifySession";
 import type { DirectoryFile, DirectorySource, SessionIndex, SessionIndexEntry, TitleSource } from "./contracts";
 
@@ -174,7 +175,8 @@ interface ScanResult {
   countsExact: boolean;
   /** 檔頭切片裡至少有一行是完整的。false = 計數不可信，分類必須棄權。 */
   headScanUsable: boolean;
-  isClaudeCode: boolean;
+  /** 認領此檔案的來源；沒有 adapter 認領（或還沒能讀到完整的一行去問）就是 `undefined`。 */
+  source: SourceId | undefined;
 }
 
 async function scanFile(file: DirectoryFile): Promise<ScanResult> {
@@ -186,8 +188,7 @@ async function scanFile(file: DirectoryFile): Promise<ScanResult> {
   let headText = whole ? await readText(file) : await readText(file, { start: 0, end: headWindow });
 
   // 來源判定用檔頭：與載入時走的是同一個 detectAdapter，索引與載入不會有兩套看法。
-  const adapter = detectAdapter(headText);
-  const isClaudeCode = adapter?.id === "claude-code";
+  let source = detectAdapter(headText)?.id;
 
   feed(stats, completeLines(headText, false, !whole), seen);
 
@@ -203,6 +204,10 @@ async function scanFile(file: DirectoryFile): Promise<ScanResult> {
   if (!whole && headWindow < INDEX_SCAN_HEAD_MAX_BYTES && straddling > OVERSIZED_LINE_BYTES) {
     headWindow = Math.min(file.size, INDEX_SCAN_HEAD_MAX_BYTES);
     headText = await readText(file, { start: 0, end: headWindow });
+    // P2-1: the first window's verdict was taken against a truncated fragment of the straddling
+    // line (or nothing at all). Re-running detectAdapter against the widened text is what this
+    // widening exists for — a stale verdict here is what made a legitimate session vanish.
+    source = detectAdapter(headText)?.id;
     feed(stats, completeLines(headText, false, headWindow < file.size), seen);
   }
 
@@ -217,7 +222,7 @@ async function scanFile(file: DirectoryFile): Promise<ScanResult> {
     }
   }
 
-  return { stats, countsExact: whole, headScanUsable, isClaudeCode };
+  return { stats, countsExact: whole, headScanUsable, source };
 }
 
 function firstLine(text: string, max: number): string {
@@ -292,18 +297,30 @@ export async function buildSessionIndex(
       continue;
     }
 
-    const { stats, countsExact, headScanUsable } = result;
+    const { stats, countsExact, headScanUsable, source } = result;
 
     /*
-     * 本輪只索引 Claude Code (作者裁決)。但「不是 Claude Code」與「讀不出來所以不知道」
-     * 是兩件事，不能都當成前者處理：
-     *  - 讀得到完整的行、而且 adapter 不認領 → 有把握地排除（Codex 或其他東西）。
-     *  - 一行完整的都讀不到 → 沒有把握，那就列出來標成「無法判定」，而不是靜默消失。
-     * 從清單上憑空少一個檔案，比誠實地說「不知道」更糟。
+     * R11 WC-1.2 (C1): three outcomes, not two, and they must not collapse into each other.
+     *  - headScanUsable && !source → confidently not ours: we read complete lines and no
+     *    registered adapter (Claude Code or Codex) claimed the file. Excluded.
+     *  - !headScanUsable → could not read enough to ask at all. Kept, listed with kind
+     *    "unknown"/"insufficient-signal" and source left unresolved (`null` on the entry) —
+     *    "couldn't read it" must stay visibly different from "read it, it says no".
+     *  - headScanUsable && source → a registered adapter claims it. Kept, and the resolved
+     *    source is carried onto the entry so the picker can show which harness it came from.
+     *    Pre-R11 this branch was still excluded unless source === "claude-code"; that dropped
+     *    every Codex session from the folder browser (UAT C1) even though it was fully readable.
      */
-    if (headScanUsable && !result.isClaudeCode) continue;
-    const prefix = subagentPrefixFor(file.path);
-    const subagentPaths = subagents.filter((candidate) => candidate.path.startsWith(prefix)).map((candidate) => candidate.path);
+    if (headScanUsable && !source) continue;
+
+    /*
+     * `<dir>/<id>/subagents/` is a Claude Code layout convention; Codex rollouts have no such
+     * sibling directory. Only compute the pairing for a confirmed Claude Code file — guessing a
+     * prefix match for any other source risks a coincidental false pairing for zero benefit.
+     */
+    const subagentPaths = source === "claude-code"
+      ? subagents.filter((candidate) => candidate.path.startsWith(subagentPrefixFor(file.path))).map((candidate) => candidate.path)
+      : [];
     const { title, titleSource } = pickTitle(stats, file.path);
 
     const { kind, reason } = classifySession({
@@ -313,7 +330,7 @@ export async function buildSessionIndex(
       humanTurnCount: stats.humanTurnCount,
       syntheticPromptCount: stats.syntheticPromptCount,
       headScanUsable,
-      isClaudeCode: result.isClaudeCode,
+      source,
     });
 
     entries.push({
@@ -325,7 +342,7 @@ export async function buildSessionIndex(
       projectPath: stats.cwd,
       title,
       titleSource,
-      source: "claude-code",
+      source: source ?? null,
       startedAt: stats.firstTimestamp,
       endedAt: stats.lastTimestamp,
       sizeBytes: file.size,
