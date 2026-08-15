@@ -143,6 +143,12 @@ export interface TranscriptLabels {
   redactionNote: (summary: string) => string;
   redactionResidual: (blocks: number) => string;
   redactionNothingFound: string;
+  /**
+   * 高熵字串的揭露句（M7 / D-006）：規則找到但沒有被遮蔽的筆數。`transcript.redaction`
+   * 存在（使用者有開「匯出前遮蔽」）且這個數字 > 0 時才顯示——不管高熵規則自己的勾選框
+   * 有沒有開，都要能講出這句話，這是 D-006 指定的實際修法。
+   */
+  redactionHighEntropyNote: (count: number) => string;
   sensitiveKind: Record<SensitiveKind, string>;
   /** HTML 檢視頁專用。 */
   outlineHeading: string;
@@ -159,6 +165,12 @@ export interface TranscriptRedaction {
   summary: Partial<Record<SensitiveKind, number>>;
   /** 遮蔽後仍疑似含密鑰的段落數；> 0 代表這份檔案分享前需要人工再看一遍。 */
   residualSecretBlocks: number;
+  /**
+   * 高熵規則找到、但沒有被遮蔽的字串數（M7 / D-006）。高熵規則的專屬勾選框關閉時
+   * （預設狀態）恆為此規則的實際命中數；開啟時恆為 0，因為找到的都已經遮了。
+   * > 0 時必須在文件裡講出來——這正是 D-006 選的「不自動遮，但誠實揭露」。
+   */
+  highEntropyNotRedacted: number;
 }
 
 export interface TranscriptExport {

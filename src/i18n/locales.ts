@@ -180,7 +180,6 @@ const zhTW = {
     sourceLabels: {
       "claude-code": "Claude Code",
       codex: "Codex",
-      paste: "貼上文字",
     } as Record<SourceId, string>,
     counts: (human: number, assistant: number, exact: boolean) =>
       exact ? `${human} 問 / ${assistant} 答` : `≥ ${human} 問 / ≥ ${assistant} 答`,
@@ -480,6 +479,8 @@ const zhTW = {
     optionSubagentsHint: "子代理是旁鏈的內部發言，預設不計入主線對話。",
     optionRedact: "遮蔽敏感資訊",
     optionRedactHint: "在本機把密鑰、信箱、電話、使用者路徑、IP 換成佔位符；不會送出任何內容。遮蔽是盡力而為，分享前仍請自己看過。",
+    optionRedactHighEntropy: "同時遮蔽高熵字串（實驗性）",
+    optionRedactHighEntropyHint: "額外把長得像亂數的字串（例如未加註記的 token、UUID、git commit hash）也換成佔位符。這條規則沒有已知字首可辨識，必然會連帶誤擋一些無害的亂碼；預設關閉，關閉時摘要仍會誠實列出找到但沒遮的筆數。",
     redacting: "遮蔽中…",
 
     documentKind: "對話紀錄",
@@ -508,6 +509,7 @@ const zhTW = {
     redactionResidual: (blocks: number) =>
       `遮蔽後仍有 ${blocks} 段疑似含密鑰，自動處理沒能完全清乾淨——分享前請務必自己看過這份檔案。`,
     redactionNothingFound: "未偵測到敏感資訊",
+    redactionHighEntropyNote: (count: number) => `另偵測到 ${count} 筆疑似高熵字串（未遮）`,
     sensitiveKind: {
       secret: "密鑰",
       email: "信箱",
@@ -518,6 +520,7 @@ const zhTW = {
       hostname: "主機名稱",
       project_term: "自訂敏感詞",
       content_sensitive: "敏感內容",
+      high_entropy: "高熵字串",
     },
     outlineHeading: "目錄",
     emptyTranscript: "這個 session 沒有可輸出的對話內容。",
@@ -825,7 +828,6 @@ const en: Messages = {
     sourceLabels: {
       "claude-code": "Claude Code",
       codex: "Codex",
-      paste: "Pasted text",
     } as Record<SourceId, string>,
     counts: (human: number, assistant: number, exact: boolean) =>
       exact ? `${human} asked / ${assistant} replied` : `≥ ${human} asked / ≥ ${assistant} replied`,
@@ -1120,6 +1122,8 @@ const en: Messages = {
     optionSubagentsHint: "Subagent branches are internal side-chain output, left out of the main thread by default.",
     optionRedact: "Redact sensitive information",
     optionRedactHint: "Replaces secrets, emails, phone numbers, user paths and IPs with placeholders locally; nothing is sent anywhere. Redaction is best-effort — still read the file before sharing it.",
+    optionRedactHighEntropy: "Also redact high-entropy strings (experimental)",
+    optionRedactHighEntropyHint: "Additionally replaces strings that look random — unlabeled tokens, UUIDs, git commit hashes — with placeholders. This rule has no known prefix to key off, so it will inevitably catch some harmless-looking gibberish too; off by default. While off, the summary still honestly lists how many it found but did not redact.",
     redacting: "Redacting…",
 
     documentKind: "Conversation log",
@@ -1148,6 +1152,7 @@ const en: Messages = {
     redactionResidual: (blocks: number) =>
       `${blocks} block(s) still look like they contain a secret after redaction — the automatic pass could not fully clean this file. Read it yourself before sharing.`,
     redactionNothingFound: "nothing detected",
+    redactionHighEntropyNote: (count: number) => `${count} additional string(s) look high-entropy but were not redacted`,
     sensitiveKind: {
       secret: "secrets",
       email: "emails",
@@ -1158,6 +1163,7 @@ const en: Messages = {
       hostname: "hostnames",
       project_term: "custom terms",
       content_sensitive: "sensitive content",
+      high_entropy: "high-entropy strings",
     },
     outlineHeading: "Contents",
     emptyTranscript: "This session has no conversation content to export.",

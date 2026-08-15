@@ -7,7 +7,13 @@ export type SensitiveKind =
   | "ip_address"
   | "hostname"
   | "project_term"
-  | "content_sensitive";
+  | "content_sensitive"
+  /**
+   * 長得像亂數、但沒有已知前綴可辨識的字串（M7 / D-006）：未加註記的 token、session UUID、
+   * git commit SHA 這類。與其他類別不同，這條規則永遠是**猜的**——見 detectors.ts 對
+   * `highEntropyDetector` 的說明。因此它預設不進實際遮蔽，只用於揭露統計。
+   */
+  | "high_entropy";
 
 export type PrivacyAction = "block" | "replace" | "redact" | "keep_review";
 
