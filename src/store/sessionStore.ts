@@ -177,6 +177,19 @@ const REPLAY_INTERVAL_MS = 1600;
 let replayTimer: ReturnType<typeof setInterval> | null = null;
 /** 「講解全部」取消旗標 (模組層級，不入 state 以免每次勾選觸發 re-render)。 */
 let pendingPrivacyReviewer: ((consent: PrivacyConsent | null) => void) | null = null;
+/**
+ * 目前這則待核准的複核，當初是用哪個 scope 字串發起的。
+ *
+ * R11 (S-03)：核准端原本自己重組一份 scope，而重組的格式和 `privacyReviewer(scope)`
+ * 那三處產生的格式不一樣（少了 provider 前綴，且不管哪個 provider 都讀 `cloudConfig`）。
+ * 兩份字串永遠不相等，於是「同一個 scope 只需同意一次」從來沒有生效過——每一則講解都
+ * 重新彈出複核；更糟的是非 cloud 供應商的同意紀錄裡存的是 cloud 的 endpoint 與 model，
+ * 也就是同意書上寫錯了對象。
+ *
+ * 修法不是把兩份格式對齊——那正是它們當初能分岔的原因。改成把發起時的那一份原樣留著，
+ * 核准時直接沿用，格式只有一個產生點。
+ */
+let pendingPrivacyScope: string | null = null;
 let dataOutConsent: { scope: string; consentId: string } | null = null;
 let cacheLoadGeneration = 0;
 let activeSessionLoad: SessionLoadTask | null = null;
@@ -279,6 +292,7 @@ async function refreshCurrentCacheMatches(): Promise<void> {
 function cancelPendingPrivacyReview(): void {
   pendingPrivacyReviewer?.(null);
   pendingPrivacyReviewer = null;
+  pendingPrivacyScope = null;
 }
 
 /**
@@ -1039,12 +1053,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const review = get().privacyReview;
     if (!reviewer || !review) return;
     const consentId = `consent_${crypto.randomUUID()}`;
-    const { doc, cloudConfig, privacyPolicyId } = get();
-    dataOutConsent = {
-      scope: `${doc?.session.id ?? "none"}\0${cloudConfig.baseUrl}\0${cloudConfig.providerID}\0${cloudConfig.modelID}\0${privacyPolicyId}`,
-      consentId,
-    };
+    // 沿用發起這則複核時的 scope，不重組（見 pendingPrivacyScope）。
+    dataOutConsent = pendingPrivacyScope === null ? null : { scope: pendingPrivacyScope, consentId };
     pendingPrivacyReviewer = null;
+    pendingPrivacyScope = null;
     set({ privacyReview: null });
     reviewer({ consentId });
   },
@@ -1245,6 +1257,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         }
         return new Promise<PrivacyConsent | null>((resolve) => {
           pendingPrivacyReviewer = resolve;
+          pendingPrivacyScope = scope;
           set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false, mapOpen: false, settingsOpen: false, mapError: null });
         });
       };
