@@ -13,6 +13,7 @@
  * 是純對話，被誤讀成機器任務——實際上那個提示根本不是分類器，是解析警告 (RC-3)。
  * 這裡用同樣形狀的資料當負向對照測試，釘住它必須是 `dialogue`。
  */
+import type { SourceId } from "@/types/spanTree";
 import type { SessionKind, SessionKindReason } from "./contracts";
 
 /**
@@ -54,8 +55,19 @@ export interface ClassificationInput {
    * （夾帶截圖的 base64 就會這樣），此時所有計數都不可信，不得據以判定。
    */
   headScanUsable: boolean;
-  /** 這份檔案是否被任一 adapter 認領為 Claude Code。 */
-  isClaudeCode: boolean;
+  /**
+   * 認領此檔案的來源；沒有 adapter 認領就是 `undefined`。
+   *
+   * R11 WC-1.2：以前這裡只有 `isClaudeCode: boolean`，因為索引器只索引 Claude Code。R11 起
+   * Codex 也會被索引，但要注意：`hasAgentId` / `allSidechain` / `humanTurnCount` 這三個訊號
+   * 全部是拿 Claude Code 的頂層欄位名去讀 (`record.agentId`、`record.isSidechain`、
+   * `record.type === "user"`)。Codex 的信封長得完全不同 (`type: "response_item"`，真正的角色
+   * 與內容都在巢狀的 `payload` 裡)，這些檢查對 Codex 紀錄必定回報「沒有／不是」——不是那份
+   * session 真的沒有子代理或真人發言，是讀法對不上格式。把「讀不到訊號」當成「訊號說沒有」，
+   * 會把每一份 Codex 對話都誤判成「機器任務·無真人訊息」，這正是本專案在別處已經吃過虧的
+   * 無中生有降級。所以非 Claude Code 的來源在下面直接誠實回答「無法判定」，不套用那些訊號。
+   */
+  source: SourceId | undefined;
 }
 
 export function isSubagentPath(path: string): boolean {
@@ -71,8 +83,13 @@ export function classifySession(input: ClassificationInput): { kind: SessionKind
   //     而「無法判定」是使用者看得懂、也不會被藏起來的答案。
   if (!input.headScanUsable) return { kind: "unknown", reason: "insufficient-signal" };
 
-  // 3 — 有把握地排除：讀得到完整的行，而且沒有 adapter 認領。
-  if (!input.isClaudeCode) return { kind: "unknown", reason: "not-claude-code" };
+  // 3 — 有把握地排除：讀得到完整的行，而且沒有任何 adapter 認領。
+  if (!input.source) return { kind: "unknown", reason: "not-claude-code" };
+
+  // 3.5 (R11 WC-1.2) — 有 adapter 認領，但不是 Claude Code：下面 4–6 的訊號讀的是 Claude Code
+  // 的欄位名，對 Codex 之類的來源必定讀不到東西。繼續往下套用等於把「讀不到」當「沒有」，
+  // 是另一種形式的瞎猜。誠實回答「無法判定」，交給後續（M5）另外處理骨架分類。
+  if (input.source !== "claude-code") return { kind: "unknown", reason: "codex-unclassified" };
 
   // 4 — 其餘子代理硬訊號。
   if (input.hasAgentId) return { kind: "subagent", reason: "field-agentid" };

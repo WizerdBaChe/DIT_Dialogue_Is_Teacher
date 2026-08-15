@@ -182,6 +182,8 @@ function SessionRow({ entry, onOpen }: { entry: SessionIndexEntry; onOpen: () =>
           <span>{formatSize(entry.sizeBytes)}</span>
           {entry.subagentPaths.length > 0 && <span>{t.browser.subagentCount(entry.subagentPaths.length)}</span>}
           {entry.hasCompaction && <span className="session-browser-tag">{t.browser.compaction}</span>}
+          {/* R11 WC-1.2: the picker now mixes Claude Code and Codex, so the source must be visible per row. */}
+          {entry.source && <span className="session-browser-tag">{t.browser.sourceLabels[entry.source]}</span>}
         </span>
       </button>
     </li>

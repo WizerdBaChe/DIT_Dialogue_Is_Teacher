@@ -8,19 +8,32 @@ const base: ClassificationInput = {
   humanTurnCount: 3,
   syntheticPromptCount: 0,
   headScanUsable: true,
-  isClaudeCode: true,
+  source: "claude-code",
 };
 
 describe("classifySession — one case per rule, in order", () => {
   it("a file no adapter claims is unknown, never guessed into a kind", () => {
-    expect(classifySession({ ...base, isClaudeCode: false })).toEqual({ kind: "unknown", reason: "not-claude-code" });
+    expect(classifySession({ ...base, source: undefined })).toEqual({ kind: "unknown", reason: "not-claude-code" });
   });
 
   it("an unusable scan outranks the source verdict — a truncated first line is not evidence of anything", () => {
     // 第一行大到讀不完時 adapter 也認不出它。回報「不是 Claude Code」會讓檔案從清單上
     // 憑空消失；回報「無法判定」則至少讓使用者看得到它存在。
-    expect(classifySession({ ...base, headScanUsable: false, isClaudeCode: false }))
+    expect(classifySession({ ...base, headScanUsable: false, source: undefined }))
       .toEqual({ kind: "unknown", reason: "insufficient-signal" });
+  });
+
+  /**
+   * R11 WC-1.2: a recognised non-Claude-Code source (e.g. Codex) must not fall through into the
+   * Claude-Code-shaped signal rules below (hasAgentId / allSidechain / humanTurnCount) — those
+   * read Claude Code's top-level field names and would misread a Codex envelope as "no subagent,
+   * no human message" by construction, not by actual absence. `source` truthy but not
+   * `"claude-code"` must short-circuit to the honest "codex-unclassified" before rule 4 even
+   * looks at hasAgentId/allSidechain, which is why they are deliberately set truthy here.
+   */
+  it("a recognised non-Claude-Code source classifies as codex-unclassified, never guessed via Claude-Code-shaped signals", () => {
+    expect(classifySession({ ...base, source: "codex", hasAgentId: true, allSidechain: true, humanTurnCount: 0 }))
+      .toEqual({ kind: "unknown", reason: "codex-unclassified" });
   });
 
   it("a subagents/ path is a subagent transcript", () => {
@@ -87,7 +100,7 @@ describe("classifySession — one case per rule, in order", () => {
       humanTurnCount: 8,
       syntheticPromptCount: 0,
       headScanUsable: true,
-      isClaudeCode: true,
+      source: "claude-code",
     })).toEqual({ kind: "dialogue", reason: "has-human-prompt" });
   });
 });
