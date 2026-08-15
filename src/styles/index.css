@@ -573,6 +573,14 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   grid-column: 1 / -1; min-width: 0; margin: -5px 0 0; color: var(--text-muted); font-family: var(--font-sans);
   line-height: 1.5; overflow-wrap: break-word;
 }
+.map-legend-label { margin-right: 4px; }
+/* R11 M6: 逐一符號的 hover/focus tooltip 容器；display:inline-block 給 tooltip 一個穩定的定位基準。 */
+.map-legend-entry { position: relative; display: inline-block; }
+.map-legend-item {
+  display: inline-flex; align-items: baseline; gap: 3px; background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; cursor: help;
+}
+.map-legend-item:hover, .map-legend-item:focus-visible { color: var(--text-main); }
 .session-map-content { width: 100%; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 28%); }
 .map-graphic-scroll { position: relative; min-width: 0; overflow: auto; padding: 24px; border-right: 1px solid var(--rule); background: var(--bg-map); }
 .map-graphic-stage {
@@ -748,15 +756,62 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   display: block; margin: 10px 0 14px; padding: 0 0 12px; border-bottom: 1px solid var(--rule);
   color: var(--text-muted); font-family: var(--font-sans); font-size: calc(11px * var(--ui-scale)); line-height: 1.35;
 }
-.tree-legend summary { cursor: pointer; font-weight: 700; letter-spacing: 0.04em; list-style: revert; }
 .tree-legend-title { display: block; margin-top: 10px; margin-bottom: 7px; color: var(--text-muted); font-weight: 700; letter-spacing: 0.04em; }
 .tree-legend-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px 5px; margin-top: 10px; }
 .tree-legend-item {
   min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
   color: var(--text-muted); text-align: center; overflow-wrap: break-word;
+  position: relative; background: none; border: 0; padding: 0; margin: 0; font: inherit; cursor: help;
 }
+.tree-legend-item:hover, .tree-legend-item:focus-visible { color: var(--text-dark); }
 .tree-legend-symbol { color: var(--text-muted); font-family: var(--font-mono); font-size: calc(20px * var(--ui-scale)); line-height: 1; }
 .tree-legend-note { margin: 8px 0 0; font-size: calc(10.5px * var(--ui-scale)); line-height: 1.4; color: var(--text-muted); }
+
+/*
+ * R11 M6: 共用 tooltip 泡泡，供 tree-legend（Sidebar 結構圖例）與 map-legend（Session 地圖圖例）
+ * 兩處使用。用 opacity + pointer-events 切換可見度，不用 display:none / visibility:hidden——
+ * 後兩者會把內容從 accessibility tree 移除，aria-describedby 就讀不到；opacity:0 不會，
+ * 螢幕報讀器在觸發元素拿到 focus 時仍讀得到說明，不必等滑鼠真的懸停。
+ */
+.legend-tooltip-bubble {
+  position: absolute; z-index: 30; left: 50%; top: calc(100% + 6px);
+  transform: translate(-50%, -4px);
+  width: max-content; max-width: 260px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: calc(11px * var(--ui-scale));
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(28, 26, 23, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+/* 泡泡內的每一行。用 span + display:block 而非 <p>：觸發元素是 <button>（只吃 phrasing
+ * content），地圖那顆泡泡又整個住在 <p class="map-legend"> 裡，兩處放 <p> 都是無效巢狀。 */
+.legend-tooltip-line { display: block; margin: 0 0 4px; }
+.legend-tooltip-line:last-child { margin-bottom: 0; }
+/* tree-legend 的泡泡是按鈕的「後代」，map-legend 的是按鈕的「兄弟」(泡泡不能放進 <button>
+ * 又要待在同一個定位基準裡)，所以兩組結構各需自己的組合器，不能共用一條後代選擇器。 */
+.tree-legend-item:hover .legend-tooltip-bubble,
+.tree-legend-item:focus .legend-tooltip-bubble,
+.tree-legend-item:focus-visible .legend-tooltip-bubble,
+.map-legend-item:hover + .legend-tooltip-bubble,
+.map-legend-item:focus + .legend-tooltip-bubble,
+.map-legend-item:focus-visible + .legend-tooltip-bubble,
+.map-legend-entry:hover .legend-tooltip-bubble {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .legend-tooltip-bubble { transition: none; }
+}
 .tree-item {
   font-family: var(--font-mono); font-size: calc(12px * var(--ui-scale)); padding: 5px 8px; cursor: pointer;
   display: flex; align-items: center; gap: 8px; color: var(--text-muted); transition: color 0.15s, background 0.15s;
