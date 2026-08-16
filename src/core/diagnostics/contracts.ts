@@ -82,6 +82,17 @@ export function noticeable(diagnostics: readonly Diagnostic[]): Diagnostic[] {
 }
 
 /**
+ * `info`-tier diagnostics — a known, policy-handled condition. `noticeable()` deliberately
+ * excludes these from the dismissible banner; this is their only surface, consumed by
+ * `OverviewView`'s on-demand capability-limit disclosure (R11.2 R3). Never render this next
+ * to `noticeable()` in a way that re-merges the two tiers — that is exactly the "stop looking
+ * like a fault" distinction R11-M4 drew.
+ */
+export function informational(diagnostics: readonly Diagnostic[]): Diagnostic[] {
+  return diagnostics.filter((d) => d.tier === "info");
+}
+
+/**
  * A fatal outcome carries a typed code all the way to the UI. Throwing this instead of a
  * bare `Error` is what lets the store keep a single error owner (RC-5) without string
  * sniffing at the boundary.
