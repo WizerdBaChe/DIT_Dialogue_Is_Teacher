@@ -463,3 +463,41 @@
 - A round id must be allocated BEFORE any repair work starts (CLAUDE.md). These are repairs, so they do not belong in the reserved `r11.1-text-rendering`. Recommend `r11.2-uat-repairs`; needs the author's confirmation.
 - Also surfaced, not yet ruled: the provider config fields give the user no guidance on what to enter (B11 remark), and image-bearing sessions are readable but carry no marker that an image was there (C7).
 - Deferred to R12 and still open: the ten remaining M9 findings, the three remaining SECREVIEW suggestions, RCA P1/P2/P3, and the src/ comment-language unification (ticket delivered outside the repo, measured at 1,308 lines across 65% of files).
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 16 – R11.2 UAT repairs
+- Status: completed (construction); the round is NOT accepted yet
+- Date: 2026-08-17
+
+## Goals
+- Repair every failure the R11 acceptance surfaced, under a properly allocated round id, one semantic commit per card.
+- Root-cause each item before editing; the round explicitly forbade symptom-patching on R2, R4, R5 and R7.
+- Produce a re-test card that a non-author could execute blind, and that says plainly what the model could not verify.
+
+## Decisions
+- Dispatcher ruling: info-tier diagnostics get a home in the Overview at the existing diagnostics count, not a new banner — that count was a lie by omission for Codex sessions. `noticeable()` was NOT redefined; `informational()` was added beside it.
+- R4 ruled NO DEFECT after a two-sided calibration (positive control fires, negative control silent, long hyphenated identifier correctly excluded). A one-sided calibration would have scored an implementation that never prints the line at 100%. No source file changed; the ruler is recorded in RESEARCH_R11.2_DISCLOSURE_CALIBRATION.md.
+- R2: `exec_command` is a REAL recorded tool name (19 occurrences) and stays — D-001 forbids treating a genuine name as noise. Only invented names were removed.
+- R7: R11-M3's `resumeLastDirectory` `"closed"` -> `"picking"` change is load-bearing (it is the WebKit `<input webkitdirectory>` fallback's only entry point) and was NOT reverted, though the card named it as the prime suspect. The real cause was elsewhere.
+- R6: `as Record<GroupKind, string>` does not check for missing keys — deleting an entry compiled clean. `satisfies` plus a derived `GROUP_KINDS` array makes the invariant a property of the asset instead of a reminder to a future editor.
+- Dispatcher: two concurrent agents, each report analysed and committed before the next batch. Post-hoc git detection held — HEAD compared after every batch, stash list empty, no agent ever mutated git state (one `git stash` attempt was blocked by the permission system).
+- When two concurrent cards both edited `src/i18n/locales.ts`, the hunks were split programmatically (`git diff` -> hunk selector -> `git apply --cached`) rather than hand-transcribed, so each card still landed as its own semantic commit.
+
+## Changes
+- src/core/index/{classifySession,sessionIndexer}.ts, src/core/adapters/codexJsonl.ts (+tests), scripts/measure-codex-index.mjs: rule 3.5 dispatches by source instead of terminating; Codex reads its own `response_item/message` envelope, excluding `role: "developer"` and auto-review dumps. Measured N=358: classified 0% -> 100%, derived titles 0% -> 59.8%. Commit 346d13c.
+- src/core/adapters/codexJsonl.ts, src/core/normalize/normalizer.ts, src/i18n/diagnosticCopy.ts (+tests): `EXEC_TOOL_NAME_RE` was non-global, so it lifted "foo" out of an RCA document that quoted `tools.foo(` as a negative example. Now all occurrences must unanimously agree; the `"exec"` sentinel fallback is gone (555/9,355 = 5.93% -> 0). Commit 9e1ab8e.
+- src/core/diagnostics/contracts.ts, src/components/OverviewView.tsx, src/styles/index.css, src/i18n/locales.ts (+tests): `informational()` and an on-demand disclosure in Overview step 1. Commit 6cd7e97.
+- docs/rounds/r11.2-uat-repairs/RESEARCH_R11.2_DISCLOSURE_CALIBRATION.md: R4's evidence, no code. Commit 81cc416.
+- src/styles/index.css: `.sidebar` and `.session-map-shell` `overflow: hidden` -> `visible` (clipping ancestor, not stacking context); bubble `max-width: min(260px, calc(100vw - 40px))`. Commit 5074ae0.
+- src/types/spanTree.ts, src/i18n/locales.ts, src/components/StructureLegend.tsx (+tests): legend's group tooltip now reads `card.groupKindTag` through `GROUP_KINDS`. Commit 04118e8.
+- src/store/sessionStore.ts (+tests): `browseGeneration` counter; every `set()` past an `await` checks it, so a background index finishing after close no longer overwrites `"closed"` and reopens the dialog. Commit 7e30f8a.
+- docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md, references/DIT-decisions.md: the re-test card (11 happy-path, 14 stress) and the frontier rewrite. Commit a3f43ee.
+- Gates at HEAD: typecheck clean, 58 files / 508 tests passing, both build steps green.
+
+## Open Questions / TODO
+- **R11.2 IS NOT ACCEPTED.** Next action is the author running docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md under `npm run build` + `npm run preview` (NOT dev — that is what invalidated R11's C1/C2). Passing it reopens D-004's merge gate for R9.1 + R10 + R11 + R11.2 -> `main`.
+- **No appearance claim in this round was verified by the model.** The Chrome extension was unreachable on two attempts and the in-app browser pane reports `visibilityState: "hidden"` with a 0x0 viewport, so geometry reads return zeros. R5 and R3's rendered result are by-eye items only, marked `[目視]` in the card. R5 additionally leaves a known residual: `.workspace-layout` and `.workspace-panel` (index.css:497-498) still carry `overflow: hidden`, so a clip may survive at the window's own right and bottom edges.
+- Four rulings wanted from the author, all in UAT_R11.2_v1.0.md section F: Codex classification is 356 `dialogue` / 2 `machine` because the turn counter increments before preamble stripping (108 files provably contain no human-typed text yet read as `dialogue`); the disclosure line's emphasis; provider config field guidance (still blocks B11/B12); image-bearing session markers.
+- Findings recorded, deliberately not fixed: `src/core/normalize/normalizer.ts` emits user-facing Chinese that never switches locale (pre-existing convention, flagged as debt, not conflated with this round's work); C6's second observation (a session unreadable until a full app reload) is unreproduced and explicitly not claimed fixed.
+- Deferred to R12, unchanged: the ten REVIEW_R11_BLIND_SPOTS findings, the three SECREVIEW suggestions (two now D-014 exclusions), RCA P1/P2/P3, the Codex skeleton gap (D-011), WC-4.3 (D-010), and the src/ comment-language unification (1,308 lines across 65% of files; ticket held outside the repo). T-008 (compact-chain stitching) remains an uncommitted note from another session.
