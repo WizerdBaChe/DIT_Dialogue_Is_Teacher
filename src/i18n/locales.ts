@@ -109,6 +109,13 @@ const zhTW = {
       spanHeading: "Span 層 · transcript 發生了什麼",
       skeletonHeading: "Skeleton 層 · 學習魚骨的節點／支線種類",
     },
+    // R11.2 R3：info 分級診斷（例如 Codex 事件配不上對應呼叫）沒有可歸屬的介面，於是
+    // M4 把它們降級之後就從畫面上徹底消失了。這裡是它們唯一的呈現位置——平時收起、
+    // 讀者可自行展開，絕不打斷閱讀，也絕不當作錯誤處理。
+    infoSummary: {
+      toggleShow: (count: number) => `顯示 ${count} 則系統限制說明`,
+      toggleHide: "收合系統限制說明",
+    },
   },
 
   sessionLoad: {
@@ -756,6 +763,13 @@ const en: Messages = {
       label: "Symbol guide",
       spanHeading: "Span layer · what happened in the transcript",
       skeletonHeading: "Skeleton layer · fishbone node/rib kinds",
+    },
+    // R11.2 R3: info-tier diagnostics (e.g. a Codex event with no matching call) had no home
+    // once M4 demoted them, so they vanished from the screen entirely. This is their only
+    // surface — collapsed by default, opened on demand, never treated as an error.
+    infoSummary: {
+      toggleShow: (count: number) => `Show ${count} capability note${count === 1 ? "" : "s"}`,
+      toggleHide: "Hide capability notes",
     },
   },
 
