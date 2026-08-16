@@ -10,6 +10,17 @@
 import type { GroupKind, ProviderId, SkeletonNodeKind, SkeletonRibKind, SourceId, SpanTag, SpanType } from "@/types/spanTree";
 import type { CategoryDefinitionTable } from "@/core/view/categoryDefinitions";
 
+/**
+ * `spanKindDefinition` 的形狀：多數符號是靜態一句話，`group` 例外——它的定義文字要
+ * 列出所有降噪分組種類，而分組種類的文字來自 `card.groupKindTag`（單一權威表），
+ * 所以 `group` 改成函式，由呼叫端把已排序、已在地化的分組標籤傳進來組句。
+ */
+export type SpanKindDefinitionTable = {
+  [K in Exclude<SpanType, "group">]: string;
+} & {
+  group: (groupKindLabels: string[]) => string;
+};
+
 export type Locale = "zh-TW" | "en";
 
 export const LOCALE_ORDER: Locale[] = ["zh-TW", "en"];
@@ -296,7 +307,7 @@ const zhTW = {
       retry: "重試",
       subagent: "子代理",
       verbose: "聚合區段",
-    } as Record<GroupKind, string>,
+    } satisfies Record<GroupKind, string>,
     paramsTitle: "參數",
     resultTitle: "結果",
     resultErrorTitle: "結果 · 錯誤",
@@ -571,6 +582,12 @@ const zhTW = {
    * 符號說明的 tooltip 內容。R11 M6：符號旁邊那行字只是名字，說不出「這在讀什麼」；
    * 骨架分類有 core/view/categoryDefinitions 那張三段式定義表，但 Span 層符號不在裡面，
    * 所以定義文字在這裡補齊。一句話講完，這是 tooltip 不是說明書。
+   *
+   * R11.2 M6 (B15)：`group` 的定義文字曾用自由文寫死「例如反覆修改或重試」，只提到
+   * 四種降噪分組裡的兩種，而且是另一份與 `card.groupKindTag` 無關的文字——圖例與卡片
+   * 標籤各自維護，才會在 R11 走岔。改成函式：呼叫端 (StructureLegend) 把
+   * `card.groupKindTag` 依 `GROUP_KINDS` 順序組出的清單傳進來，句子本身仍是這個語系
+   * 自己的用字，但列出的種類名稱一律讀自單一權威表，不能再各自為政。
    */
   spanKindDefinition: {
     user_msg: "你對 AI 提出的要求；一段對話從這裡開始。",
@@ -579,9 +596,10 @@ const zhTW = {
     tool_use: "AI 實際做的動作——讀檔、搜尋、執行指令。",
     tool_result: "上一個操作回傳的東西。來源沒記錄成功與否時，會標成未知而不是成功。",
     subagent: "主線分派出去的另一個工作階段，有自己完整的對話。",
-    group: "連續而且同性質的段落被收成一張卡，例如反覆修改或重試。",
+    group: (groupKindLabels: string[]) =>
+      `連續而且同性質的段落被收成一張卡，依情況標成：${groupKindLabels.join("、")}。`,
     marker: "不是對話內容的事件——脈絡壓縮、API 錯誤、拒答。",
-  } as Record<SpanType, string>,
+  } satisfies SpanKindDefinitionTable,
 
   tag: {
     milestone: "里程碑",
@@ -1224,7 +1242,8 @@ const en: Messages = {
     tool_use: "Something the AI actually did — read a file, searched, ran a command.",
     tool_result: "What that action returned. If the source recorded no outcome, this says unknown rather than success.",
     subagent: "A separate work session the main thread handed off to, with a full conversation of its own.",
-    group: "Consecutive steps of the same kind folded into one card, such as an edit loop or a retry.",
+    group: (groupKindLabels: string[]) =>
+      `Consecutive steps of the same kind folded into one card, labeled as one of: ${groupKindLabels.join(", ")}.`,
     marker: "An event that is not conversation — context compaction, an API error, a refusal.",
   },
 
