@@ -547,7 +547,11 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .session-map-dialog[data-modal-fallback="true"] { position: fixed; inset: 8dvh 6vw; z-index: 100; }
 .session-map-shell {
   width: 100%; min-width: 0; height: 100%; display: grid;
-  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden;
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+  /* R11.2 R5: 同 .sidebar 那顆 — overflow:hidden 會把 .map-legend 的 tooltip 泡泡在
+     shell 邊界截斷（同一種 clipping ancestor 機制，不是 stacking 問題）。圖區 / 名單列
+     各自有自己的 overflow:auto，shell 這層不需要再裁一次。 */
+  overflow: visible;
 }
 .session-map-header {
   width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(160px, 1fr) auto auto; align-items: center; gap: 18px;
@@ -735,7 +739,11 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 /* ---- Sidebar ---- */
 .sidebar {
   width: clamp(220px, 20cqw, 320px); min-height: 0; flex-shrink: 0; background: var(--bg-structure);
-  border-right: 1px solid var(--rule); padding: 22px 20px; overflow: hidden;
+  border-right: 1px solid var(--rule); padding: 22px 20px;
+  /* R11.2 R5: 原本這裡是 overflow:hidden，會把圖例 tooltip 泡泡在自己的右邊界截斷——
+     泡泡是 sidebar 的後代，z-index 再高也贏不了 clipping ancestor。垂直捲動已經交給
+     子層 .tree-scroll 自己的 overflow-y:auto 處理，本層不需要再夾一層裁切。 */
+  overflow: visible;
   display: flex; flex-direction: column;
 }
 .sidebar-static { flex-shrink: 0; }
@@ -786,7 +794,9 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .legend-tooltip-bubble {
   position: absolute; z-index: 30; left: 50%; top: calc(100% + 6px);
   transform: translate(-50%, -4px);
-  width: max-content; max-width: 260px;
+  /* R11.2 R5: 窄視窗 / drawer 裡 260px 可能比可視寬度還寬，改用 viewport 相對上限，
+     兩側各留 20px 邊界，讓泡泡在極窄裝置上仍完整落在畫面內，而不是被視窗邊緣切掉。 */
+  width: max-content; max-width: min(260px, calc(100vw - 40px));
   padding: 8px 10px;
   border: 1px solid var(--rule-strong);
   border-radius: 4px;
