@@ -38,8 +38,15 @@ export type SpanType =
 /** 由降噪/規則產生的標籤，用於標示學習價值高的節點。 */
 export type SpanTag = "retry" | "error" | "decision" | "milestone";
 
-/** 降噪分組的種類。 */
-export type GroupKind = "edit-loop" | "retry" | "subagent" | "verbose";
+/**
+ * 降噪分組的種類。R11.2 M6 (B15)：`GroupKind` 本身即為單一權威來源——`GroupKind`
+ * 型別由 `GROUP_KINDS` 陣列衍生，而非兩邊各自宣告後靠人工對齊。任何消費端 (群組卡片
+ * 標籤、側欄圖例) 只要以 `Record<GroupKind, …>` 或走訪 `GROUP_KINDS` 取資料，新增/
+ * 刪除一種分組時，遺漏的一邊會在編譯期或 `GROUP_KINDS.length` 走訪處直接現形，
+ * 不必仰賴人工記得同步兩張表。
+ */
+export const GROUP_KINDS = ["edit-loop", "retry", "subagent", "verbose"] as const;
+export type GroupKind = (typeof GROUP_KINDS)[number];
 
 /** 教學講解層的來源 Provider。 */
 /**
