@@ -1,9 +1,25 @@
 # DIT — Decision & Process Journal
 
 ## Now (updated 2026-08-15, Phase 14)
-frontier: R11 (`feat/r11-release-readiness`) — every work card has landed and been committed: M0, M1, M2, M3, M4, M5, M6, M7, M9, plus the M7 security review and the two defects it and M9 surfaced (disclosure undercount, consent scope). Gates green at typecheck clean, 491/491, build clean. What remains is the author's manual acceptance and then D-004's merge gate, which IS R11's exit condition.
+frontier: R11 (`feat/r11-release-readiness`) construction is complete and green (typecheck clean, 491/491, build clean), but **the round is NOT accepted**. The author ran `docs/rounds/r11-release-readiness/UAT_R11_v1.0.md` on 2026-08-16: 8 pass, 4 partial, 5 fail, 7 untestable. D-004's merge gate stays shut. The failures need a round id allocated before any repair starts (recommend `r11.2-uat-repairs`; `r11.1-text-rendering` is reserved for the render layer and these are repairs).
 premises: (user) the reduced R10-B error-parity acceptance stands; (user) `shell_command` stays unclassified unless new evidence appears — the R10.1 RCA was that analysis and reinforced it; (user) the render layer is out of R11; (user) high-entropy redaction defaults off; (user) commit hashes stay inside that rule; (user) R11 is a presentation-fix round, so the Codex skeleton work goes to R12; (model) lifting the folder-browser's Claude-Code-only filter was settled by the author's own UAT C1 defect report.
-open: D-001..D-012 decided; P-001 open (P0 implemented as R11-M4; P1/P2/P3 remain). R11-Q2 (picker interleaving) still needs the author on real hardware. Two review findings are deliberately unactioned and need a ruling: the high-entropy checkbox is inert while the master redaction toggle is off (UX semantics, three possible directions), and the single-file snapshot export runs no redaction and carries no disclosure (pre-existing; either extend the disclosure or record the exclusion). The other ten M9 findings, the three remaining SECREVIEW suggestions, and the src/ comment-language unification are R12 candidates, none triaged.
+open: D-001..D-014 decided; P-001 open (P0 implemented as R11-M4; P1/P2/P3 remain). The acceptance failures are the live work and none has a card yet: tooltip clipped/underlapped beside the reading column; every Codex session classified "undetermined" with a rollout-filename title; Codex card titles showing raw `exec_command` and an unexplained 「操作 foo」; no diagnostics surface in the UI at all, which makes M4's tier downgrade unobservable; the high-entropy disclosure line not found in a real export; group legend and group label not sharing an abstraction so they can disagree; the browse dialog reopening itself after being closed. Unruled side findings: provider config fields give no guidance on what to enter; image-bearing sessions carry no marker. Deferred to R12: the ten remaining M9 findings, the three remaining SECREVIEW suggestions, RCA P1/P2/P3, and the src/ comment-language unification (measured at 1,308 lines across 65% of files; ticket lives outside the repo). T-008 opened 2026-08-16 from outside (claude-config session): compact-chain stitching via logicalParentUuid — R12 candidate, see DIT-tickets.md; a transcript archive now exists at D:\AIWork\_session-archive\ and this ticket is what makes compacted history in it read as one conversation.
+
+## D-014 2026-08-16 the two SECREVIEW suggestions become documented exclusions, not fixes
+status: decided
+context: the M7 security review left two unfixed suggestions — the high-entropy checkbox does nothing while the master redaction toggle is off (and says so nowhere), and the single-file snapshot export runs no redaction and carries no disclosure at all.
+options: fix both in R11 / fix one / record both as documented exclusions
+choice+why: author: 「明文排除，有標示就好」. The snapshot gap is pre-existing and the snapshot is designed to reproduce the full node view, so redacting it would fight its purpose; the checkbox interaction is a UX question the author does not want R11 to settle. Both are now written into the acceptance card's out-of-scope section, which converts them from defects found by review into limitations the reader is told about.
+revisit-if: a user reports the inert checkbox as confusing in real use, or the snapshot export starts being shared outside the author's own machine.
+links: docs/rounds/r11-release-readiness/SECREVIEW_R11_M7_REDACTION.md §2/§3
+
+## D-013 2026-08-16 the session picker interleaves sources by time
+status: decided
+context: R11-Q2 — once M1 made Codex sessions visible, the picker could list them interleaved with Claude Code by time, or grouped by source.
+options: interleave by time / group by source / a toggle
+choice+why: author, after seeing the real list: 「混排，現在這樣很好」. What the user is looking for is a conversation at a point in time; which harness produced it is a property of the row, not an axis to navigate by.
+revisit-if: source-specific defects make it useful to isolate one harness while debugging.
+links: src/core/index/sessionIndexer.ts; docs/rounds/r11-release-readiness/UAT_R11_v1.0.md §F
 
 ## D-012 2026-08-15 S-03 (privacy consent scope) is promoted into R11
 status: decided
