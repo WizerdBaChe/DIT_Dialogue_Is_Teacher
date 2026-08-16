@@ -30,7 +30,7 @@ const zhTW: CopyTable = {
   MARKERS_EMITTED: { line: (d) => `${at(d)}標示了 ${n(d)} 個系統事件（對話壓縮、API 錯誤等），已插在原本的時間位置。` },
   NO_EVENTS: { line: (d) => `${at(d)}這個檔案沒有可呈現的內容。` },
 
-  CODEX_EXEC_TOOL_NAME_UNRESOLVED: { line: (d) => `${at(d)}有 ${n(d)} 次無法從 exec 參數判斷真正的工具名，已保留為 exec。` },
+  CODEX_EXEC_TOOL_NAME_UNRESOLVED: { line: (d) => `${at(d)}有 ${n(d)} 次無法從 exec 參數判斷真正的工具名（沒有線索，或線索彼此矛盾），卡片標示為「未命名操作」。` },
   CODEX_EVENT_UNPAIRED: {
     line: (d) =>
       `${at(d)}${d.detail} ×${n(d)} 找不到對應的原始呼叫——匯出檔沒有提供可驗證的關聯；`
@@ -107,7 +107,9 @@ const en: CopyTable = {
   MARKERS_EMITTED: { line: (d) => `${at(d)}Marked ${n(d)} system event(s) (compaction, API errors) in place.` },
   NO_EVENTS: { line: (d) => `${at(d)}This file has no renderable content.` },
 
-  CODEX_EXEC_TOOL_NAME_UNRESOLVED: { line: (d) => `${at(d)}${n(d)} exec call(s) had no resolvable tool name; kept as "exec".` },
+  CODEX_EXEC_TOOL_NAME_UNRESOLVED: {
+    line: (d) => `${at(d)}${n(d)} exec call(s) had no resolvable tool name (no evidence, or conflicting evidence); shown as an unnamed operation.`,
+  },
   CODEX_EVENT_UNPAIRED: {
     line: (d) =>
       `${at(d)}${d.detail} ×${n(d)} had no matching call — the export does not provide a verifiable link back `
