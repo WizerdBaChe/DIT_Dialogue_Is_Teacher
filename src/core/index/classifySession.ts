@@ -46,10 +46,35 @@ export interface ClassificationInput {
    *
    * 注意這裡數的是「回合」而不是「有文字的 prompt」。`/doctor` 這種斜線指令在淨化後
    * 文字會整段消失，但那確確實實是一個人按下去的——用文字長度當判準會把它算成機器。
+   *
+   * 這個欄位只讀 Claude Code 的頂層欄位名（`record.type === "user"`）——對 Codex 信封必定
+   * 是 0，見下面 `codexHumanTurnCount` 為什麼要另開一個欄位而不是共用這個。
    */
   humanTurnCount: number;
   /** 上述回合中，淨化後文字剛好等於已知機器代打語句的則數。 */
   syntheticPromptCount: number;
+  /**
+   * R11.2 R1：Codex 自己的「真人出手」計數——讀 `response_item/message` 且 `role === "user"`，
+   * 排除 `role === "developer"`（系統提示注入）與 auto-review 審查子代理轉述的歷史（那段文字
+   * 掛著 `role: "user"` 信封，但是機器轉述，不是真人打的字，見 `isAutoReviewDump`）。
+   *
+   * 刻意跟 `humanTurnCount` 分開一個欄位，而不是「偵測到 Codex 信封就往同一個計數器加」：
+   * 兩者的讀法（欄位路徑、要排除什麼）完全不同，共用一個名字容易讓未來的人以為兩條規則
+   * 讀的是同一種資料，把某一邊的例外（例如 isMeta）誤用到另一邊。分開命名讓「這是 Codex
+   * 自己的訊號」這件事在型別上就看得出來。
+   */
+  codexHumanTurnCount: number;
+  /**
+   * R11.2 R1：表頭＋表尾掃描視窗內，是否至少看到一筆 `response_item/message`
+   * （`role` 為 `user` 或 `assistant`；不含被排除的 `developer` 系統提示，因為那幾乎每份
+   * session 都有，若把它算進來，這個旗標就永遠是 true，起不了篩選作用）。
+   *
+   * `codexHumanTurnCount === 0` 只有在這裡是 true 時才可信——那才代表視窗內真的看到了對話
+   * 結構、數出來的 0 是「數過，確實沒有」。如果視窗內完全沒看到任何訊息型記錄（例如整段都是
+   * 工具呼叫／推理／系統事件），`codexHumanTurnCount` 是 0 的原因是「沒看到東西可數」，誠實的
+   * 答案仍然是「無法判定」，不是「機器任務」。
+   */
+  codexSignalUsable: boolean;
   /**
    * 表頭掃描是否讀到了檔案開頭的紀錄。false 代表第一行大到塞不進掃描視窗
    * （夾帶截圖的 base64 就會這樣），此時所有計數都不可信，不得據以判定。
@@ -59,13 +84,22 @@ export interface ClassificationInput {
    * 認領此檔案的來源；沒有 adapter 認領就是 `undefined`。
    *
    * R11 WC-1.2：以前這裡只有 `isClaudeCode: boolean`，因為索引器只索引 Claude Code。R11 起
-   * Codex 也會被索引，但要注意：`hasAgentId` / `allSidechain` / `humanTurnCount` 這三個訊號
-   * 全部是拿 Claude Code 的頂層欄位名去讀 (`record.agentId`、`record.isSidechain`、
-   * `record.type === "user"`)。Codex 的信封長得完全不同 (`type: "response_item"`，真正的角色
-   * 與內容都在巢狀的 `payload` 裡)，這些檢查對 Codex 紀錄必定回報「沒有／不是」——不是那份
-   * session 真的沒有子代理或真人發言，是讀法對不上格式。把「讀不到訊號」當成「訊號說沒有」，
-   * 會把每一份 Codex 對話都誤判成「機器任務·無真人訊息」，這正是本專案在別處已經吃過虧的
-   * 無中生有降級。所以非 Claude Code 的來源在下面直接誠實回答「無法判定」，不套用那些訊號。
+   * Codex 也會被索引，但 `hasAgentId` / `allSidechain` / `humanTurnCount` 這三個訊號全部是拿
+   * Claude Code 的頂層欄位名去讀 (`record.agentId`、`record.isSidechain`、`record.type ===
+   * "user"`)。Codex 的信封長得完全不同 (`type: "response_item"`，真正的角色與內容都在巢狀的
+   * `payload` 裡)，這些檢查對 Codex 紀錄必定回報「沒有／不是」——不是那份 session 真的沒有子
+   * 代理或真人發言，是讀法對不上格式。把「讀不到訊號」當成「訊號說沒有」，會把每一份 Codex
+   * 對話都誤判成「機器任務・無真人訊息」，這正是本專案在別處已經吃過虧的無中生有降級。
+   *
+   * R11.2 R1：上面那條規則本身沒有錯——錯的是「所以非 Claude Code 一律回報無法判定」這個
+   * 結論。R11 當時只有拒絕誤讀的那一半，沒有給 Codex 自己的讀法，於是把「這條規則不適用」
+   * 變成了「Codex 永遠判不出來」，跟一開始要避免的無中生有降級殊途同歸——使用者看到的仍然是
+   * 一個沒用的分類結果，只是誠實地沒用而已。修法是給 Codex 自己的訊號
+   * (`codexHumanTurnCount` / `codexSignalUsable`，讀 `response_item/message` 自己的
+   * `role`/`content`)，而不是讓 Claude Code 的欄位名越界去讀 Codex 的資料。三路判斷
+   * （讀不到 / 讀得到但沒人認領 / 讀得到且被認領但規則讀不出東西）現在改成四路：認得出來源時，
+   * 依來源分派到各自的規則；只有「認得出來源，但這個來源自己的規則也判不出東西」才落回
+   * `codex-unclassified`。
    */
   source: SourceId | undefined;
 }
@@ -86,23 +120,42 @@ export function classifySession(input: ClassificationInput): { kind: SessionKind
   // 3 — 有把握地排除：讀得到完整的行，而且沒有任何 adapter 認領。
   if (!input.source) return { kind: "unknown", reason: "not-claude-code" };
 
-  // 3.5 (R11 WC-1.2) — 有 adapter 認領，但不是 Claude Code：下面 4–6 的訊號讀的是 Claude Code
-  // 的欄位名，對 Codex 之類的來源必定讀不到東西。繼續往下套用等於把「讀不到」當「沒有」，
-  // 是另一種形式的瞎猜。誠實回答「無法判定」，交給後續（M5）另外處理骨架分類。
-  if (input.source !== "claude-code") return { kind: "unknown", reason: "codex-unclassified" };
+  // 3.5 (R11.2 R1) — 有 adapter 認領：依來源分派到各自的規則，而不是共用一套讀法。
+  // Claude Code 走 4–6，Codex 走它自己的兩條（見下）；兩邊的欄位路徑、要排除的雜訊都不同，
+  // 混用任何一邊都會把「讀不到」誤讀成「訊號說沒有」。
+  if (input.source === "claude-code") {
+    // 4 — 其餘子代理硬訊號。
+    if (input.hasAgentId) return { kind: "subagent", reason: "field-agentid" };
+    if (input.allSidechain) return { kind: "subagent", reason: "all-sidechain" };
 
-  // 4 — 其餘子代理硬訊號。
-  if (input.hasAgentId) return { kind: "subagent", reason: "field-agentid" };
-  if (input.allSidechain) return { kind: "subagent", reason: "all-sidechain" };
+    // 5 — 硬訊號：從頭到尾沒有人出過手。
+    if (input.humanTurnCount === 0) return { kind: "machine", reason: "no-human-prompt" };
 
-  // 5 — 硬訊號：從頭到尾沒有人出過手。
-  if (input.humanTurnCount === 0) return { kind: "machine", reason: "no-human-prompt" };
+    // 6 — 唯一的啟發式：有回合，但每一則都是機器代打的固定句。
+    if (input.syntheticPromptCount === input.humanTurnCount) {
+      return { kind: "machine", reason: "synthetic-prompts-only" };
+    }
 
-  // 6 — 唯一的啟發式：有回合，但每一則都是機器代打的固定句。
-  if (input.syntheticPromptCount === input.humanTurnCount) {
-    return { kind: "machine", reason: "synthetic-prompts-only" };
+    // 7 — 有真人講過話。
+    return { kind: "dialogue", reason: "has-human-prompt" };
   }
 
-  // 7 — 有真人講過話。
-  return { kind: "dialogue", reason: "has-human-prompt" };
+  if (input.source === "codex") {
+    // Codex 沒有子代理／sidechain 的頂層訊號可讀（那是 Claude Code 的檔案佈局慣例），
+    // 所以這裡只有兩條規則，不是偷懶少寫，是誠實地只寫「讀得到的」。
+    //
+    // 8 — 視窗內完全沒看到任何 response_item/message：沒東西可數，不是「數過是 0」。
+    if (!input.codexSignalUsable) return { kind: "unknown", reason: "codex-unclassified" };
+
+    // 9 — 看到了對話結構，但真人回合數是 0：跟規則 5 同一個事實，換一種訊號來源而已。
+    if (input.codexHumanTurnCount === 0) return { kind: "machine", reason: "no-human-prompt" };
+
+    // 10 — Codex 這邊沒有已知的機器代打固定句可比對（R9 那份清單是 Claude Code 自動續跑
+    //      功能專屬的），所以看到真人回合就直接算對話，不硬套規則 6 的啟發式。
+    return { kind: "dialogue", reason: "has-human-prompt" };
+  }
+
+  // 11 — 認得出來源、但既不是 Claude Code 也不是 Codex（目前沒有第三個已註冊的 adapter，
+  //      這條分支是替未來預留）：還沒有為它寫規則，誠實回報「無法判定」，不要瞎猜。
+  return { kind: "unknown", reason: "codex-unclassified" };
 }

@@ -229,12 +229,17 @@ describe("buildSessionIndex", () => {
   /**
    * WC-1.2 (C1): the pre-R11 skip (`if (headScanUsable && !result.isClaudeCode) continue;`)
    * dropped every recognised Codex file from the folder browser. A Codex rollout must now
-   * survive indexing, carry `source: "codex"`, and — since `hasAgentId`/`allSidechain`/
-   * `humanTurnCount` read Claude-Code-shaped top-level fields that a Codex envelope never has —
-   * classify as honestly `unknown` rather than a guessed `machine`/`dialogue`. It also has no
-   * `<id>/subagents/` sibling layout, so `subagentPaths` must be the deliberate empty branch.
+   * survive indexing, carry `source: "codex"`, and has no `<id>/subagents/` sibling layout, so
+   * `subagentPaths` must be the deliberate empty branch.
+   *
+   * R11.2 R1 supersedes this test's original `kind: "unknown" / "codex-unclassified"` assertion:
+   * that was R11's honest-but-useless state (Codex had no signals of its own yet, so every
+   * Codex file landed here regardless of content). This fixture genuinely contains a human
+   * message, so with Codex's own signals wired up it must now classify as `dialogue` and derive
+   * a real title from that message — not the `rollout-*.jsonl` filename. The "still kept, still
+   * carries source, still no guessed subagentPaths" parts of the original test remain intact.
    */
-  it("REGRESSION C1: a recognised Codex rollout is indexed with its source recorded, kind honestly unknown", async () => {
+  it("REGRESSION C1 / R11.2 R1: a recognised Codex rollout with a real user message is indexed as dialogue with a derived title", async () => {
     const codexRollout = [
       JSON.stringify({ timestamp: "2026-08-01T00:00:00Z", type: "session_meta", payload: { session_id: "cx-1", cwd: "/tmp/proj" } }),
       JSON.stringify({
@@ -252,7 +257,102 @@ describe("buildSessionIndex", () => {
     const { entries } = await buildSessionIndex(sourceOf([["proj/rollout-cx1.jsonl", codexRollout]]));
 
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ source: "codex", kind: "unknown", kindReason: "codex-unclassified", subagentPaths: [] });
+    expect(entries[0]).toMatchObject({
+      source: "codex",
+      kind: "dialogue",
+      kindReason: "has-human-prompt",
+      subagentPaths: [],
+      title: "幫我看一下這段程式碼",
+      titleSource: "derived",
+      humanPromptCount: 1,
+      assistantCount: 1,
+    });
+  });
+
+  /**
+   * R11.2 R1: the "rare, not extinct" half of the fix. A Codex file whose scanned window holds
+   * no `response_item/message` at all (only session bookkeeping and a tool call/result pair)
+   * genuinely has no signal to classify from — it must stay `codex-unclassified`, not be guessed
+   * into `machine` just because a naive human-turn count would read `0`.
+   */
+  it("R11.2 R1: a Codex file with no message records anywhere in the window stays codex-unclassified", async () => {
+    const toolOnlyRollout = [
+      JSON.stringify({ timestamp: "2026-08-01T00:00:00Z", type: "session_meta", payload: { session_id: "cx-2", cwd: "/tmp/proj" } }),
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:01Z",
+        type: "response_item",
+        payload: { type: "custom_tool_call", call_id: "call_1", name: "exec", input: "tools.apply_patch(...)" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:02Z",
+        type: "response_item",
+        payload: { type: "custom_tool_call_output", call_id: "call_1", output: [{ type: "input_text", text: "ok" }] },
+      }),
+    ].join("\n");
+
+    const { entries } = await buildSessionIndex(sourceOf([["proj/rollout-cx2.jsonl", toolOnlyRollout]]));
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      source: "codex",
+      kind: "unknown",
+      kindReason: "codex-unclassified",
+      titleSource: "filename",
+    });
+  });
+
+  /**
+   * R11.2 R1: the assistant spoke, but the file's scanned window shows no human-authored turn —
+   * an honest `machine`, distinguishable from the "no signal at all" case above because the
+   * conversational structure was actually observed.
+   */
+  it("R11.2 R1: a Codex file with assistant-only activity in the window is a machine run", async () => {
+    const machineOnlyRollout = [
+      JSON.stringify({ timestamp: "2026-08-01T00:00:00Z", type: "session_meta", payload: { session_id: "cx-3", cwd: "/tmp/proj" } }),
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:01Z",
+        type: "response_item",
+        payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: "自動排程任務開始" }] },
+      }),
+    ].join("\n");
+
+    const { entries } = await buildSessionIndex(sourceOf([["proj/rollout-cx3.jsonl", machineOnlyRollout]]));
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ source: "codex", kind: "machine", kindReason: "no-human-prompt" });
+  });
+
+  /**
+   * R11.2 R1: the Codex auto-review sub-agent transcribes prior history wearing a `role: "user"`
+   * envelope (see `isAutoReviewDump` in `codexJsonl.ts`). That must not count as a human turn or
+   * become the derived title — it is a machine-generated retrospective dump, not something a
+   * person typed.
+   */
+  it("R11.2 R1: an auto-review history dump does not count as a human turn or become the title", async () => {
+    const autoReviewRollout = [
+      JSON.stringify({ timestamp: "2026-08-01T00:00:00Z", type: "session_meta", payload: { session_id: "cx-4", cwd: "/tmp/proj" } }),
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:01Z",
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "The following is the Codex agent history for auto-review purposes: ...(轉述省略)" }],
+        },
+      }),
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:02Z",
+        type: "response_item",
+        payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: '{"outcome":"allow"}' }] },
+      }),
+    ].join("\n");
+
+    const { entries } = await buildSessionIndex(sourceOf([["proj/rollout-cx4.jsonl", autoReviewRollout]]));
+
+    expect(entries).toHaveLength(1);
+    // 沒有真人回合可數（唯一一則 user 訊息是轉述），但 assistant 訊息證明視窗內確實看到過
+    // 對話結構，所以是「機器任務」而不是「無法判定」。
+    expect(entries[0]).toMatchObject({ source: "codex", kind: "machine", kindReason: "no-human-prompt", titleSource: "filename" });
   });
 
   /**

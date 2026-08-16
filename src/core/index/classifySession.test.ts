@@ -7,6 +7,10 @@ const base: ClassificationInput = {
   allSidechain: false,
   humanTurnCount: 3,
   syntheticPromptCount: 0,
+  // These two are Codex-only signals; a Claude Code fixture never uses them, so they default
+  // to "no signal" here and get overridden explicitly in the Codex-specific tests below.
+  codexHumanTurnCount: 0,
+  codexSignalUsable: false,
   headScanUsable: true,
   source: "claude-code",
 };
@@ -24,16 +28,39 @@ describe("classifySession — one case per rule, in order", () => {
   });
 
   /**
-   * R11 WC-1.2: a recognised non-Claude-Code source (e.g. Codex) must not fall through into the
-   * Claude-Code-shaped signal rules below (hasAgentId / allSidechain / humanTurnCount) — those
-   * read Claude Code's top-level field names and would misread a Codex envelope as "no subagent,
-   * no human message" by construction, not by actual absence. `source` truthy but not
-   * `"claude-code"` must short-circuit to the honest "codex-unclassified" before rule 4 even
-   * looks at hasAgentId/allSidechain, which is why they are deliberately set truthy here.
+   * R11 WC-1.2, still true after R11.2 R1: a Codex file must never be classified via the
+   * Claude-Code-shaped signal rules (hasAgentId / allSidechain / humanTurnCount) — those read
+   * Claude Code's top-level field names and would misread a Codex envelope as "no subagent, no
+   * human message" by construction, not by actual absence. They are deliberately set truthy /
+   * nonzero here to prove the Codex branch ignores them entirely and looks at
+   * `codexSignalUsable` / `codexHumanTurnCount` instead.
    */
-  it("a recognised non-Claude-Code source classifies as codex-unclassified, never guessed via Claude-Code-shaped signals", () => {
-    expect(classifySession({ ...base, source: "codex", hasAgentId: true, allSidechain: true, humanTurnCount: 0 }))
-      .toEqual({ kind: "unknown", reason: "codex-unclassified" });
+  it("a Codex file with no usable Codex-side signal is codex-unclassified, never guessed via Claude-Code-shaped signals", () => {
+    expect(classifySession({
+      ...base,
+      source: "codex",
+      hasAgentId: true,
+      allSidechain: true,
+      humanTurnCount: 0,
+      codexSignalUsable: false,
+      codexHumanTurnCount: 0,
+    })).toEqual({ kind: "unknown", reason: "codex-unclassified" });
+  });
+
+  /**
+   * R11.2 R1: this is the actual bug this round fixes — before it, EVERY Codex file landed here
+   * regardless of `codexSignalUsable`/`codexHumanTurnCount`, because those fields did not exist
+   * yet and rule 3.5 short-circuited unconditionally. Now the window genuinely saw a Codex
+   * message but zero of them were from a human — an honest "machine", not "undetermined".
+   */
+  it("a Codex file with conversational signal but zero human turns is a machine run", () => {
+    expect(classifySession({ ...base, source: "codex", codexSignalUsable: true, codexHumanTurnCount: 0 }))
+      .toEqual({ kind: "machine", reason: "no-human-prompt" });
+  });
+
+  it("a Codex file with at least one real human turn is a dialogue", () => {
+    expect(classifySession({ ...base, source: "codex", codexSignalUsable: true, codexHumanTurnCount: 1 }))
+      .toEqual({ kind: "dialogue", reason: "has-human-prompt" });
   });
 
   it("a subagents/ path is a subagent transcript", () => {
@@ -99,6 +126,8 @@ describe("classifySession — one case per rule, in order", () => {
       allSidechain: false,
       humanTurnCount: 8,
       syntheticPromptCount: 0,
+      codexHumanTurnCount: 0,
+      codexSignalUsable: false,
       headScanUsable: true,
       source: "claude-code",
     })).toEqual({ kind: "dialogue", reason: "has-human-prompt" });

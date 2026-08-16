@@ -13,6 +13,9 @@
  * `SessionIndex.diagnostics` 這條使用者看得到的通道，不是 console 的 fallback 通道 (R9.1 RC-B)。
  */
 import { detectAdapter } from "@/core/adapters";
+// R11.2 R1: reuse the adapter's own Codex text-flattening and auto-review-dump detection instead
+// of writing a second copy here that would drift from the parser's actual behaviour.
+import { flattenTextBlocks as flattenCodexTextBlocks, isAutoReviewDump as isCodexAutoReviewDump } from "@/core/adapters/codexJsonl";
 import type { Diagnostic } from "@/core/diagnostics/contracts";
 import { stripInjectedPreamble } from "@/core/text/preamble";
 import type { SourceId } from "@/types/spanTree";
@@ -43,6 +46,14 @@ interface ScanStats {
   firstHumanText: string | null;
   firstTimestamp: string | null;
   lastTimestamp: string | null;
+  /**
+   * R11.2 R1: this counter is shared between the two envelope shapes — `absorb()` only ever
+   * matches ONE of them per record (`record.type === "user"` for Claude Code vs
+   * `record.type === "response_item"` with `payload.role === "user"` for Codex), so a single
+   * file's lines can never feed both readings at once. `classifySession` still receives it under
+   * two separate field names (`humanTurnCount` / `codexHumanTurnCount`) so which rule set consumed
+   * it stays visible in the type, even though the underlying number is this one counter.
+   */
   humanTurnCount: number;
   syntheticPromptCount: number;
   assistantCount: number;
@@ -50,6 +61,13 @@ interface ScanStats {
   hasAgentId: boolean;
   sidechainCount: number;
   recordCount: number;
+  /**
+   * R11.2 R1: did the scanned window contain at least one Codex `response_item/message` with
+   * `role` `"user"` or `"assistant"`? Deliberately excludes the `"developer"` system-prompt
+   * envelope, which is present in almost every rollout — counting it would make this flag true
+   * unconditionally and defeat its purpose (see `ClassificationInput.codexSignalUsable`).
+   */
+  codexMessageSeen: boolean;
 }
 
 function emptyStats(): ScanStats {
@@ -68,6 +86,7 @@ function emptyStats(): ScanStats {
     hasAgentId: false,
     sidechainCount: 0,
     recordCount: 0,
+    codexMessageSeen: false,
   };
 }
 
@@ -131,6 +150,29 @@ function absorb(stats: ScanStats, record: Record<string, unknown>): void {
       if (!turn.text) break;
       if (isSyntheticPrompt(turn.text)) stats.syntheticPromptCount += 1;
       else if (!stats.firstHumanText) stats.firstHumanText = turn.text;
+      break;
+    }
+    // R11.2 R1: Codex's own envelope — the real role/content live nested in `payload`, not at
+    // the top level, so this cannot reuse the Claude-Code `"user"`/`"assistant"` cases above.
+    case "response_item": {
+      const payload = record.payload as { type?: unknown; role?: unknown; content?: unknown } | undefined;
+      if (!payload || payload.type !== "message") break;
+      const role = payload.role;
+      if (role === "developer") break; // 系統提示注入，非對話內容，跟 codexJsonl.ts 的排除一致。
+      if (role === "assistant") {
+        stats.assistantCount += 1;
+        stats.codexMessageSeen = true;
+        break;
+      }
+      if (role !== "user") break;
+      stats.codexMessageSeen = true;
+      const flattened = flattenCodexTextBlocks(payload.content);
+      // Auto-review 審查子代理轉述的歷史掛的也是 role:"user" 信封，但不是真人打的字——
+      // 不能算真人回合，也不能拿來當標題來源，否則標題會變成一整份機器轉述的歷史。
+      if (isCodexAutoReviewDump(flattened)) break;
+      stats.humanTurnCount += 1;
+      const text = stripInjectedPreamble(flattened).trim();
+      if (text && !stats.firstHumanText) stats.firstHumanText = text;
       break;
     }
     default:
@@ -329,6 +371,12 @@ export async function buildSessionIndex(
       allSidechain: stats.recordCount > 0 && stats.sidechainCount === stats.recordCount,
       humanTurnCount: stats.humanTurnCount,
       syntheticPromptCount: stats.syntheticPromptCount,
+      // R11.2 R1: `stats.humanTurnCount` is the same underlying counter for both envelope
+      // shapes (see the field's own doc comment) — `absorb()` guarantees only one shape's
+      // branch ever increments it per file, so handing it to both names here is not a
+      // shortcut, it is what "this file's own count, read through its own shape" already is.
+      codexHumanTurnCount: stats.humanTurnCount,
+      codexSignalUsable: stats.codexMessageSeen,
       headScanUsable,
       source,
     });

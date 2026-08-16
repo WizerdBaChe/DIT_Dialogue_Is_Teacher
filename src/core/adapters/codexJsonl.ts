@@ -53,7 +53,11 @@ function asStringOrUndefined(value: unknown): string | undefined {
 /** Codex auto-review 審查子代理轉述先前歷史的固定開頭（首輪／增量輪共用前綴）。 */
 const AUTO_REVIEW_DUMP_PREFIX = "The following is the Codex agent history";
 
-function isAutoReviewDump(text: string): boolean {
+/**
+ * R11.2 R1：匯出給 `sessionIndexer.ts`。這段轉述文字掛的是 `role: "user"` 信封，但不是真人打的字
+ * ——分類與標題來源都不能把它當成真人回合，否則「第一則真人訊息」會變成一整份機器轉述的歷史。
+ */
+export function isAutoReviewDump(text: string): boolean {
   return text.trim().startsWith(AUTO_REVIEW_DUMP_PREFIX);
 }
 
@@ -103,8 +107,13 @@ interface CodexRecord {
   payload?: CodexPayload;
 }
 
-/** 把 Codex 的 `input_text` 區塊陣列攤平成純文字（跟 Claude Code 的 flattenResultContent 同類但格式不同）。 */
-function flattenTextBlocks(content: unknown): string {
+/**
+ * 把 Codex 的 `input_text` 區塊陣列攤平成純文字（跟 Claude Code 的 flattenResultContent 同類但格式不同）。
+ *
+ * R11.2 R1：匯出給 `sessionIndexer.ts` 重用，讓表頭掃描讀 Codex 的 `response_item/message.content`
+ * 時跟這支 adapter 用同一份攤平邏輯——不要另外寫一份會慢慢長歪的複本。
+ */
+export function flattenTextBlocks(content: unknown): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content

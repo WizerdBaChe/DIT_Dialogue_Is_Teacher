@@ -173,9 +173,9 @@ const zhTW = {
       "has-human-prompt": "有真人輸入的訊息",
       "insufficient-signal": "訊號不足以判定",
       "not-claude-code": "不是任何已知格式",
-      // R11 WC-1.2：認得出來源（例如 Codex），但分類訊號讀的是 Claude Code 的欄位名，
-      // 對這份檔案必定讀不到——誠實回答「無法判定」，不套用那些規則硬猜。
-      "codex-unclassified": "認得出來源，但目前的分類規則是 Claude Code 專用，無法細分",
+      // R11.2 R1：Codex 已經有自己的分類訊號了，這一格現在只在「掃描視窗內完全沒看到任何
+      // 對話紀錄」時才會出現（例如整段都是工具呼叫），是少數例外，不是每一份 Codex 都會這樣。
+      "codex-unclassified": "認得出來源，但這段掃描到的內容沒有可用的分類訊號",
     },
     titleSources: {
       custom: "你自己設定的標題",
@@ -827,10 +827,10 @@ const en: Messages = {
       "has-human-prompt": "Contains messages a person typed",
       "insufficient-signal": "Not enough signal to decide",
       "not-claude-code": "Not a recognized transcript format",
-      // R11 WC-1.2: a source was identified (e.g. Codex), but the classification signals read
-      // Claude Code's own field names, which this file will never have. Honestly "undetermined"
-      // instead of guessing via rules built for a different envelope shape.
-      "codex-unclassified": "Source recognized, but the classification rules are Claude-Code-specific and cannot sub-classify it",
+      // R11.2 R1: Codex now has its own classification signals. This code only surfaces when the
+      // scanned window contained no usable conversational record at all (e.g. tool calls only) —
+      // a rare exception, not the default outcome for a Codex file anymore.
+      "codex-unclassified": "Source recognized, but nothing in the scanned window gave a usable classification signal",
     },
     titleSources: {
       custom: "Title you set yourself",
