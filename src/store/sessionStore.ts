@@ -393,6 +393,19 @@ function publishPipelineResult({ doc, diagnostics }: PipelineResult, sessionOrig
 let activeDirectorySource: DirectorySource | null = null;
 
 /**
+ * DSM-4 · R11.2 C6：挑選/索引是跨多個 await 的非同步流程（`buildSessionIndex` 逐檔掃描，
+ * 幾百個 session 掃完要一段時間），而 `closeBrowser()` 只把 `browseState` 寫回 `"closed"`，
+ * 從未取消背景中還在跑的那次索引。索引完成時它的 `.then`/`await` 續行毫無防備地把
+ * `browseState` 又寫回 `"indexing"`/`"indexed"`——`selectSurfaceWants()` 只認
+ * `browseState !== "closed"`，於是對話框在使用者關掉之後自己重新彈出，且因為索引其實已在
+ * 背景跑完，它重新出現時落在 `"indexed"`，看起來像是「沒有經過索引中的狀態」。
+ *
+ * 這個世代計數器讓每一次「使用者要求打開瀏覽器」的動作認領一個世代；`closeBrowser()` 遞增
+ * 它，使任何仍在飛行中的舊世代在恢復時發現自己已經過期，直接放棄寫入而不是覆蓋 `"closed"`。
+ */
+let browseGeneration = 0;
+
+/**
  * 上次挑選的目錄 handle，在模組載入時就先讀好 (R9.1 RC-A step 4)。
  *
  * `showDirectoryPicker()` 與 `requestPermission()` 都必須發生在使用者手勢裡。原本點擊路徑
@@ -414,12 +427,23 @@ function toIndexDiagnostic(error: unknown): Diagnostic {
 
 type SetState = (partial: Partial<SessionState>) => void;
 
-async function runIndex(set: SetState, source: DirectorySource): Promise<void> {
+/**
+ * `generation` must be the value `browseGeneration` held when the caller started this browse
+ * operation. Every `set()` that follows an `await` re-checks it against the live counter first —
+ * if the user closed the dialog (or started a fresh pick) while this indexing run was still in
+ * flight, `browseGeneration` has since moved on and this stale run must not write over `"closed"`.
+ */
+async function runIndex(set: SetState, source: DirectorySource, generation: number): Promise<void> {
   activeDirectorySource = source;
+  if (browseGeneration !== generation) return;
   set({ browseState: "indexing", browseDirectoryName: source.name, browseProgress: [0, 0], indexDiagnostics: [] });
   const index = await buildSessionIndex(source, {
-    onProgress: (done, total) => set({ browseProgress: [done, total] }),
+    onProgress: (done, total) => {
+      if (browseGeneration !== generation) return;
+      set({ browseProgress: [done, total] });
+    },
   });
+  if (browseGeneration !== generation) return;
   set({
     browseState: "indexed",
     browseProgress: null,
@@ -766,11 +790,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
    * 因此：**只有第一段可以產生取消**；拿到 handle 之後的任何失敗一律是 index_failed。
    */
   pickAndIndexDirectory: async () => {
+    // Claims a fresh generation for this browse attempt (R11.2 C6). Every `set()` beyond the
+    // first `await` below re-checks it, so a `closeBrowser()` (or a second pick) that lands
+    // while `pickDirectory()`/`runIndex()` is still pending stops this run from writing over it.
+    const generation = ++browseGeneration;
     set({ browseState: "picking" });
     let picked: Awaited<ReturnType<typeof pickDirectory>>;
     try {
       picked = await pickDirectory();
     } catch (error) {
+      if (browseGeneration !== generation) return;
       if (error instanceof DirectoryPickCancelledError) {
         set({ browseState: get().indexEntries.length > 0 ? "indexed" : "closed" });
         return;
@@ -778,16 +807,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
       return;
     }
+    if (browseGeneration !== generation) return;
     cachedDirectoryHandle = picked.handle;
     // 記不住目錄不該擋住索引，但也不該無人知曉：診斷在索引完成後併進清單 (RC-A step 5)。
     const persisted = saveDirectoryHandle(picked.handle);
     try {
-      await runIndex(set, picked.source);
+      await runIndex(set, picked.source, generation);
     } catch (error) {
+      if (browseGeneration !== generation) return;
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
       return;
     }
     const storeNotice = await persisted;
+    if (browseGeneration !== generation) return;
     if (storeNotice) set({ indexDiagnostics: [...get().indexDiagnostics, storeNotice] });
   },
 
@@ -795,14 +827,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // WebKit fallback (no File System Access API): symmetric with pickAndIndexDirectory's
     // try/catch above `runIndex`. Without this, a throw here pinned the UI at "indexing"
     // forever — there is no picker step before this call to fail out of instead (R11 M3).
+    const generation = ++browseGeneration;
     try {
-      await runIndex(set, directorySourceFromFileList(files, name));
+      await runIndex(set, directorySourceFromFileList(files, name), generation);
     } catch (error) {
+      if (browseGeneration !== generation) return;
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
     }
   },
 
   resumeLastDirectory: async () => {
+    const generation = ++browseGeneration;
     if (!isDirectoryPickerSupported()) {
       // 後備路徑沒有持久化能力，只能請使用者重選。
       // R11 M3 finding: this used to set browseState "closed", but selectSurfaceWants()
@@ -828,6 +863,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       // 權限可能已被撤回，這裡會在使用者手勢內重新要一次。
       source = await restoreDirectorySource(stored as Parameters<typeof restoreDirectorySource>[0]);
     } catch (error) {
+      if (browseGeneration !== generation) return;
       if (error instanceof DirectoryPermissionError) {
         cachedDirectoryHandle = null;
         void clearDirectoryHandle();
@@ -837,15 +873,22 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
       return;
     }
+    if (browseGeneration !== generation) return;
     // 授權之後的失敗與「權限沒拿到」是兩件事，不共用一個 catch (RC-A)。
     try {
-      await runIndex(set, source);
+      await runIndex(set, source, generation);
     } catch (error) {
+      if (browseGeneration !== generation) return;
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
     }
   },
 
-  closeBrowser: () => set({ browseState: "closed", browseProgress: null }),
+  closeBrowser: () => {
+    // R11.2 C6: invalidate any in-flight browse generation so its eventual `set()` calls
+    // (see `runIndex`) recognize they're stale and stop short of reopening the dialog.
+    browseGeneration++;
+    set({ browseState: "closed", browseProgress: null });
+  },
 
   toggleBrowseFilter: (kind) => set((state) => ({
     browseFilter: { ...state.browseFilter, [kind]: !state.browseFilter[kind] },
@@ -857,6 +900,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const source = activeDirectorySource;
     if (!entry || !source) return;
 
+    // Same class as runIndex (R11.2 C6): the close button stays reachable while this is in
+    // flight ("loading" doesn't hide the dialog header). Capture the live generation so the
+    // `finally` below can tell whether `closeBrowser()` ran while we were awaiting.
+    const generation = browseGeneration;
     set({ browseState: "loading" });
     try {
       const files = await source.list();
@@ -871,7 +918,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ error: toFatalDiagnostic(error), parseNoticeAcknowledged: false });
     } finally {
       // 不論成敗都回到清單 (DSM-4)：失敗把使用者丟回空白畫面才是真正的死路。
-      set({ browseState: "indexed" });
+      // 但若使用者已經關閉瀏覽器，這件事的優先序反過來——不得覆寫 "closed"。
+      if (browseGeneration === generation) set({ browseState: "indexed" });
     }
   },
 

@@ -145,3 +145,40 @@ describe("WebKit fallback failure exit (R11 M3)", () => {
     expect(pickDirectoryMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * R11.2 C6 · reproduces the author's reported sequence: open the browser, start indexing a
+ * folder, close the dialog while indexing is still in flight, then let indexing finish in the
+ * background. Before the fix, `runIndex`'s post-`await` `set()` calls had no idea the user had
+ * closed the dialog in the meantime, so they overwrote `browseState: "closed"` with
+ * `"indexing"`/`"indexed"` once the scan resolved — the dialog reopened itself, and because
+ * indexing had genuinely finished by then, it reappeared already on `"indexed"` rather than
+ * showing the indexing animation, matching "沒有索引中的狀態（可能是其實已經跑完但動畫還沒）".
+ */
+describe("closing the dialog keeps it closed, even if indexing finishes afterwards (R11.2 C6)", () => {
+  it("does not reopen once a background index run resolves after close", async () => {
+    let resolveList!: (files: never[]) => void;
+    const listPromise = new Promise<never[]>((resolve) => { resolveList = resolve; });
+    directorySourceFromFileListMock.mockReturnValue({
+      kind: "webkitdirectory",
+      name: "projects",
+      list: () => listPromise,
+    } satisfies DirectorySource);
+
+    const indexing = useSessionStore.getState().indexFileList([] as never, "projects");
+
+    // Indexing is genuinely in flight: `runIndex` has already set "indexing" and is now
+    // awaiting `source.list()`, which we're holding open.
+    expect(useSessionStore.getState().browseState).toBe("indexing");
+
+    // The reported action: the user closes the dialog mid-indexing.
+    useSessionStore.getState().closeBrowser();
+    expect(useSessionStore.getState().browseState).toBe("closed");
+
+    // The background scan (which the user can't cancel) now completes.
+    resolveList([]);
+    await indexing;
+
+    expect(useSessionStore.getState().browseState).toBe("closed");
+  });
+});
