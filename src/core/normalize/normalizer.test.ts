@@ -104,3 +104,28 @@ describe("normalize — synthetic marker", () => {
     expect(doc.spans.every((span) => span.synthetic === undefined)).toBe(true);
   });
 });
+
+describe("normalize — tool_use with no resolvable name (R11.2 R2)", () => {
+  it("renders an explicit placeholder, never a raw identifier, when toolName is missing", () => {
+    const doc = normalize(parsed([
+      { kind: "tool_use", toolInput: { raw: "…" }, raw: {} },
+    ]));
+    expect(doc.spans[0].summary).toBe("未命名操作");
+    expect(doc.spans[0].tool?.name).toBe("未命名操作");
+  });
+
+  it("uses the same placeholder for the title (summary) and the tool badge (span.tool.name)", () => {
+    const doc = normalize(parsed([
+      { kind: "tool_use", raw: {} },
+    ]));
+    expect(doc.spans[0].summary).toBe(doc.spans[0].tool?.name);
+  });
+
+  it("still shows a real tool name normally", () => {
+    const doc = normalize(parsed([
+      { kind: "tool_use", toolName: "shell_command", toolInput: {}, raw: {} },
+    ]));
+    expect(doc.spans[0].summary).toBe("shell_command");
+    expect(doc.spans[0].tool?.name).toBe("shell_command");
+  });
+});

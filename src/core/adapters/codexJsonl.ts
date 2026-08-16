@@ -40,7 +40,27 @@ import type { SourceAdapter, ParseResult, RawEvent, RawEventKind } from "./types
 import { stripInjectedPreamble } from "@/core/text/preamble";
 
 /** `custom_tool_call.name` 恆為 "exec"；真實工具名藏在 input 的 `tools.<name>(...)` 呼叫裡。 */
-const EXEC_TOOL_NAME_RE = /tools\.([A-Za-z_][\w]*)\s*\(/;
+const EXEC_TOOL_NAME_RE = /tools\.([A-Za-z_][\w]*)\s*\(/g;
+
+/**
+ * R11.2 R2：`.exec()`（非 global）只取*第一個* `tools.<name>(` 出現位置，但 `input` 有時是整段
+ * JS 原始碼——真正的呼叫可能出現在字串字面值（例如組出一份 patch/文件內容）**之後**，而那段
+ * 內容本身又可能剛好包含 `tools.<name>(` 這個文字樣式（例如引用它作為範例，或討論這個規則本身）。
+ * 實測本機真實樣本：一筆 `mcp__node_repl__js` 呼叫的 input 在組一份「解釋這個 pairing 規則」的
+ * RCA 文件內容時，該文件正文引用了 `` `tools.foo(` `` 當反例，被舊版正則誤判為真正呼叫，抽出
+ * "foo"——而這筆記錄實際執行的呼叫是尾端的 `tools.apply_patch(patch)`。
+ *
+ * 修法不是「挑對的那個」（那需要真的懂 JS 語法才能分辨字串字面值和可執行敘述，等於是用猜的），
+ * 而是誠實面對「同一個 input 裡出現兩個不同的工具名」代表證據本身就不足以安全判定——這種情況跟
+ * 完全沒抽到一樣，都算未解析，不得挑一個當作正確答案（D-001 / R10.1 §P2：不得把猜測包裝成事實）。
+ * 只有當整份 input 裡「所有」`tools.<name>(` 出現都指向同一個名字時，才視為可信：同一個工具被
+ * 呼叫多次（例如連續兩次 `tools.shell_command(...)`）沒有這個問題，仍然正常解析。
+ */
+function resolveExecToolName(input: string): string | undefined {
+  const names = new Set<string>();
+  for (const match of input.matchAll(EXEC_TOOL_NAME_RE)) names.add(match[1]);
+  return names.size === 1 ? [...names][0] : undefined;
+}
 
 function isPairableExecToolName(name: string): boolean {
   return name === "apply_patch" || name === "web__run" || name.startsWith("mcp__");
@@ -354,13 +374,16 @@ export class CodexJsonlAccumulator {
       case "custom_tool_call": {
         const callId = payload?.call_id;
         const input = payload?.input;
-        const match = typeof input === "string" ? EXEC_TOOL_NAME_RE.exec(input) : null;
-        const toolName = match?.[1];
+        const toolName = typeof input === "string" ? resolveExecToolName(input) : undefined;
         if (!toolName) this.execToolNameUnresolved += 1;
         const event: RawEvent = {
           kind: "tool_use",
           timestamp,
-          toolName: toolName ?? "exec",
+          // R11.2 R2: leave undefined rather than falling back to the internal sentinel "exec" —
+          // that string used to leak straight into the card title/badge as if it were a real
+          // resolved name. The normalizer renders an honest "unnamed operation" placeholder for
+          // a missing toolName instead.
+          toolName,
           toolInput: { raw: input },
           toolUseId: typeof callId === "string" ? callId : undefined,
           raw: payload,
@@ -578,8 +601,8 @@ export class CodexJsonlAccumulator {
     // events have no recoverable candidate anywhere in the exported stream at all — that is a
     // limit of what Codex's export records, not a per-session fault, and no amount of pairing-
     // heuristic tuning closes it. Both are named capability limits: the card still renders
-    // (as "exec" / as a standalone event) with nothing lost. "info" is the existing tier for
-    // exactly this — "a known condition handled by policy... counted, not narrated" — so it is
+    // (as "unnamed operation" / as a standalone event) with nothing lost. "info" is the existing
+    // tier for exactly this — "a known condition handled by policy... counted, not narrated" — so it is
     // reused rather than adding a new one; see CODEX_COORDINATION_SKIPPED and
     // CODEX_AUTO_REVIEW_CONDENSED just below for the same pattern.
     if (this.execToolNameUnresolved > 0) {

@@ -164,7 +164,7 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     expect(result.diagnostics).toEqual([{ tier: "warn", code: "NO_EVENTS" }]);
   });
 
-  it("extracts the real exec tool name from the wrapped JS call, falling back to 'exec' with a warning", () => {
+  it("extracts the real exec tool name from the wrapped JS call, leaving toolName unset (not a raw sentinel) when it can't", () => {
     const raw = [
       line("response_item", { type: "custom_tool_call", call_id: "call_1", name: "exec", input: "tools.update_plan({plan:[]}); text(r)" }),
       line("response_item", { type: "custom_tool_call", call_id: "call_2", name: "exec", input: "not a tools.* call at all" }),
@@ -172,12 +172,56 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
 
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events[0]).toMatchObject({ toolName: "update_plan" });
-    expect(result.events[1]).toMatchObject({ toolName: "exec" });
+    // R11.2 R2: previously fell back to the literal "exec" sentinel, which leaked into the card
+    // title/badge as if it were a real resolved name. Left undefined instead — the normalizer
+    // renders the honest "unnamed operation" placeholder for a missing toolName.
+    expect(result.events[1].toolName).toBeUndefined();
     // R11 M4 WC-4.1 / P-001: a named capability limit ("the export doesn't let us tell"), not a
     // parse failure — downgraded from "warn" to "info" so it stops reading as "this session went
     // wrong" (RCA_R10.1: 93.9% of these have no recoverable candidate in the export at all).
     expect(result.diagnostics).toContainEqual(
-      expect.objectContaining({ tier: "info", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED" }),
+      expect.objectContaining({ tier: "info", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: 1 }),
+    );
+  });
+
+  it("does not guess between two different tool names found in the same input (R11.2 R2, real-sample finding)", () => {
+    // Real record shape (2026-08-15 local rollout): a `mcp__node_repl__js` call whose JS `input`
+    // built up a large string (writing a doc file) that itself quoted `tools.foo(` as a negative
+    // example — the OLD non-global regex grabbed that first, unrelated occurrence as if it were
+    // the real call, instead of the genuine `tools.apply_patch(...)` invocation at the tail.
+    // Reproduced structurally here without the real document content (privacy).
+    const raw = [
+      line("response_item", {
+        type: "custom_tool_call",
+        call_id: "call_1",
+        name: "exec",
+        input: "const doc = 'never treat the substring tools.foo( as a real call'; const r = await tools.apply_patch(doc);",
+      }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    // Two distinct names appear in the same input — neither is safe to assert as fact, so the
+    // card must say so honestly rather than pick either one.
+    expect(result.events[0].toolName).toBeUndefined();
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({ tier: "info", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: 1 }),
+    );
+  });
+
+  it("still resolves when the same tool name repeats in one input (no false ambiguity)", () => {
+    const raw = [
+      line("response_item", {
+        type: "custom_tool_call",
+        call_id: "call_1",
+        name: "exec",
+        input: "const a = await tools.shell_command({command:'a'}); const b = await tools.shell_command({command:'b'});",
+      }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events[0]).toMatchObject({ toolName: "shell_command" });
+    expect(result.diagnostics).not.toContainEqual(
+      expect.objectContaining({ code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED" }),
     );
   });
 

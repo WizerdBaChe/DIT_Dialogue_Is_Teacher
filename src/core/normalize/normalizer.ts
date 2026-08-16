@@ -30,6 +30,16 @@ function firstLine(text: string, max = 90): string {
   return line.length > max ? line.slice(0, max) + "…" : line;
 }
 
+/**
+ * R11.2 R2：`tool_use` 事件沒有可用工具名時的誠實佔位字——這裡是唯一的來源，`span.summary`
+ * (卡片標題文字) 與 `span.tool.name` (badge) 都讀這個常數，避免兩處各自掉回不同的英文字
+ * （曾經一個掉回 "tool"、另一個掉回 "unknown"）。不透過 i18n locales：這是來源無關的合成
+ * 系統標記，跟同檔案 `finalizeMeta` 的 "未命名 session" 是同一種東西，不是可切換語言的 UI
+ * chrome（本檔其他 adapter 的合成標記文字，如 codexJsonl.ts 的「找不到對應的呼叫」，都是同一
+ * 慣例）。絕不能拿任何猜測出來的名字取代它——那正是這張卡要修的漏洞。
+ */
+const UNNAMED_TOOL_NAME = "未命名操作";
+
 /** 從工具參數挑出最具代表性的一個，組成可讀摘要。 */
 function summarizeTool(name: string, params: Record<string, unknown>): string {
   const key = ["file_path", "filePath", "path", "command", "pattern", "query", "url", "notebook_path"].find(
@@ -46,7 +56,7 @@ function summarizeTool(name: string, params: Record<string, unknown>): string {
 function summarize(ev: RawEvent): string {
   switch (ev.kind) {
     case "tool_use":
-      return summarizeTool(ev.toolName ?? "tool", ev.toolInput ?? {});
+      return ev.toolName ? summarizeTool(ev.toolName, ev.toolInput ?? {}) : UNNAMED_TOOL_NAME;
     case "tool_result": {
       const lineCount = (ev.text ?? "").split("\n").length;
       return ev.isError ? "工具錯誤" : `結果 (${lineCount} 行)`;
@@ -153,8 +163,12 @@ export function normalize(parsed: ParseResult): SessionDocument {
     if (ev.kind === "unknown") span.synthetic = true;
 
     if (ev.kind === "tool_use") {
-      if (!ev.toolName) reportFallback("normalizer/toolName", "tool-use-without-name", { spanId: id });
-      span.tool = { name: ev.toolName ?? "unknown", params: ev.toolInput ?? {} };
+      // R11.2 R2: a missing tool name is a *named* degradation, not a silent one — the reader
+      // already sees it (this same UNNAMED_TOOL_NAME feeds both the card title and the tool
+      // badge below), and the adapter that produced it already counts the condition in its own
+      // Diagnostic aggregate (e.g. Codex's CODEX_EXEC_TOOL_NAME_UNRESOLVED). reportFallback is
+      // reserved for a substitution the user cannot observe, so it does not belong here.
+      span.tool = { name: ev.toolName ?? UNNAMED_TOOL_NAME, params: ev.toolInput ?? {} };
       if (ev.toolUseId) toolUseSpanByUseId.set(ev.toolUseId, id);
     }
     if (ev.kind === "tool_result") {
