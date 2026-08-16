@@ -422,3 +422,44 @@
 - M1..M9 are specced but undispatched. Guaranteed core is M1+M2+M3 (the three release blockers); everything after is cut back-to-front if budget runs short, and anything cut must reappear by number in the next OUTSTANDING sheet.
 - Three deferred rulings need real output before they can be answered: R11-Q1 (is a git commit SHA sensitive — decide after seeing M7's output), R11-Q2 (should Codex and Claude Code sessions interleave in the picker), R11-Q3 (does M5's root cause land in R11 or R12).
 - Phase 13's note that the R10.1 RCA was untracked is stale — it was committed as f9dda37.
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 15 – R11 construction complete, manual acceptance run, round NOT accepted
+- Status: in-progress (construction done; acceptance failed, repairs untriaged)
+- Date: 2026-08-16
+- Transcript: d7f966a5-0c07-4e23-aad0-0c89fa63a8c8.jsonl — archived: yes (daily mirror OK 2026-08-16 13:00)
+
+## Goals
+- Execute the seven R11 work cards specced in Phase 14, dispatching subagents and committing each card as its own semantic commit.
+- Close the three deferred rulings once real output existed.
+- Produce a manual acceptance card and get the author through it.
+
+## Decisions
+- Author ruling R11-Q1 (D-009): commit hashes stay inside the high-entropy rule — a hash is not readily reversible without its context and path, and the rule is default-off anyway.
+- Author ruling R11-Q3 (D-011): the Codex skeleton fix goes to R12; R11 stays a presentation-fix round.
+- Author ruling (D-010): WC-4.3 moves to R12 — its "escalate only when ambiguous" clause needs P1 candidate data this round excludes, so the dispatch that omitted it could not have done it correctly anyway.
+- Author ruling (D-012): S-03 promoted into R11 — a consent mechanism that has never functioned should not cross the merge gate.
+- Author ruling R11-Q2: the picker interleaves Codex and Claude Code by time; the current behaviour is what the author wants. Recorded as D-013.
+- Author ruling: the two SECREVIEW suggestions (inert high-entropy checkbox, snapshot export carrying no redaction or disclosure) are recorded as documented exclusions rather than fixed. Recorded as D-014.
+- Author ruling: external free models are withdrawn as the executor after the session limit was exhausted by dispatching six agents at once; cap is two concurrent, and reports are analysed before the next batch. The opencode route was measured first (endpoint flaky, `--variant max` works) and abandoned mid-round at the author's instruction.
+- Dispatcher ruling: prevention of git access for dispatched agents was ATTEMPTED TWICE and FAILED — agent-level `bash: {"git *": "deny"}` loaded but never fired (a default `*/*: allow` rule precedes it), and a PATH shim never reached the agent's shell. Stopped at two attempts per the no-third-guess rule and switched to post-hoc detection: every card committed before the next dispatch, HEAD compared after each batch. No agent ever touched git.
+- M4's root cause was handed to it as evidence but it re-measured independently over 358 rollouts before acting — 5,885/5,889 non-empty `reasoning` summaries are byte-identical to the concatenation of preceding `agent_reasoning` fragments, zero orphans. The fix removes the second span at source rather than deduplicating at render.
+
+## Changes
+- src/core/index/{sessionIndexer,contracts,classifySession}.ts (+tests), src/components/SessionBrowserDialog.tsx: adapter verdict recomputed after the head window widens, THEN the Codex exclusion lifted; three-way rule (readable+unclaimed excluded / unreadable listed as undetermined / claimed kept with its source). New `codex-unclassified` reason. Commit d5ef020.
+- src/store/sessionStore.ts (+tests): snapshotMode guard inside loadPersistedConfig (one enforcement point for every caller); try/catch on indexFileList symmetric with the FSA path; resumeLastDirectory now opens the browser instead of closing it — the WebKit `<input>` fallback had no entry point at all and the old comment claiming otherwise was false. Commit 397d2ac.
+- src/core/adapters/codexJsonl.ts, src/i18n/diagnosticCopy.ts, src/types/spanTree.ts, src/core/source/profiles.ts (+tests): reasoning envelope no longer emits a span; 50,221 bracketed wrapper markers stripped in the one path they occur; unpaired-event diagnostics dropped to the existing info tier; compaction removed as an asserted cause; `paste` SourceId removed (D-008). Commit a5f8899.
+- src/core/privacy/**, src/core/export/**, src/components/ExportControls.tsx, src/i18n/locales.ts (+tests): high-entropy detector, default off, with the disclosure running in both states. Threshold 4.3 bits/char chosen from a sweep over 191,534 real message-text values; the decisive change was requiring the undivided run to reach 20 chars, which cut kebab-case false positives from 274,685 to 582. Commit acce089.
+- src/components/{StructureLegend,SessionMapDialog}.tsx, src/styles/index.css, src/i18n/locales.ts: legends became always-visible with hover/focus/screen-reader tooltips; new spanKindDefinition copy. Two defects fixed on review that no test could see — `<p>` nested inside `<button>` and inside `<p>`, and a descendant selector that could never match the map legend's sibling bubble. Commit 0941ee3.
+- src/core/privacy/redact.ts, src/store/sessionStore.ts (+tests): disclosure counted by containment instead of overlap (a half-redacted high-entropy string was silently dropped from the "not redacted" count); consent scope now reuses the string the review opened with instead of rebuilding it in a second format. Commit 3cbde1f.
+- docs/rounds/r11-release-readiness/: RCA_R11_CODEX_SKELETON_COVERAGE.md (M5), REVIEW_R11_BLIND_SPOTS.md (M9), SECREVIEW_R11_M7_REDACTION.md, UAT_R11_v1.0.md. Commits ecb8146, e49564f, a93462b.
+- references/DIT-decisions.md: D-009..D-014; `## Now` rewritten.
+
+## Open Questions / TODO
+- **R11 IS NOT ACCEPTED.** The author ran UAT_R11_v1.0.md on 2026-08-16: 8 passed, 4 partial, 5 failed, 7 untestable. D-004's merge gate stays shut until the failures are triaged and repaired.
+- Failures needing a home: (a) tooltip is clipped/underlapped near the reading column — same root cause as the narrow-window case, and it is a stacking/overflow problem the DOM assertions could not see; (b) every Codex session classifies as "undetermined" and titles fall back to the rollout filename — a direct consequence of M1 making them visible without giving them a classifier or a title source; (c) Codex card titles show raw `exec_command` and an unexplained "操作 foo"; (d) there is no diagnostics surface in the UI at all, so M4's tier downgrade is unobservable and its acceptance item cannot be judged; (e) the high-entropy disclosure line was not found in a real export; (f) the group legend and the group label do not share an abstraction, so they can disagree — the author's point, and it is a design defect not a copy bug; (g) the browser dialog reopens itself after being closed, and one session was intermittently unreadable until a full reload.
+- Untestable items and why: no API key for any data-out provider (B11/B12), machine cannot be disconnected (C1), no session containing a real secret (C4). C1/C2 were additionally blocked by an error in the acceptance card itself — it said `npm run dev`, but snapshot export is deliberately disabled in dev mode; the card now carries an erratum pointing at `npm run build` + `npm run preview`.
+- A round id must be allocated BEFORE any repair work starts (CLAUDE.md). These are repairs, so they do not belong in the reserved `r11.1-text-rendering`. Recommend `r11.2-uat-repairs`; needs the author's confirmation.
+- Also surfaced, not yet ruled: the provider config fields give the user no guidance on what to enter (B11 remark), and image-bearing sessions are readable but carry no marker that an image was there (C7).
+- Deferred to R12 and still open: the ten remaining M9 findings, the three remaining SECREVIEW suggestions, RCA P1/P2/P3, and the src/ comment-language unification (ticket delivered outside the repo, measured at 1,308 lines across 65% of files).
