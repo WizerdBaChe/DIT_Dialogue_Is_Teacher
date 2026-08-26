@@ -63,10 +63,10 @@ export function SessionLoadActions({ labels = "header", className = "" }: Sessio
                * useful to a screen reader — it is how you know which folder to pick — so it
                * stays in the name rather than being hidden from assistive tech.
                */
-              aria-label={`${t.browser.sourceLabels[source]} — ${t.sourcePicker.rootHintLabel} ${profileFor(source).discovery.rootHint}`}
+              aria-label={`${profileFor(source).label} — ${t.sourcePicker.rootHintLabel} ${profileFor(source).discovery.rootHint}`}
               onClick={() => chooseSource(source)}
             >
-              <span className="source-choice-name">{t.browser.sourceLabels[source]}</span>
+              <span className="source-choice-name">{profileFor(source).label}</span>
               {/* 路徑提示唯一的定義處是側寫表，不是文案表——兩份會走鐘。 */}
               <span className="source-choice-root">
                 {t.sourcePicker.rootHintLabel} <code>{profileFor(source).discovery.rootHint}</code>
@@ -87,7 +87,7 @@ export function SessionLoadActions({ labels = "header", className = "" }: Sessio
         marker is what lets it count entries rather than children now that there is chrome.
       */}
       <button type="button" data-role="nav" className="btn source-back" title={t.sourcePicker.changeTitle} onClick={() => clearSource()}>
-        <span className="source-back-name">{t.browser.sourceLabels[activeSource]}</span>
+        <span className="source-back-name">{profileFor(activeSource).label}</span>
         <span className="source-back-action">{t.sourcePicker.change}</span>
       </button>
       {/*

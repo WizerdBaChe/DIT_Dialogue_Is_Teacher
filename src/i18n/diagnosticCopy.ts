@@ -97,7 +97,11 @@ const zhTW: CopyTable = {
     title: "需要重新授權資料夾",
     body: () => "瀏覽器已收回對上次選擇之資料夾的存取權限（重開瀏覽器或清除網站資料都會造成這個結果）。請重新選擇一次資料夾。",
   },
-  INDEX_EMPTY: { line: () => "這個目錄裡沒有找到 Claude Code 的 session 檔案。" },
+  // R12：挑了系統就講那個系統的名字。寫死「Claude Code」會對著 Codex 使用者講錯話。
+  INDEX_EMPTY: { line: (d) => (d.detail ? `這個目錄裡沒有找到 ${d.detail} 的 session 檔案。` : "這個目錄裡沒有找到 session 檔案。") },
+  INDEX_EMPTY_WRONG_SOURCE: {
+    line: (d) => `這個目錄裡有 ${n(d)} 個 .jsonl，但沒有一個是 ${d.detail} 的紀錄檔——很可能是選錯了 agent 系統。回上一層換一套再試。`,
+  },
   INDEX_DIRECTORY_UNREADABLE: {
     line: (d) => `這個資料夾讀不起來（${d.detail}）。`,
     title: "資料夾讀取失敗",
@@ -194,7 +198,10 @@ const en: CopyTable = {
     title: "The folder needs re-authorizing",
     body: () => "The browser revoked access to the folder you picked last time (restarting the browser or clearing site data does this). Please pick the folder again.",
   },
-  INDEX_EMPTY: { line: () => "No Claude Code session files were found in this directory." },
+  INDEX_EMPTY: { line: (d) => (d.detail ? `No ${d.detail} session files were found in this directory.` : "No session files were found in this directory.") },
+  INDEX_EMPTY_WRONG_SOURCE: {
+    line: (d) => `This directory holds ${n(d)} .jsonl file(s), but none of them is a ${d.detail} record — the wrong agent system was probably chosen. Go back and switch systems.`,
+  },
   INDEX_DIRECTORY_UNREADABLE: {
     line: (d) => `This folder could not be read (${d.detail}).`,
     title: "The folder could not be read",

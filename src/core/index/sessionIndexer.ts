@@ -500,7 +500,24 @@ export async function buildSessionIndex(
   if (titleFromFilename > 0) {
     diagnostics.push({ tier: "info", code: "INDEX_TITLE_FROM_FILENAME", count: titleFromFilename });
   }
-  if (entries.length === 0) diagnostics.push({ tier: "info", code: "INDEX_EMPTY" });
+  if (entries.length === 0) {
+    /*
+     * R12 · 複核發現：這句話原本寫死「沒有找到 Claude Code 的 session」，而 M2 之後選了
+     * Codex 的使用者也會走到這裡——等於對著 Codex 使用者講 Claude Code。挑了系統就把系統名
+     * 帶上，`detail` 取自側寫的 `label`（產品名，兩個語系相同），沒挑系統時維持原本的通用句。
+     *
+     * 同時把「資料夾裡有 .jsonl、但全被檔名擋掉」這個情況升級成可行動的訊息：那通常代表
+     * 選錯系統（例如選了 Codex 卻挑 `~/.claude/projects`），而 Codex 的檔名樣式會在內容判定
+     * 之前就全數排除，`INDEX_SOURCE_MISMATCH` 因此永遠碰不到——只留一條 info 說「檔名不符」
+     * 會讓使用者看著空清單卻沒有下一步。
+     */
+    const label = options.expectSource ? profileFor(options.expectSource).label : undefined;
+    diagnostics.push(
+      excludedByName > 0 && label
+        ? { tier: "warn", code: "INDEX_EMPTY_WRONG_SOURCE", count: excludedByName, detail: label }
+        : { tier: "info", code: "INDEX_EMPTY", detail: label },
+    );
+  }
 
   entries.sort((left, right) => (right.endedAt ?? "").localeCompare(left.endedAt ?? ""));
   return { entries, diagnostics };

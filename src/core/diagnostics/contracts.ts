@@ -104,6 +104,15 @@ export type DiagnosticCode =
    */
   | "INDEX_NOT_TRANSCRIPT"
   /**
+   * Nothing was indexed AND the folder does hold `.jsonl` files that this source's filename
+   * convention rejected — which almost always means the wrong agent system was chosen for this
+   * folder. It exists because `INDEX_SOURCE_MISMATCH` is structurally unreachable in that case:
+   * Codex's `rollout-*` pattern excludes every Claude Code file by name, so none of them ever
+   * reaches content detection. Without this the user sees an empty list plus an info note about
+   * filenames, and no next step. `detail` is the chosen source's label, `count` the rejected files.
+   */
+  | "INDEX_EMPTY_WRONG_SOURCE"
+  /**
    * A loaded file's actual harness differs from the one chosen at level 1. On the LOAD path
    * the content wins — the adapter has already read the file and re-reading a Codex rollout as
    * Claude Code would only grow a wrong tree — so this changes nothing and only says so.

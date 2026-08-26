@@ -77,6 +77,7 @@
 |---|---|---|---|
 | DW-15 | unassigned | `src/` 註解語言統一（量到 1,308 行、涵蓋 65% 檔案）。純 chore，不需要輪次，任何一輪都可以順手吃掉 | 工單存放在 repo 之外 |
 | DW-16 | unassigned | **T-008** 壓縮過的 session 靠 `logicalParentUuid` 串成一場對話。主題上最接近 R12 的探索半邊（哪些檔案屬於同一場 session），但**明確不在 R12 v0.1 的卡片集內——這行不是承諾** | `references/DIT-tickets.md` T-008 |
+| DW-18 | unassigned | **Codex 索引條目的 `id` 是檔名，不是 session id。** `absorb()` 只讀 Claude 的 `record.sessionId`；Codex 自報在 `session_meta.payload.id`，沒人去看，於是「沒去看」被記成「沒有」。M5 的 sidecar join 用的正是那把鑰匙，所以**若 M5 照降級順序被砍，這一項不會跟著消失**——它同時是 Codex session 在索引層的身分基準 | R12 M3 施工時量到；`sessionIndexer.ts` `pickTitle` 上方的 `stats.sessionId ?? baseName(...)` |
 | DW-17 | unassigned | M9 的 Consider 級 spot-check 殘留：C-01／F-13（註解宣稱用 uuid 去重、實作用 200 字元前綴）、C-05（`activePreset` 無 allow-list，壞值靜默 no-op）、C-06（`resetToSample` 未清 `snapshotMode`）、C-07（無可重現的相依套件 audit gate）、S-07（死 CSS）、S-13（殘留文件對齊） | REVIEW §4、§5 第 7–8 項 |
 
 ## 收工條件 (how an item leaves this table)
