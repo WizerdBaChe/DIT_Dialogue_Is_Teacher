@@ -150,7 +150,9 @@ function main() {
 
   // P2 — no id allocated twice, no directory claimed twice.
   for (const d of duplicates) {
-    problems.push(`${REGISTRY}:${d.line} R${d.id} is allocated twice (first at line ${d.first})`);
+    // `d.id` already carries its prefix (the row regex captures `R12` or `2026-09-slug` whole),
+    // so the extra `R` here printed `RR1 is allocated twice`. Display only — detection was right.
+    problems.push(`${REGISTRY}:${d.line} ${d.id} is allocated twice (first at line ${d.first})`);
   }
   const byDir = new Map();
   for (const [id, { dir, line }] of rows) {

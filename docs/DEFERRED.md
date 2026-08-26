@@ -78,6 +78,9 @@
 | DW-15 | unassigned | `src/` 註解語言統一（量到 1,308 行、涵蓋 65% 檔案）。純 chore，不需要輪次，任何一輪都可以順手吃掉 | 工單存放在 repo 之外 |
 | DW-16 | unassigned | **T-008** 壓縮過的 session 靠 `logicalParentUuid` 串成一場對話。主題上最接近 R12 的探索半邊（哪些檔案屬於同一場 session），但**明確不在 R12 v0.1 的卡片集內——這行不是承諾** | `references/DIT-tickets.md` T-008 |
 | DW-18 | R12 | ~~**Codex 索引條目的 `id` 是檔名，不是 session id。**~~ **DONE 2026-08-26（R12 M5）**：`absorb()` 加讀 `session_meta.payload.id`；實測 358 筆全部拿到真正的 session id，退回檔名的 0 筆。原文如下 `absorb()` 只讀 Claude 的 `record.sessionId`；Codex 自報在 `session_meta.payload.id`，沒人去看，於是「沒去看」被記成「沒有」。M5 的 sidecar join 用的正是那把鑰匙，所以**若 M5 照降級順序被砍，這一項不會跟著消失**——它同時是 Codex session 在索引層的身分基準 | R12 M3 施工時量到；`sessionIndexer.ts` `pickTitle` 上方的 `stats.sessionId ?? baseName(...)` |
+| DW-19 | unassigned | **`src/core/index/directorySource.ts` 零測試。** 這是 File System Access 的核心（`pickDirectory`／`restoreDirectorySource`／遞迴 `walk`／webkitdirectory 後備），而且守著一個這個 repo **真的踩過**的不變式——R9.1 RC-A：「使用者取消」與「拿到權限之後才失敗」不得混為一談，混了會讓索引失敗偽裝成使用者不想選。目前只靠 try/catch 的作用範圍維持，沒有任何測試守著 | 證據稽核 2026-08-27，排序第一 |
+| DW-20 | unassigned | **`src/core/ingest/session.worker.ts` 零測試。** 裡面有逐檔隔離 (DSM-1) 與跨檔進度累加，是真邏輯不是轉發。對照組 `sessionLoader.ts` 用依賴注入做到 8 支測試涵蓋所有失敗模式，手法可以直接沿用（測試環境可 stub `self`） | 證據稽核 2026-08-27 |
+| DW-21 | unassigned | **M2 的「每來源位置記憶」缺端到端測試。** 持久層（`handleRepository.test.ts`）與 UI 層（`SessionLoadActions.test.tsx`）各自測了，串起兩者的 `sessionStore` orchestration（`cachedDirectoryHandles` 預抓取與依來源切換）沒有任何一支測試模擬卡片自己寫的驗收情境：選 A 套挑資料夾 → 選 B 套挑另一個 → 回到 A 套。這段 wiring 壞掉時兩層測試都會維持綠燈 | 證據稽核 2026-08-27 |
 | DW-17 | unassigned | M9 的 Consider 級 spot-check 殘留：C-01／F-13（註解宣稱用 uuid 去重、實作用 200 字元前綴）、C-05（`activePreset` 無 allow-list，壞值靜默 no-op）、C-06（`resetToSample` 未清 `snapshotMode`）、C-07（無可重現的相依套件 audit gate）、S-07（死 CSS）、S-13（殘留文件對齊） | REVIEW §4、§5 第 7–8 項 |
 
 ## 收工條件 (how an item leaves this table)
