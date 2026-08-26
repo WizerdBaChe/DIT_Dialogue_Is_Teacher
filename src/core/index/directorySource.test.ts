@@ -22,6 +22,7 @@ import {
   DirectoryPermissionError,
   DirectoryPickCancelledError,
   isDirectoryPickerSupported,
+  isImplausiblyFastCancel,
   pickDirectory,
   restoreDirectorySource,
 } from "./directorySource";
@@ -123,6 +124,49 @@ describe("pickDirectory · the ONLY place a cancellation may be born (R9.1 RC-A)
     await expect(pickDirectory()).rejects.toThrow(/File System Access API/);
     // Never a cancellation: nobody cancelled anything, the browser cannot do this at all.
     await expect(pickDirectory()).rejects.not.toBeInstanceOf(DirectoryPickCancelledError);
+  });
+});
+
+describe("DW-24 · a cancellation too fast to be human is announced, but still a cancellation", () => {
+  /*
+   * The in-app browser pane rejects `showDirectoryPicker()` immediately with
+   * `AbortError :: "The user aborted a request."` — it refuses to open the native dialog and
+   * reports it as the user's own cancellation. The API cannot tell the two apart, so BEHAVIOUR
+   * is unchanged (R9.1 RC-A still holds: the picker's AbortError is a cancellation, and a
+   * cancellation closes quietly). What changes is that it stops being silent to a bug report.
+   *
+   * The threshold gates a console line ONLY. It never vetoes, which is why a wrong value costs
+   * nothing — the real negative control (how long a human takes to cancel a real dialog) can
+   * only come from the author's acceptance run.
+   */
+  it("judges the elapsed time two-sided", () => {
+    expect(isImplausiblyFastCancel(3)).toBe(true);
+    expect(isImplausiblyFastCancel(199)).toBe(true);
+    expect(isImplausiblyFastCancel(200)).toBe(false);
+    expect(isImplausiblyFastCancel(1500)).toBe(false);
+    // A missing measurement must not be read as "instant" — that would warn on every cancel.
+    expect(isImplausiblyFastCancel(Number.NaN)).toBe(false);
+  });
+
+  it("warns on an instant refusal and still reports it as a cancellation", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    stubPicker(async () => { throw new DOMException("The user aborted a request.", "AbortError"); });
+
+    await expect(pickDirectory()).rejects.toBeInstanceOf(DirectoryPickCancelledError);
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0]?.[0])).toContain("cannot cancel that fast");
+    warn.mockRestore();
+  });
+
+  it("says nothing when the picker succeeds", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    stubPicker(async () => dirAt("projects", []));
+
+    await pickDirectory();
+
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
 
