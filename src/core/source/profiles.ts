@@ -98,6 +98,20 @@ export interface SourceDiscovery {
   };
   /** Empty means the source keeps everything inside the transcript. */
   sidecars: readonly SidecarSpec[];
+  /**
+   * How this source stores a session's subagent transcripts, or `null` when it has no such
+   * layout (R12 M7).
+   *
+   * "Which files belong to this session" is a property of the harness's directory convention,
+   * so it belongs here — it had been a `source === "claude-code" ? … : []` ternary in the
+   * indexer, which M1's third-source probe found failing SILENTLY: a new source would simply
+   * have got no subagents, with nothing to notice.
+   *
+   * `siblingDir` is the directory name that sits beside `<session>.jsonl`, as
+   * `<session>/<siblingDir>/`. Codex is `null`: its rollouts have no sibling directory at all,
+   * and guessing a prefix match would risk a coincidental false pairing for no benefit.
+   */
+  subagents: { siblingDir: string } | null;
   /** Rungs in order, best first. Every rung below the first is a named degradation. */
   titleLadder: readonly TitleSource[];
   classify: {
@@ -115,6 +129,7 @@ const CLAUDE_CODE_DISCOVERY: SourceDiscovery = {
   transcripts: { subdir: "", filePattern: /\.jsonl$/i },
   // Titles are records inside the transcript, so there is nothing to join.
   sidecars: [],
+  subagents: { siblingDir: "subagents" },
   titleLadder: ["custom", "ai", "derived", "filename"],
   classify: { signals: ["agent-id-field", "all-sidechain", "human-turn-count", "subagent-path"] },
 };
@@ -144,6 +159,8 @@ const CODEX_DISCOVERY: SourceDiscovery = {
       joinKey: ["session_meta", "payload", "id"],
     },
   ],
+  // Rollouts have no sibling directory; `parent_thread_id` relates threads, not files.
+  subagents: null,
   /*
    * No `custom`/`ai` rungs: measured over 542 `session_meta` records, Codex rollouts carry no
    * title field at all, and `thread_goal_updated.goal.objective` appears 10 times corpus-wide.

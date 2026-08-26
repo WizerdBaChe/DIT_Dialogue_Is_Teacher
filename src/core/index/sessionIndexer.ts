@@ -364,9 +364,12 @@ function pickTitle(
   return { title: baseName(path).replace(/\.jsonl$/i, ""), titleSource: "filename" };
 }
 
-/** `<dir>/<id>.jsonl` 的子代理在 `<dir>/<id>/subagents/`——是兄弟，不是子項 (RC-1b)。 */
-function subagentPrefixFor(path: string): string {
-  return `${path.replace(/\.jsonl$/i, "")}/subagents/`;
+/**
+ * `<dir>/<id>.jsonl` 的子代理在 `<dir>/<id>/<siblingDir>/`——是兄弟，不是子項 (RC-1b)。
+ * 目錄名由側寫給 (R12 M7)，不再寫死。
+ */
+function subagentPrefixFor(path: string, siblingDir: string): string {
+  return `${path.replace(/\.jsonl$/i, "")}/${siblingDir}/`;
 }
 
 function topLevelDir(path: string): string | null {
@@ -495,12 +498,18 @@ export async function buildSessionIndex(
     }
 
     /*
-     * `<dir>/<id>/subagents/` is a Claude Code layout convention; Codex rollouts have no such
-     * sibling directory. Only compute the pairing for a confirmed Claude Code file — guessing a
-     * prefix match for any other source risks a coincidental false pairing for zero benefit.
+     * R12 M7：子代理的檔案佈局是**來源的性質**，由側寫說了算。
+     *
+     * 這裡原本是 `source === "claude-code" ? … : []` 的三元式——M1 的第三來源探針量到它是
+     * 「安靜失敗」的一處：加一個新來源不會編譯失敗，只會拿到空陣列，而且沒有任何跡象。
+     * 現在讀 `discovery.subagents`，缺一列就編不過（那張表是 `Record<SourceId, …>`）。
+     *
+     * `null` 的意思仍然是「這個來源沒有這種佈局」，不是「還沒做」——Codex 的 rollout 根本
+     * 沒有兄弟目錄，拿前綴去猜只會換到巧合性的錯誤配對。
      */
-    const subagentPaths = source === "claude-code"
-      ? subagents.filter((candidate) => candidate.path.startsWith(subagentPrefixFor(file.path))).map((candidate) => candidate.path)
+    const layout = source ? profileFor(source).discovery.subagents : null;
+    const subagentPaths = layout
+      ? subagents.filter((candidate) => candidate.path.startsWith(subagentPrefixFor(file.path, layout.siblingDir))).map((candidate) => candidate.path)
       : [];
     const { title, titleSource } = pickTitle(stats, file.path, options.expectSource, sidecarTitles);
 

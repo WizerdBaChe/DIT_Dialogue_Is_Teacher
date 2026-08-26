@@ -528,12 +528,46 @@ table. What M7 still owes is the other half:
 - After that, `src/` outside `core/source/profiles.ts` and the per-source adapters must hold no
   `source === …` at all. That is the point at which INV-R12-1 stops being an aspiration.
 
+**BUILT 2026-08-26 — round complete.** `core/source/profiles.ts`, `core/index/sessionIndexer.ts`,
+`core/normalize/normalizer.ts`, plus `core/source/sourceKnowledge.test.ts` (new) and two test
+files extended.
+
+1. **`subagentPaths` moved into the profile** as `discovery.subagents`
+   (`{ siblingDir: "subagents" }` for Claude Code, `null` for Codex). It was the ternary M1's
+   probe found failing silently — a third source got `[]` with nothing to notice. A missing row
+   now fails to compile.
+
+2. **A silent `?? "claude-code"` was hiding in the normalizer.** `finalizeMeta` defaulted an
+   undetermined `source` to Claude Code without calling `reportFallback`, while the `id` default
+   directly beside it always has. CLAUDE.md's invariant had a hole in the one place it mattered
+   most: `source` selects the profile, and the profile drives denoise tool names, the title
+   ladder and attribution kinds — one wrong guess and the entire render path is wrong with
+   nothing visible to say so. It is unreachable today (both adapters set it), which is precisely
+   what F-01/F-02 said about the sync pipeline a week before it became reachable. Now audible,
+   with a test both ways.
+
+3. **INV-R12-1 restated as a property, and enforced across all of `src/`.** The old wording —
+   "no `if (source === …)` outside the profile" — names a syntax, the same mistake the view
+   gate's first regex made. Two things legitimately know a source: a module that IS per-source
+   (an adapter can only ever be its own harness), and an exhaustively guarded dispatch (adding a
+   `SourceId` fails to compile, which is the invariant's actual purpose). `sourceKnowledge.test.ts`
+   holds an allow-list with **a written reason per entry**, so a new file naming a source fails
+   until someone justifies it. Comments are exempt — explaining history is not branching on it.
+   Verified non-vacuous by inserting a literal into a non-listed file and watching it fire.
+
+The gate also refuses to let its own allow-list rot: an entry whose file no longer names a
+source fails, so the list cannot become permanent permission for code that has since been cleaned.
+
 ---
 
 ## 5　不變量 (invariants)
 
-- **INV-R12-1**：來源差異一律經由 `SourceProfile`。任何 `if (source === …)` 出現在 profile
-  以外的檔案都是缺陷，不是風格問題。這是 R10-B 教訓的資產化。
+- **INV-R12-1**（2026-08-26 M7 改寫成性質）：來源知識一律住在 `SourceProfile`。只有兩種例外
+  —— **本身就是單一來源的模組**（adapter 只可能是它自己那一套），以及**窮舉守衛過的分派**
+  （加一個 `SourceId` 會編譯失敗）。其餘任何檔案寫出來源 id 都是缺陷。
+  原本的寫法「任何 `if (source === …)` 都是缺陷」指的是一種**語法**而不是性質，漏掉 `switch`、
+  查表、以及本身合法的分派；改寫後由 `core/source/sourceKnowledge.test.ts` 逐檔強制，
+  允許清單的每一列都必須寫下理由。
 - **INV-R12-2**：探索可以分岔，檢視必須收斂。`src/components/` 下不得出現來源分支。
 - **INV-R12-3**：側車缺席、損毀、或對不上 id，一律降級到下一階並留下具名 diagnostic；
   絕不讓索引失敗，也絕不靜默假裝有標題。
