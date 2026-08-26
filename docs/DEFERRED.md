@@ -29,7 +29,7 @@
 | id | home | 項目 | 證據 |
 |---|---|---|---|
 | DW-01 | unassigned | **S-01／F-12** 一行前導壞行讓整份合法檔案變成 unrecognized，資料流上等同丟整檔 | REVIEW §S-01；`src/core/ingest/jsonlStream.ts:52,55,66-68` |
-| DW-02 | unassigned | **S-02** 同步 pipeline 沒有檔案級 parse isolation。**⚠️ 2026-08-26 暴露度上升，見下方註記** | REVIEW §S-02；`src/core/pipeline.ts:110` |
+| DW-02 | R12 | ~~**S-02** 同步 pipeline 沒有檔案級 parse isolation~~ **DONE 2026-08-26**，作者裁決選 A（就地補 try/catch）。見下方註記 | REVIEW §S-02；`src/core/pipeline.ts` |
 | DW-03 | unassigned | **S-04／F-05** raw exception、檔案路徑、provider response body 原文直接進使用者畫面 | REVIEW §S-04；`sessionStore.ts:397-420`、`diagnosticCopy.ts` |
 | DW-04 | unassigned | **S-05／F-06** `showModal` 的 catch 對真實瀏覽器錯誤也靜默降級成非模態，無 Diagnostic | REVIEW §S-05；`useBlockingSurface.ts:44-53` |
 | DW-05 | unassigned | **S-06／F-07** Settings focus restore 會在其他 blocking surface 活躍時搶走焦點 | REVIEW §S-06；`SettingsDialog.tsx:58-61` |
@@ -39,13 +39,20 @@
 | DW-09 | unassigned | **S-11** File System Access 上限的套用時機 | REVIEW §S-11 |
 | DW-10 | unassigned | **S-12／F-08** 三處 collapse 缺 keyboard／ARIA | REVIEW §S-12 |
 
-> **DW-02 的狀態在 2026-08-26 變了，不要照舊讀。** 複核當時判「程式仍存在、但 UI 全走
-> worker 所以踩不到」。R11.2 的 F-01／F-02 為了讓 worker 開機失敗能降級，**新增了一條從
-> 真實使用者載入通往同步路徑的路**（`sessionLoader.ts` 的 `defaultFallback`）。也就是說
-> 這筆欠債從休眠變成可觸發，而且它違反 CLAUDE.md 明寫的不變式——「一份讀不了的檔案不得
-> 讓整批失敗」。**這是修復本身抬高的風險，不是既有技術債的自然惡化**，所以它不該跟其他九
-> 項一起排隊等輪次。待作者裁示：就地補 try/catch（小，且是既有不變式的補齊），或明文接受
-> 這條降級路徑沒有檔案級隔離。
+> **DW-02 已完成 2026-08-26（作者裁決選 A）。** 複核當時判「程式仍存在、但 UI 全走 worker
+> 所以踩不到」。R11.2 的 F-01／F-02 為了讓 worker 開機失敗能降級，**新增了一條從真實使用者
+> 載入通往同步路徑的路**（`sessionLoader.ts` 的 `defaultFallback`），這筆欠債因此從休眠變成
+> 可觸發，而且違反 CLAUDE.md 明寫的不變式——「一份讀不了的檔案不得讓整批失敗」。**這是修復
+> 本身抬高的風險，不是既有技術債的自然惡化**，所以它沒有跟其他九項一起排隊等輪次。
+>
+> 實作比預期小：`parse_failed` 早就存在於 `ParsedFileOutcome`，批次層早就會處理
+> （`FILE_PARSE_FAILED`），worker 從 R9 就在產它；缺的只是同步路徑從來沒產出過。四個測試
+> 釘住：一個壞檔不牽連其他檔、原本會 throw 的回歸案例、**全部壞掉仍然是 fatal**（隔離不等於
+> 壓抑）、沒有檔案壞掉時行為零差異。
+>
+> 施工時發現一件比預期好的事：全滅時批次層報 `FILE_PARSE_FAILED` 而不是 `NO_MAIN_TRANSCRIPT`
+> ——它報真正發生的事（檔案解不開），不是它造成的後果（因此沒有主檔），後者會把使用者指向
+> 錯的方向。原本預期的是後者，測試因此改成前者：錯的是預期，不是程式。
 
 ### 來自 R11 M7 資安複核（`SECREVIEW_R11_M7_REDACTION.md`）
 

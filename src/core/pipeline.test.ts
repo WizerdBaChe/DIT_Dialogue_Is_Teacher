@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildSessionDocument,
   buildSessionDocumentFromFiles,
@@ -78,6 +78,68 @@ describe("buildSessionDocument (pipeline snapshot)", () => {
       { path: "main.jsonl", content: r4MainSession },
       { path: "subagents/agent-1.jsonl", content: r4SubagentSession },
     ])).not.toThrow();
+  });
+
+  /*
+   * R12 · DW-02 — the sync path gets the same per-file isolation the worker has had since R9.
+   *
+   * This is the regression case for the failure that made the fix worth doing: R11.2's F-01/F-02
+   * fallback opened a route from a real user load to this function, so a throw here stopped being
+   * unreachable. The repo invariant it restores is stated in CLAUDE.md — "one unreadable file in
+   * a batch must not fail the batch".
+   */
+  describe("per-file parse isolation (DW-02)", () => {
+    const throwOnMarked = (): void => {
+      const real = claudeCodeJsonlAdapter.parse.bind(claudeCodeJsonlAdapter);
+      vi.spyOn(claudeCodeJsonlAdapter, "parse").mockImplementation((content: string) => {
+        if (content.includes("EXPLODE")) throw new Error("adapter blew up");
+        return real(content);
+      });
+    };
+    afterEach(() => vi.restoreAllMocks());
+
+    it("keeps the good files when one throws, instead of failing the whole batch", () => {
+      throwOnMarked();
+      const { doc, diagnostics } = buildSessionDocumentFromFiles([
+        { path: "main.jsonl", content: r4MainSession },
+        { path: "subagents/boom.jsonl", content: `${r4SubagentSession}\nEXPLODE` },
+      ]);
+
+      expect(doc.spans.length).toBeGreaterThan(0);
+      const failed = diagnostics.find((d) => d.code === "FILE_PARSE_FAILED");
+      expect(failed).toMatchObject({ tier: "warn", count: 1 });
+      expect(failed?.detail).toContain("boom.jsonl");
+      expect(diagnostics.some((d) => d.tier === "fatal")).toBe(false);
+    });
+
+    it("REGRESSION: before DW-02 this threw and took the batch with it", () => {
+      throwOnMarked();
+      expect(() => buildSessionDocumentFromFiles([
+        { path: "main.jsonl", content: r4MainSession },
+        { path: "subagents/boom.jsonl", content: `${r4SubagentSession}\nEXPLODE` },
+      ])).not.toThrow();
+    });
+
+    it("still fails the batch when EVERY file throws — isolation is not suppression", () => {
+      /*
+       * 隔離的意思是「一個壞檔不牽連其他檔」，不是「壞了也當作沒事」。全滅仍必須是 fatal，
+       * 而且是 `FILE_PARSE_FAILED` 而非 `NO_MAIN_TRANSCRIPT`——批次層報的是真正發生的事
+       * （檔案解不開），不是它造成的後果（因此沒有主檔）。後者會把使用者指向錯的方向。
+       */
+      throwOnMarked();
+      expectFatal(
+        () => buildSessionDocumentFromFiles([{ path: "main.jsonl", content: `${r4MainSession}\nEXPLODE` }]),
+        "FILE_PARSE_FAILED",
+      );
+    });
+
+    it("does not change anything when no file throws", () => {
+      const { diagnostics } = buildSessionDocumentFromFiles([
+        { path: "main.jsonl", content: r4MainSession },
+        { path: "subagents/agent-1.jsonl", content: r4SubagentSession },
+      ]);
+      expect(diagnostics).toEqual([]);
+    });
   });
 });
 
