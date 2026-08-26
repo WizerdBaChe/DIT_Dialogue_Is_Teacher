@@ -17,6 +17,15 @@
 
 這不是修 B1，是把 B1 的**成因**拿掉。B1（標題全是雜訊）只是這個結構問題最顯眼的出口。
 
+**權重裁定（2026-08-26，追加）**：
+
+> 以我個人使用優先的話 Claude Code 適配到最高程度就很夠了，Codex 是順便。
+> 大多數沒定義好都是 session 本身的鍋。
+
+兩個來源**不對稱**。Claude Code 是主目標，要把它提供的 metadata 吃到滿；Codex 只要
+「結構上被正確對待、能用、標題有就有」即可。這條裁定重排了下面的施工順序：Claude 的深度
+適配（M4）排在 Codex 側車（M5）之前，而且 M5 明列為可延。
+
 ---
 
 ## 1　根因：同一個缺陷，第二次發生
@@ -126,11 +135,21 @@ existing entry points move under it unchanged.
   `detectAdapter`'s role as the PRIMARY mechanism. Detection stays as a **verification** step:
   if the picked source and the file's actual shape disagree, say so by name.
 
-**Files**: `src/components/SessionLoadActions.tsx`, `src/i18n/locales.ts`, `src/store/sessionStore.ts`.
-**Acceptance**: from a cold start, a folder pick cannot be reached without a source choice; the
-choice survives a reload the same way the directory handle does, or honestly does not (no
-pretending). A mismatch between the chosen source and the file content produces a named
-diagnostic, never a silent reinterpretation.
+**Per-source position memory (author ruling 2026-08-26).** Do not remember "the last folder".
+Remember one directory handle **per `SourceId`**, so the two systems never overwrite each
+other's position, and pair it with the profile's `rootHint` so the level-1 choice actively helps
+the user land in the right place instead of only recording that they chose. Picking Claude Code
+returns to the Claude root; picking Codex returns to the Codex root; a first-time pick for one
+source leaves the other's memory untouched.
+
+**Files**: `src/components/SessionLoadActions.tsx`, `src/i18n/locales.ts`, `src/store/sessionStore.ts`,
+the handle store behind `resumeLastDirectory` (keyed by source rather than singular).
+**Acceptance**: from a cold start, a folder pick cannot be reached without a source choice.
+Pick a folder as Claude Code, then pick a different one as Codex, then return to Claude Code —
+the Claude position must be the first folder, not the second. Where the browser refuses to
+persist a handle, `INDEX_HANDLE_NOT_PERSISTED` still fires per source and does not pretend.
+A mismatch between the chosen source and the file content produces a named diagnostic, never a
+silent reinterpretation.
 
 ### M3 — Per-source root and path adaptation
 
@@ -149,7 +168,44 @@ can act on beats a silent worse result.
 **Acceptance**: both picks index the same 358 sessions; only the root pick reports sidecar
 titles; the `sessions/`-pick path prints the named degradation. Paste the counts.
 
-### M4 — Per-source title ladder, and the Codex sidecar (highest value)
+### M4 — Claude Code: consume the metadata it already ships (priority card)
+
+Measured 2026-08-26 over a 200-file sample of the 522 files in `~/.claude/projects`. The
+adapter currently reads `customTitle`, `aiTitle`, `cwd`, `isSidechain`, `parentUuid`,
+`attachment`, `mode`. These are present in the corpus and referenced **nowhere in `src/`**:
+
+| Field | Records | What it would give DIT |
+|---|---|---|
+| `attributionSkill` / `attributionAgent` / `attributionMcpServer` / `attributionMcpTool` | ~13,000 | Which skill, subagent or MCP tool produced a step |
+| `toolUseResult` | 17,686 | The structured tool result beside the rendered `tool_result` text |
+| `gitBranch` | 66,524 (68 distinct) | Real branch context, per record |
+| `entrypoint` | 66,524 (`claude-desktop` 46,669 / `cli` 58) | How the session was started |
+| `leafUuid` + `lastPrompt` (`last-prompt`, 4,523 records) | 4,523 | The conversation's branch pointer |
+
+**Ruled OUT by measurement — do not spend time on it**: `slug` (24,108 records) is a random
+codename; every record in a session shares one value such as `virtual-painting-aho`. It is an
+id, not a purpose, and must never be offered as a title.
+
+**Attribution is this card's centre of gravity.** The product is called Dialogue Is Teacher, and
+"this step came from the `workflow-checkpoint` skill" / "this was done by the
+`backend-architect` subagent" is teaching content that already sits in the file, already
+labelled, and is thrown away today. Everything else in the table is context; this one is the
+product.
+
+Scope by value, not by completeness: attribution first, then `gitBranch` + `cwd` as project
+context — which also sidesteps the folder-name decoding that F-06's masking bug lives in — then
+`entrypoint`. `toolUseResult` and `leafUuid` are named here so they are not rediscovered from
+scratch later; they may become their own card.
+
+**Files**: `src/core/adapters/claudeCodeJsonl.ts`, `src/types/spanTree.ts`,
+`src/core/source/profiles.ts` (these fields belong to the Claude profile, never to shared code),
+plus whichever view surfaces attribution.
+**Acceptance**: attribution reaches the rendered span for the records that carry it, and is
+ABSENT rather than guessed for those that do not — print both counts against the author's
+corpus. INV-R12-2 still holds: this is Claude-specific data reaching a source-agnostic viewer
+*through the profile*, so no `if (source === "claude-code")` may appear under `src/components/`.
+
+### M5 — Per-source title ladder, and the Codex sidecar (incidental; deferrable)
 
 `pickTitle` stops being one ladder with Claude-only rungs and walks `discovery.titleLadder`.
 Add the sidecar reader: parse `.codex-global-state.json` →
@@ -167,7 +223,7 @@ number the run actually produced beside the expected one. A session with no desc
 fall through to the next rung, never error. The sidecar file being absent or malformed must
 degrade to today's behaviour with a named diagnostic, not fail the index.
 
-### M5 — Classification declares its own signals
+### M6 — Classification declares its own signals
 
 `classifySession` reads `discovery.classify` instead of Claude Code field names. The
 `codex-unclassified` verdict exists only because Claude signals were applied to Codex; with the
@@ -179,7 +235,7 @@ than being a side effect of reading absent fields. If the honest answer for some
 is still "cannot tell", that is fine — it must be *because the signal is absent*, not because
 the wrong signal was read. Do NOT delete `codex-unclassified` to make a number look better.
 
-### M6 — Viewing converges (guard card)
+### M7 — Viewing converges (guard card)
 
 No view-layer change is expected; this card exists to prove the split stayed in discovery.
 
@@ -210,18 +266,34 @@ and a Codex session opened from their own roots render through the same componen
   因為 `derived` 從「唯一來源」退回「後備」——**做完 M4 再重新評估它值不值得修**。
 - 不碰 R11.2 其餘未結項。
 
-**降級順序**：**M1 → M2 → M3 → M4 → M5 → M6**，保底 **M1 + M2**。
+**降級順序**：**M1 → M2 → M3 → M4 → M5 → M6 → M7**，保底 **M1 + M2**。
 
 理由：M1+M2 是骨架與導覽，做完就算後面全部延後，結構問題也已經被關起來（來源已知、
-profile 已窮舉），不會再長出第三次同類缺陷。**M4 是價值最高的一張**（它是使用者實際看到的
-改變），但它依賴 M1 的表與 M3 的根目錄，插隊做不了。M5、M6 是把地基掃乾淨，可以延到下一輪。
+profile 已窮舉），不會再長出第三次同類缺陷。依 §0 的權重裁定，**M4（Claude Code 深度適配）
+是本輪價值最高的一張**；它依賴 M1 的表，插不了隊，但排在 Codex 之前。**M5（Codex 側車標題）
+明列為「順便」，預算不足時第一個砍** —— 它只覆蓋 17%，而缺標題多半是 session 本身沒定義好，
+不是 DIT 要扛的責任。M6、M7 是把地基掃乾淨，可以延到下一輪。
 
 ---
 
-## 7　待裁決
+## 7　裁決紀錄（2026-08-26，作者）
 
-1. **來源選擇要不要記住？** 目錄 handle 已經會被記住（在瀏覽器允許的範圍內）。來源選擇跟著記
-   會少一次點擊，但也會讓「我上次看的是哪一套」變成隱藏狀態。記或不記都合理，這是你的判斷。
-2. **17% 夠不夠構成 M4 的驗收通過？** 我的立場是夠：它把「完全沒有目的性標題」變成
-   「六分之一有、而且看得出來是哪六分之一」，而剩下的要靠獨立的 LLM 那輪。但如果你認為
-   驗收門檻應該是「大多數 session 有可讀標題」，那 M4 就必須跟 LLM 那輪綁在一起出貨。
+1. **位置記憶：依來源分開記錄。** 不是「記住上次選了哪一套」，而是每個 `SourceId` 各持一個
+   目錄 handle，並配合 profile 的 `rootHint` **主動輔助定位**。已寫入 M2 的驗收。
+2. **17% 足夠。** Codex 側車標題以現況驗收即可，不必等 LLM 那輪。理由是作者的：缺標題多半是
+   session 本身沒定義好，不是 DIT 要扛的責任。連帶效果是 Codex 整體降為「順便」、Claude Code
+   深度適配升為本輪主線（M4）。
+3. **不跑 `product-design-thinking`。** 理由見下。
+
+### 為什麼不跑 product-design-thinking
+
+那個 skill 的用途是「方向未定時，用第一性原理與前人做法收斂出方向」，而且它自己的說明明列
+**不適用於按既有規格施工**。本輪方向已由作者裁定（一級選來源、二級選模式、檢視收斂、
+只支援兩套），根因是量出來的而不是討論出來的。跑它只會把已經拍板的東西重新推導一次。
+
+真正缺的不是設計方法，是**盤點**——而盤點已經做完並寫進 M4 那張表（欄位、筆數，以及
+`slug` 被實測排除）。
+
+**它什麼時候才划算**：當出現方向真的未定的題目時。目前已知的下一個就是「LLM 濃縮補剩下的
+無標題 session」——要不要做、在什麼時機跑、成本與隱私怎麼取捨、失敗與不確定要怎麼呈現，
+那是一個沒有既定答案的設計題，屆時跑它才有東西可收斂。
