@@ -392,6 +392,22 @@ than being a side effect of reading absent fields. If the honest answer for some
 is still "cannot tell", that is fine — it must be *because the signal is absent*, not because
 the wrong signal was read. Do NOT delete `codex-unclassified` to make a number look better.
 
+**Added 2026-08-26 after third-party review — the acceptance clause that makes INV-R12-1 real,
+rather than declared for a third time.** Making the signal LIST data-driven is not enough: the
+dispatch is a chain of `if (source === …)` ending in a catch-all, so a third `SourceId` will not
+fail `tsc` — it will fall through and be labelled `codex-unclassified`, a reason code naming the
+wrong source. The exhaustive-`Record` mechanism protects data tables, not branch dispatch.
+
+So M6 must additionally satisfy: **adding a third `SourceId` makes `classifySession` fail to
+compile.** The cheap way is an exhaustiveness assertion after the last branch
+(`const _exhaustive: never = input.source;`) — no rule engine required, and no rewriting two
+genuinely different rule shapes into one table. Demonstrate the failure once, then revert the
+probe, the same way M1 did.
+
+Do not take this as a reason to merge the two dispatches: Claude Code runs four rules and Codex
+runs two of a different shape. They are not one rule set over different signals, and pretending
+otherwise would cost more than it buys.
+
 ### M7 — Viewing converges (guard card)
 
 No view-layer change is expected; this card exists to prove the split stayed in discovery.
@@ -399,6 +415,18 @@ No view-layer change is expected; this card exists to prove the split stayed in 
 **Acceptance**: no source-conditional branch is added under `src/components/`; a Claude session
 and a Codex session opened from their own roots render through the same components; the
 `SessionDocument` contract is unchanged. Verify by grep and by opening one of each.
+
+**Updated 2026-08-26.** The grep half is already automated and stricter than this card assumed —
+`src/components/sourceAgnostic.test.ts` fails on **any source id written under
+`src/components/`**, not merely on a comparison, so it cannot be evaded by a `switch` or a lookup
+table. What M7 still owes is the other half:
+
+- `sessionIndexer.ts`'s `subagentPaths` ternary (`source === "claude-code" ? … : []`) moves into
+  `discovery` as a new field, inheriting that table's exhaustiveness. This is discovery work —
+  "which files belong to this session" is a property of the harness's layout — and it had not
+  been assigned to a card before M1's probe found it failing silently.
+- After that, `src/` outside `core/source/profiles.ts` and the per-source adapters must hold no
+  `source === …` at all. That is the point at which INV-R12-1 stops being an aspiration.
 
 ---
 
