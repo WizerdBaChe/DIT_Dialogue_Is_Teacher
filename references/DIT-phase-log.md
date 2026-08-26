@@ -580,3 +580,42 @@
 - Still open from the audit, now DW-19/20/21: `directorySource.ts` and `session.worker.ts` have no tests at all, and M2's per-source folder memory has no end-to-end test across the store. The first guards an invariant this repo has already been burned by (R9.1 RC-A).
 - Author ruling wanted: should a forked Codex thread show its parent's description as a named rung (17% → 53% coverage)?
 - `DW-01`, `DW-03..DW-17` remain `unassigned`; DW-02 and DW-18 closed in this round.
+
+---
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 19 – R12 M8: the three untested modules closed, and two silent-failure defects found by testing them
+- Status: in-progress (construction complete and green; author acceptance of R12 still not run)
+- Date: 2026-08-27
+- Detail: docs/rounds/r12-source-first-navigation/RESEARCH_R12_COVERAGE_GAPS_2026-08-27.md (premises, the coverage measurement and its own miscalibration, both defects with their positive controls, and the mutation results)
+- Transcript: fd04f079-22fb-4246-bd36-d4c482708943.jsonl — archived: PENDING (daily mirror covers it)
+
+## Goals
+- Close DW-19/20/21, the three coverage gaps the 2026-08-27 evidence audit named, before R12 goes to acceptance.
+- Decide where test-only work belongs in the round scheme, and record the reasoning so the next one does not re-litigate it.
+- Accept the tests on whether they FAIL, not on whether they pass.
+
+## Decisions
+- **M8 folded into R12, dated in the PSM, rather than given its own round** (D-020). A round here carries a PSM *and* a UAT card set; test-only work has nothing for a human to accept, so a new round would produce an empty UAT card. It is R12's own verification debt, on R12's branch, before R12 is accepted — the route DW-02 and DW-18 already took. A fourth stacked branch for three test files was rejected on the same grounds.
+- **Acceptance is stated as "every group must be shown to fail when the behaviour is removed."** 18/18 green on the first run against previously untested code is an instrument fault until a positive control says otherwise.
+- **Both defects the tests found were repaired in place, not filed** (D-021). The reproducing test already existed at that point; a test that documents a defect it could instead prevent is the weaker artifact. Each is one line.
+- **The start-up handle read merges instead of replacing.** Order is priority — an in-session pick is newer than a start-up read. Tested in both directions so "do not clobber the pick" cannot become "ignore storage".
+- **The worker's dead cancellation branch is pinned, not deleted** (DW-22). It is the only place cancellation is defined; deleting it would remove the definition along with the dead code.
+
+## Changes
+- `src/core/index/directorySource.test.ts` (new, 18 tests, jsdom): R9.1 RC-A both ways, permission re-check, walk path semantics, and path parity between the FSA and webkitdirectory backends.
+- `src/core/ingest/session.worker.test.ts` (new, 13 tests): per-file isolation and progress accumulation, two-sided; pins the dead cancellation branch.
+- `src/store/sourceFolderMemory.test.ts` (new, 9 tests): M2's acceptance walk across the store, plus never-picked and permission-lost edges.
+- `src/core/ingest/session.worker.ts`: byte total moved inside the `try` — outside it, a malformed request posted no message at all and left the caller pending forever.
+- `src/store/sessionStore.ts`: the module-load handle read merges rather than replaces.
+- `docs/rounds/r12-source-first-navigation/`: M8 card in the PSM, `RESEARCH_R12_COVERAGE_GAPS_2026-08-27.md`.
+- `docs/DEFERRED.md`: DW-19/20/21 → `home: R12`, done; DW-22 added. `references/DIT-decisions.md`: D-020, D-021, P-007.
+
+## Open Questions / TODO
+- **R12 is still NOT accepted, and this changes nothing about that.** M8 adds no user-visible surface, so it adds no UAT items; appearance remains unverified throughout the round.
+- **R11.2 is still not accepted either**, and R12's branch was cut from it.
+- Gates, unpiped and read directly: typecheck exit 0 · **649/649 across 68 files** exit 0 · two-stage build exit 0 · `check:rounds` exit 0.
+- P-007 recorded: a coverage measurement needs a positive control too — the first grep reported `core/privacy/gateway.ts` as untested because its test imports through a barrel. And "looks covered" is the more dangerous state than "untested": `browseFailure.test.ts` loads `directorySource` through the barrel while mocking exactly the functions that hold its logic.
+- `DW-01`, `DW-03..DW-17` and `DW-22` remain `unassigned`.
+- Author ruling still wanted: should a forked Codex thread show its parent's description as a named rung (17% → 53% coverage)?

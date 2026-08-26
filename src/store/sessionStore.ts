@@ -442,7 +442,17 @@ let cachedDirectoryHandles: Partial<Record<SourceId, unknown>> = {};
  */
 let pendingHandleNotices: Diagnostic[] = [];
 void readDirectoryHandles(SUPPORTED_SOURCES).then(({ handles, notices }) => {
-  cachedDirectoryHandles = handles;
+  /*
+   * DW-21：合併，不是覆寫。原本是 `cachedDirectoryHandles = handles`——整包取代。使用者若在
+   * 這個 promise 落地之前就選好資料夾（冷啟動的第一次互動，而 IndexedDB 的第一次開啟還要跑
+   * schema 升級，那是一趟真的往返），剛選的 handle 會被上一輪存下的舊值蓋掉，該來源在這個
+   * session 剩下的時間都會「回到上一次的位置」或退化成開選擇器。下次重載又會自己好
+   * （選擇當下已經寫進 IndexedDB 了），所以沒有人會把它當成 bug 回報。
+   *
+   * 順序即優先權：這個 session 裡剛選的一定比啟動時讀到的新，所以已經有值的鍵不被覆蓋；
+   * 沒被選過的來源仍然照常採用存起來的位置。
+   */
+  cachedDirectoryHandles = { ...handles, ...cachedDirectoryHandles };
   pendingHandleNotices = notices;
 });
 

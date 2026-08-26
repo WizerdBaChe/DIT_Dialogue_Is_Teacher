@@ -560,6 +560,59 @@ source fails, so the list cannot become permanent permission for code that has s
 
 ---
 
+### M8 — Close the three coverage gaps the round's own audit found (added 2026-08-27)
+
+**This card was added after Phase 18 checkpointed M1–M7 as built.** It is written here rather than
+in a later round because it is R12's own verification debt, raised by R12's evidence audit, on
+R12's branch, before R12 is accepted — the same route DW-02 and DW-18 took into this round. The
+date is stated so a post-mortem reads the sequence correctly and does not mistake it for original
+scope.
+
+Three modules the audit named (`docs/DEFERRED.md` DW-19/20/21): `core/index/directorySource.ts`
+and `core/ingest/session.worker.ts` had no tests at all, and M2's per-source folder memory had
+tests at both ends and none across the store wiring that joins them. Premises, the coverage
+measurement and its own miscalibration: `RESEARCH_R12_COVERAGE_GAPS_2026-08-27.md`.
+
+**Acceptance**: not "the tests pass" — every group must be shown to FAIL when the behaviour it
+claims to protect is removed. A suite written against previously untested code that goes green on
+the first run is an instrument fault until a positive control says otherwise.
+
+**BUILT 2026-08-27.** Three new test files (40 tests), plus two one-line repairs the tests found.
+
+1. **`directorySource.test.ts`** (18 tests, jsdom) pins R9.1 RC-A from both sides — the picker's
+   own `AbortError` is a cancellation, and an `AbortError` raised *after* the handle is in hand is
+   not — plus the permission re-check, the walk's path semantics, and the property that carries
+   the most weight: **both backends produce the same path for the same tree**. It also records why
+   this module looked covered and was not: `browseFailure.test.ts` imports it through the barrel
+   and mocks precisely the functions that hold its logic, so a line-coverage tool calls it loaded.
+
+2. **`session.worker.test.ts`** (13 tests) pins per-file isolation and the cross-file progress
+   accumulator, deliberately two-sided — one unreadable file must not stop the batch, and *every*
+   file failing must still be fatal. **Found: the byte total was computed outside the `try`**, so a
+   request with a missing blob threw where nothing could report it, posted no message at all, and
+   left the caller's promise pending forever with the bar on "reading". Unreachable from `src/`
+   today; the RC-5 leak class this codebase has already named twice. One line, moved inside.
+
+3. **`sourceFolderMemory.test.ts`** (9 tests) walks the card's own acceptance across the store —
+   Claude Code's folder, then Codex's, then back — and covers the two edges (a source never picked
+   opens the picker instead of borrowing the other's folder; a revoked permission drops only that
+   source). **Found: the start-up handle read replaced `cachedDirectoryHandles` wholesale**, so a
+   user who picked a folder before that promise settled had the pick overwritten by last session's
+   stored value. Self-healing on reload, which is why it would never be reported. Merged instead of
+   replaced, with the reverse case tested too so "do not clobber the pick" cannot become "ignore
+   storage".
+
+Controls, per the acceptance above: `directorySource` was mutated three ways and failed in exactly
+the six places it should, with the other twelve unmoved; the two repairs above are their own
+natural positive controls, both reproduced before being fixed. Gates unpiped: typecheck, 649/649
+across 68 files, two-stage build, `check:rounds` — all exit 0.
+
+**Not closed here**: the worker's `cancelled` message has a consumer and no producer — nothing
+passes `isCancelled` to `parseJsonlBlob`, because the UI cancels by terminating the worker. Pinned
+by a test and recorded as DW-22 rather than deleted or "fixed" into a protocol nobody asked for.
+
+---
+
 ## 5　不變量 (invariants)
 
 - **INV-R12-1**（2026-08-26 M7 改寫成性質）：來源知識一律住在 `SourceProfile`。只有兩種例外
