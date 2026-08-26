@@ -639,6 +639,53 @@ describe("buildSessionIndex · per-source paths (R12 M3)", () => {
     });
   });
 
+  /*
+   * Found by third-party review 2026-08-26, not by these tests. `INDEX_EMPTY`'s copy was hard
+   * coded to "Claude Code" from R9, when that was the only source. M2 made it reachable from a
+   * Codex-selected browse, so a Codex user with an empty folder was told no CLAUDE CODE sessions
+   * were found — the round's own purpose, contradicted in the first sentence the user reads.
+   */
+  it("names the chosen system when a folder turns up empty, instead of always saying Claude Code", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([["README.md", "hi"]]), { expectSource: "codex" });
+    expect(entries).toHaveLength(0);
+    expect(diagnostics.find((d) => d.code === "INDEX_EMPTY")).toMatchObject({ detail: "Codex" });
+  });
+
+  it("stays generic when no system was chosen", async () => {
+    const { diagnostics } = await buildSessionIndex(sourceOf([["README.md", "hi"]]));
+    expect(diagnostics.find((d) => d.code === "INDEX_EMPTY")?.detail).toBeUndefined();
+  });
+
+  it("says the system is probably wrong when every .jsonl was rejected by name", async () => {
+    /*
+     * Also from review: `INDEX_SOURCE_MISMATCH` is structurally UNREACHABLE here. Codex's
+     * `rollout-*` pattern rejects every Claude Code filename before content detection runs, so
+     * picking Codex and browsing `~/.claude/projects` produced an empty list plus an info note
+     * about filenames — accurate, and no help at all. This is the actionable version.
+     */
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([
+      ["proj/0199a1b2.jsonl", SIMPLE],
+      ["proj/0199a1b3.jsonl", SIMPLE],
+    ]), { expectSource: "codex" });
+
+    expect(entries).toHaveLength(0);
+    expect(diagnostics.find((d) => d.code === "INDEX_EMPTY_WRONG_SOURCE")).toMatchObject({
+      tier: "warn",
+      count: 2,
+      detail: "Codex",
+    });
+    // The bare "nothing here" note must not also fire — two messages about one fact.
+    expect(diagnostics.some((d) => d.code === "INDEX_EMPTY")).toBe(false);
+  });
+
+  it("does not cry wrong-system for a genuinely empty folder", async () => {
+    // No `.jsonl` at all means "wrong folder", not "wrong system" — sending the user back to
+    // the level-1 menu would be the wrong next step.
+    const { diagnostics } = await buildSessionIndex(sourceOf([["notes.md", "x"]]), { expectSource: "codex" });
+    expect(diagnostics.some((d) => d.code === "INDEX_EMPTY_WRONG_SOURCE")).toBe(false);
+    expect(diagnostics.some((d) => d.code === "INDEX_EMPTY")).toBe(true);
+  });
+
   it("keeps the R9 walk exactly when no source is chosen", async () => {
     const { entries } = await buildSessionIndex(sourceOf([
       ["proj/claude.jsonl", SIMPLE],

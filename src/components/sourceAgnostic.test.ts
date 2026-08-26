@@ -15,8 +15,22 @@ import { describe, expect, it } from "vitest";
 
 const sources = import.meta.glob("./**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
-/** `source === "codex"`, `source !== 'claude-code'`, `=== SourceId.Codex`-ish shapes. */
-const SOURCE_BRANCH = /[!=]==\s*["'`](claude-code|codex)["'`]|["'`](claude-code|codex)["'`]\s*[!=]==/;
+/**
+ * The rule is not "no `===` against a source id" — it is **no source id, at all**.
+ *
+ * The first version of this checker enumerated comparison shapes and matched only `===`/`!==`.
+ * Review caught that `switch (source) { case "codex": … }` slipped through, and the obvious
+ * repair — add `case`, add `.includes` — failed its own positive control on the very next shape
+ * (`["codex"].includes(source)` puts the literal on the other side). That is the tell: a gate
+ * built by listing the syntaxes its author thought of will always be one syntax behind.
+ *
+ * So the property moved up a level, to something with no syntax to enumerate: a view file that
+ * needs to WRITE the string `"codex"` is already source-aware, however it goes on to use it.
+ * Source knowledge reaches the view as data — `profileFor(x).label`, `span.attribution`,
+ * `profile.attribution.kinds` — and never as a literal. Verified to hold across every file under
+ * `src/components/` at the time of writing, so it is a real constraint rather than an aspiration.
+ */
+const SOURCE_LITERAL = /["'`](claude-code|codex)["'`]/;
 
 const files = Object.entries(sources).filter(([path]) => !path.endsWith(".test.ts") && !path.endsWith(".test.tsx"));
 
@@ -27,23 +41,30 @@ describe("INV-R12-2 · the view does not know which agent system it is rendering
     expect(files.length).toBeGreaterThan(20);
   });
 
-  it("detects a source branch when one is present (positive control)", () => {
-    expect(SOURCE_BRANCH.test(`if (doc.session.source === "claude-code") return null;`)).toBe(true);
-    expect(SOURCE_BRANCH.test(`x !== 'codex'`)).toBe(true);
-    // And does not fire on the things that legitimately mention a source id.
-    expect(SOURCE_BRANCH.test(`t.browser.sourceLabels[entry.source]`)).toBe(false);
-    expect(SOURCE_BRANCH.test(`profileFor(source).discovery.rootHint`)).toBe(false);
+  it("catches a source branch in every syntax, because it does not depend on syntax", () => {
+    // The four shapes that motivated this — two the old pattern caught, two it did not.
+    expect(SOURCE_LITERAL.test(`if (doc.session.source === "claude-code") return null;`)).toBe(true);
+    expect(SOURCE_LITERAL.test(`x !== 'codex'`)).toBe(true);
+    expect(SOURCE_LITERAL.test(`switch (source) { case "codex": return <A/>; }`)).toBe(true);
+    expect(SOURCE_LITERAL.test(`if (["codex"].includes(source)) return null;`)).toBe(true);
+    // And a shape nobody has written yet, which is the point of not enumerating them.
+    expect(SOURCE_LITERAL.test(`const style = { "codex": dim, "claude-code": bright }[source];`)).toBe(true);
+
+    // Does not fire on the sanctioned route: source knowledge arrives as data.
+    expect(SOURCE_LITERAL.test(`profileFor(entry.source).label`)).toBe(false);
+    expect(SOURCE_LITERAL.test(`span.attribution?.map(...)`)).toBe(false);
   });
 
-  it("has no source branch anywhere under src/components/", () => {
+  it("has no source id written anywhere under src/components/", () => {
     const offenders = files
-      .filter(([, code]) => SOURCE_BRANCH.test(code))
+      .filter(([, code]) => SOURCE_LITERAL.test(code))
       .map(([path]) => path);
 
     expect(
       offenders,
-      "Source-specific behaviour belongs in src/core/source/profiles.ts, and reaches the view as " +
-        "data (e.g. `span.attribution`, `profile.attribution.kinds`). See INV-R12-2.",
+      "A view that writes a source id is source-aware however it uses it. Source-specific " +
+        "behaviour belongs in src/core/source/profiles.ts and reaches the view as data — " +
+        "`profileFor(x).label`, `span.attribution`, `profile.attribution.kinds`. See INV-R12-2.",
     ).toEqual([]);
   });
 });

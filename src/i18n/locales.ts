@@ -7,7 +7,7 @@
  * - 所有面向使用者的中文都住在這裡；元件內不得再出現硬編中文 (見 PSM R7 驗收)。
  * - 純視覺、與語言無關的常數 (節點記號、CSS class、Provider 排序) 留在 components/labels.ts。
  */
-import type { GroupKind, ProviderId, SkeletonNodeKind, SkeletonRibKind, SourceId, SpanTag, SpanType } from "@/types/spanTree";
+import type { GroupKind, ProviderId, SkeletonNodeKind, SkeletonRibKind, SpanTag, SpanType } from "@/types/spanTree";
 import type { CategoryDefinitionTable } from "@/core/view/categoryDefinitions";
 
 /**
@@ -231,11 +231,6 @@ const zhTW = {
       derived: "取自第一則你說的話",
       filename: "沒有標題可用，顯示檔名",
     },
-    /** R11 WC-1.2：清單上標出來源，讓 Codex 與 Claude Code 的 session 分得出來。 */
-    sourceLabels: {
-      "claude-code": "Claude Code",
-      codex: "Codex",
-    } as Record<SourceId, string>,
     counts: (human: number, assistant: number, exact: boolean) =>
       exact ? `${human} 問 / ${assistant} 答` : `≥ ${human} 問 / ≥ ${assistant} 答`,
     subagentCount: (count: number) => `子代理 ${count}`,
@@ -907,11 +902,6 @@ const en: Messages = {
       derived: "Taken from your first message",
       filename: "No title available; showing the filename",
     },
-    /** R11 WC-1.2: label the source in the list so Codex and Claude Code sessions are distinguishable. */
-    sourceLabels: {
-      "claude-code": "Claude Code",
-      codex: "Codex",
-    } as Record<SourceId, string>,
     counts: (human: number, assistant: number, exact: boolean) =>
       exact ? `${human} asked / ${assistant} replied` : `≥ ${human} asked / ≥ ${assistant} replied`,
     subagentCount: (count: number) => `${count} subagents`,

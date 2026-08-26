@@ -173,6 +173,20 @@ export type ToolOutcomeFidelity =
 
 export interface SourceProfile {
   id: SourceId;
+  /**
+   * The harness's product name, as its own makers write it. Not translated — it is a proper
+   * noun, and translating it would stop the reader matching what DIT says against what they see
+   * in the tool itself.
+   *
+   * It lives here rather than in `i18n/locales.ts` for a structural reason, found by review on
+   * 2026-08-26: the copy table held it as `{...} as Record<SourceId, string>`, and a type
+   * ASSERTION does not require exhaustiveness the way a type ANNOTATION does. Deleting the
+   * `codex` entry there and running `tsc --noEmit` passed clean — a new source would have
+   * rendered `undefined` on screen instead of failing the build. Exactly the "declared in the
+   * type, never enforced" failure this round exists to remove, one file over from where it was
+   * being fixed. Here it is inside `Record<SourceId, SourceProfile>`, so it is enforced.
+   */
+  label: string;
   /** Tools that mutate a file. Drives the edit-loop grouping in `denoise()`. */
   editTools: ReadonlySet<string>;
   /** Tools that read or search without mutating. Drives investigation ribs in `distill()`. */
@@ -218,6 +232,7 @@ const DISCOVERY: Record<SourceId, SourceDiscovery> = {
 
 const CLAUDE_CODE: SourceProfile = {
   id: "claude-code",
+  label: "Claude Code",
   editTools: new Set(["Edit", "Write", "MultiEdit", "NotebookEdit"]),
   investigationTools: new Set(["Read", "Grep", "Glob", "WebFetch", "WebSearch", "NotebookRead"]),
   ambiguousTools: new Set(["Bash"]),
@@ -234,6 +249,7 @@ const CLAUDE_CODE: SourceProfile = {
 
 const CODEX: SourceProfile = {
   id: "codex",
+  label: "Codex",
   editTools: new Set(["apply_patch"]),
   investigationTools: new Set(["web__run", "view_image", "tool_search_call"]),
   // 6,037 of them, and the corpus cannot tell `cat` from `sed -i` by name.

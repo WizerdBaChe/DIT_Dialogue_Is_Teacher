@@ -12,6 +12,7 @@ import { useSessionStore } from "@/store/sessionStore";
 import { useBlockingSurface } from "./useBlockingSurface";
 import { useDiagnosticCopy, useT } from "@/i18n";
 import { isDirectoryPickerSupported, type SessionIndexEntry, type SessionKind } from "@/core/index";
+import { profileFor } from "@/core/source/profiles";
 
 const KIND_ORDER: SessionKind[] = ["dialogue", "subagent", "machine", "unknown"];
 
@@ -183,7 +184,7 @@ function SessionRow({ entry, onOpen }: { entry: SessionIndexEntry; onOpen: () =>
           {entry.subagentPaths.length > 0 && <span>{t.browser.subagentCount(entry.subagentPaths.length)}</span>}
           {entry.hasCompaction && <span className="session-browser-tag">{t.browser.compaction}</span>}
           {/* R11 WC-1.2: the picker now mixes Claude Code and Codex, so the source must be visible per row. */}
-          {entry.source && <span className="session-browser-tag">{t.browser.sourceLabels[entry.source]}</span>}
+          {entry.source && <span className="session-browser-tag">{profileFor(entry.source).label}</span>}
         </span>
       </button>
     </li>
