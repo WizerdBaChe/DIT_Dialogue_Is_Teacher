@@ -122,4 +122,43 @@ describe("directIdentifierDetector offsets", () => {
       expect(input.slice(finding.start, finding.end)).toBe("nathan");
     }
   });
+
+  /**
+   * DW-23 — the flattened project-directory form, reported by the author in R11.2 acceptance
+   * (「前提2」) and unregistered anywhere for ten days.
+   *
+   * The failure it fixes is the dangerous kind: the rules above matched `C:\Users\nathan`, the
+   * header truthfully said "6 redacted", and the SAME username stayed in plain sight wherever
+   * Claude Code had flattened the path into a directory name. A redaction report that is
+   * accurate about what it did, while missing an equivalent form of the same secret, is worse
+   * than no report — it converts "I should check" into "the tool handled it".
+   */
+  describe("flattened project-directory paths (DW-23)", () => {
+    it("redacts the username out of Claude Code's encoded directory name", async () => {
+      const input = "logs under C--Users-nathan--claude and C--Users-nathan-AppData-Local";
+
+      const paths = (await directIdentifierDetector.detect(input, {})).filter((f) => f.kind === "user_path");
+
+      // Twice, because the encoded name appears twice — the real corpus has a directory whose
+      // own name contains the encoded home path a second time.
+      expect(paths).toHaveLength(2);
+      for (const finding of paths) expect(input.slice(finding.start, finding.end)).toBe("nathan");
+    });
+
+    it("stops at the separator instead of swallowing the rest of the path", async () => {
+      // `C--Users-nathan--claude` must yield `nathan`, not `nathan--claude`: over-redacting the
+      // project name would destroy the one part of the path that makes a transcript readable.
+      const input = "C--Users-nathan--claude-skills-product-design-thinking";
+      const [finding] = (await directIdentifierDetector.detect(input, {})).filter((f) => f.kind === "user_path");
+      expect(input.slice(finding.start, finding.end)).toBe("nathan");
+    });
+
+    it("does not fire on ordinary hyphenated text (negative control)", async () => {
+      // The rule requires a drive letter and the literal `--Users-`. Without a negative control
+      // a redactor that replaced every hyphenated word would score 100% on the case above.
+      const input = "the drop-down on the home-page lists all-users-online for D--AIWork-Prism";
+      const paths = (await directIdentifierDetector.detect(input, {})).filter((f) => f.kind === "user_path");
+      expect(paths).toEqual([]);
+    });
+  });
 });

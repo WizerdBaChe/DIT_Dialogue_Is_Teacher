@@ -31,7 +31,15 @@ export type SourceId = "claude-code" | "codex";
  * `"paste"`／`milestone` 的教訓：型別裡宣告了、從來沒有路徑產出、清單卻照樣列出。
  * M1 當時刻意不先加，就是為了不重演第三次。
  */
-export type TitleSource = "custom" | "ai" | "derived" | "sidecar" | "filename";
+/**
+ * `sidecar-parent` (2026-08-27, author ruling): a FORKED thread wearing the description of the
+ * thread it was forked from. It is a rung of its own rather than folded into `sidecar` because
+ * a fork can have travelled a long way from its parent's stated purpose — so the borrowing must
+ * be visible on screen, which is what a named `TitleSource` buys. Measured: 135 of 358 local
+ * Codex rollouts are forks, 129 of them have a described parent and **0 have a description of
+ * their own**, taking sidecar coverage from 17.0% to 53.1%.
+ */
+export type TitleSource = "custom" | "ai" | "derived" | "sidecar" | "sidecar-parent" | "filename";
 
 /**
  * 「這一步是誰／哪個機制做的」(R12 M4)。

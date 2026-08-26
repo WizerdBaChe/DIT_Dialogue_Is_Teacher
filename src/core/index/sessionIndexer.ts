@@ -18,7 +18,8 @@ import { detectAdapter } from "@/core/adapters";
 import { flattenTextBlocks as flattenCodexTextBlocks, isAutoReviewDump as isCodexAutoReviewDump } from "@/core/adapters/codexJsonl";
 import type { Diagnostic } from "@/core/diagnostics/contracts";
 import { stripInjectedPreamble } from "@/core/text/preamble";
-import { profileFor, SIDECAR_JOIN_KEYS } from "@/core/source/profiles";
+import { profileFor, SIDECAR_JOIN_KEYS, SIDECAR_PARENT_KEYS } from "@/core/source/profiles";
+import { isUsableTitle } from "@/core/text/titleQuality";
 import type { SourceId } from "@/types/spanTree";
 import { classifySession, isSubagentPath, isSyntheticPrompt } from "./classifySession";
 import { readSidecars } from "./sidecarReader";
@@ -42,6 +43,8 @@ const TITLE_MAX_LENGTH = 64;
 
 interface ScanStats {
   sessionId: string | null;
+  /** The thread this one was forked from, when the source records one; feeds `sidecar-parent`. */
+  parentSessionId: string | null;
   cwd: string | null;
   customTitle: string | null;
   aiTitle: string | null;
@@ -75,6 +78,7 @@ interface ScanStats {
 function emptyStats(): ScanStats {
   return {
     sessionId: null,
+    parentSessionId: null,
     cwd: null,
     customTitle: null,
     aiTitle: null,
@@ -151,6 +155,21 @@ function absorb(stats: ScanStats, record: Record<string, unknown>): void {
       const id = walkPath(record, key.path);
       if (typeof id === "string" && id.trim()) {
         stats.sessionId = id;
+        break;
+      }
+    }
+  }
+  /*
+   * The id of the thread this one was forked from, for the `sidecar-parent` rung (2026-08-27).
+   * Captured unconditionally rather than only when `sessionId` is missing: the two ids live in
+   * the same record and DIFFER exactly when this is a fork, which is the fact the rung needs.
+   */
+  if (!stats.parentSessionId) {
+    for (const key of SIDECAR_PARENT_KEYS) {
+      if (record.type !== key.recordType) continue;
+      const id = walkPath(record, key.path);
+      if (typeof id === "string" && id.trim()) {
+        stats.parentSessionId = id;
         break;
       }
     }
@@ -344,7 +363,21 @@ function rungValue(
     case "custom": return stats.customTitle ?? null;
     case "ai": return stats.aiTitle ?? null;
     case "sidecar": return (stats.sessionId && sidecar.get(stats.sessionId)) || null;
-    case "derived": return stats.firstHumanText ?? null;
+    /*
+     * 只有分叉才走這一階。`parentSessionId === sessionId` 代表這不是分叉，兩個 id 指同一件事，
+     * 那時再查一次側車只會拿到跟 `sidecar` 一模一樣的東西——卻掛上「承自母對話」的標記，
+     * 對使用者說了一件不真實的事。所以先確認它真的是分叉，再借。
+     */
+    case "sidecar-parent": {
+      const { parentSessionId, sessionId } = stats;
+      if (!parentSessionId || parentSessionId === sessionId) return null;
+      return sidecar.get(parentSessionId) || null;
+    }
+    /*
+     * 2026-08-27 作者裁決：髒名字不端上畫面。判準是文字的性質，不是來源的性質，所以住在
+     * `titleQuality`；量到的阻擋範圍是 Codex 8 份、Claude Code 1 份（那份標題字面是 `ok`）。
+     */
+    case "derived": return isUsableTitle(stats.firstHumanText) ? stats.firstHumanText : null;
     case "filename": {
       /*
        * 複核 2026-08-27：一個真的叫做 `.jsonl` 的檔案，去掉副檔名之後是**空字串**——而這一階

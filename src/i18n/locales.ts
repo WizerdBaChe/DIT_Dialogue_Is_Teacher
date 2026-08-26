@@ -231,6 +231,9 @@ const zhTW = {
       derived: "取自第一則你說的話",
       // R12 M5：Codex 把 session 目的存在 transcript 之外的檔案裡，這是從那裡接回來的。
       sidecar: "這套系統另外記錄的 session 目的",
+      // 2026-08-27：分叉對話沿用母對話的目的。措辭必須說出「這不是它自己的」——分叉可能
+      // 早就走到別的地方去了，無標記地借用等於替它宣稱一個它沒說過的目的。
+      "sidecar-parent": "承自母對話的目的（這串是從另一段對話分叉出來的）",
       filename: "沒有標題可用，顯示檔名",
     },
     counts: (human: number, assistant: number, exact: boolean) =>
@@ -903,6 +906,7 @@ const en: Messages = {
       ai: "AI-generated title",
       derived: "Taken from your first message",
       sidecar: "The session purpose this system records outside the transcript",
+      "sidecar-parent": "Inherited from the parent thread (this one was forked from another conversation)",
       filename: "No title available; showing the filename",
     },
     counts: (human: number, assistant: number, exact: boolean) =>

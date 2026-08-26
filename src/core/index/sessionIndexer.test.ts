@@ -755,6 +755,13 @@ describe("buildSessionIndex · title ladder and sidecar (R12 M5)", () => {
      *
      * So this test exists to stop a future "let's raise coverage" change. If it fails because
      * someone switched to `session_id`, the number went up and the product got worse.
+     *
+     * UPDATED 2026-08-27 (author ruling). Coverage DID go up, 17.0% → 53.1% — and the finding
+     * above is why it was allowed to: the parent's description is now shown on a rung of its
+     * own, `sidecar-parent`, which the list labels 「承自母對話」. The invariant this test
+     * defends is unchanged and is the FIRST assertion below: **a fork never wears its parent's
+     * purpose as its own.** What was rejected was the silent version, not the information.
+     * Merging the two rungs to raise the `sidecar` number is still the failure this catches.
      */
     const { entries } = await buildSessionIndex(sourceOf([
       sidecarOf({ "parent-thread": "母對話的目的" }),
@@ -762,8 +769,28 @@ describe("buildSessionIndex · title ladder and sidecar (R12 M5)", () => {
       ["sessions/2026/08/rollout-a.jsonl", rolloutWithIds("fork-1", "parent-thread")],
     ]), { expectSource: "codex" });
 
+    // The load-bearing half: NOT `sidecar`, because that rung means "this session's own stated
+    // purpose" and this is not that.
     expect(entries[0].titleSource).not.toBe("sidecar");
-    expect(entries[0].title).not.toBe("母對話的目的");
+    expect(entries[0].titleSource).toBe("sidecar-parent");
+    expect(entries[0].title).toBe("母對話的目的");
+  });
+
+  it("never labels a NON-forked session as inheriting, even when both ids are present", async () => {
+    /*
+     * The other side of the same rule, and the reason `rungValue` compares the two ids instead of
+     * just reading the parent key: when a thread is not a fork both ids are the same string, so a
+     * naive lookup would find the very same description and hand it to the user under a badge
+     * saying it came from somewhere else. That is a false statement about provenance — the exact
+     * class of defect the marked rung exists to prevent.
+     */
+    const { entries } = await buildSessionIndex(sourceOf([
+      sidecarOf({ "thread-1": "這串自己的目的" }),
+      ["sessions/2026/08/rollout-a.jsonl", rolloutWithIds("thread-1", "thread-1")],
+    ]), { expectSource: "codex" });
+
+    expect(entries[0].titleSource).toBe("sidecar");
+    expect(entries[0].title).toBe("這串自己的目的");
   });
 
   it("gives a Codex entry its real session id instead of the filename (closes DW-18)", async () => {
