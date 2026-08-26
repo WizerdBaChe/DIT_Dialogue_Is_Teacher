@@ -26,8 +26,18 @@ different rounds both call themselves R9 in July/August 2026.
 
 Rules:
 
-- **Allocate the round id before writing any file.** Check `docs/rounds/` first. A round that
-  ships without an id has to be retro-labeled later, which is worse (see `r9.2-transcript-export`).
+- **Allocate the round id before writing any file, in `docs/rounds/ROUNDS.md`.** That table is
+  the registry — **not** the `docs/rounds/` directory listing, which cannot show you a round
+  with no directory (R4) or one that is reserved but unstarted (R11.1). A round that ships
+  without an id has to be retro-labeled later, which is worse (see `r9.2-transcript-export`).
+- **Never defer work to a round id that is not allocated yet.** "Deferred to R<next number>"
+  silently reserves that id, and the theme that eventually claims it will be something else —
+  this is how R9 collided and how R12 collided again on 2026-08-26. Unhomed work goes to
+  `docs/DEFERRED.md` with a `DW-NN` id and `home: unassigned`. Enforced: `npm run check:rounds`.
+- **`docs/rounds/**` is frozen.** A shipped round's documents are the evidence a post-mortem
+  reads; when one of them turns out to be misleading, add a dated correction note — do not
+  rewrite the verdict. Live records (`references/DIT-*.md`, `docs/DEFERRED.md`, this file) are
+  the opposite: they describe the present and must be corrected in place.
 - **Every closed round gets a phase checkpoint.** A missing checkpoint is what made the collision
   invisible: Phases 9 and 10 were only written on 2026-08-14, weeks after the work.
 - **Doc filenames carry the round id**: `PSM_R<N>_*.md`, `UAT_R<N>_v*.md`, `RCA_R<N>_*.md`,

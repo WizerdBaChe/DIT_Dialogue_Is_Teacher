@@ -1,0 +1,88 @@
+# DIT — 待歸屬工作登記表 (Deferred Work Register)
+
+> **這份表回答一個問題：已經決定要做、但還沒有輪次收留的工作，現在歸誰？**
+>
+> 建立於 2026-08-26，用來取代散落在各處的「延到 R12」。那句話寫於 R12 尚未配置的時候，
+> 意思其實是「延到下一輪」；R12 後來被配給 source-first-navigation，於是那句話變成一個
+> **指錯輪次的承諾**——讀的人會以為這批東西在 R12 的範圍內。這是 R9 撞號的同一個形狀。
+>
+> 正面寫法：待辦拿 `DW-NN` id，`home` 欄只有兩種合法值——**`unassigned`**，或**一個已在
+> [`docs/rounds/ROUNDS.md`](rounds/ROUNDS.md) 登記過的輪次 id**。沒有第三種。想不出要放
+> 哪一輪，答案就是 `unassigned`，**不是**先佔一個下一個數字。
+>
+> 機器檢查：`npm run check:rounds`。
+
+## 這份表與另外兩份的分工
+
+| 檔案 | 回答的問題 |
+|---|---|
+| **本檔 `DEFERRED.md`** | 已決定要做、**還沒有輪次收留**的工作歸誰 |
+| [`BACKLOG.md`](BACKLOG.md) | 長期備忘：想做、但**還沒決定要不要做**的東西 |
+| [`OUTSTANDING_2026-08-14.md`](OUTSTANDING_2026-08-14.md) | 2026-08-14 封版的那一份總表，是**快照**，不再更新 |
+
+## 登記表
+
+`home` 欄：`unassigned` = 還沒有輪次收留。看到某一輪要吃下它，才把這格改成該輪的 id。
+
+### 來自 R11 M9 複核（`REVIEW_R11_BLIND_SPOTS.md`，report-only，十項）
+
+| id | home | 項目 | 證據 |
+|---|---|---|---|
+| DW-01 | unassigned | **S-01／F-12** 一行前導壞行讓整份合法檔案變成 unrecognized，資料流上等同丟整檔 | REVIEW §S-01；`src/core/ingest/jsonlStream.ts:52,55,66-68` |
+| DW-02 | unassigned | **S-02** 同步 pipeline 沒有檔案級 parse isolation。**⚠️ 2026-08-26 暴露度上升，見下方註記** | REVIEW §S-02；`src/core/pipeline.ts:110` |
+| DW-03 | unassigned | **S-04／F-05** raw exception、檔案路徑、provider response body 原文直接進使用者畫面 | REVIEW §S-04；`sessionStore.ts:397-420`、`diagnosticCopy.ts` |
+| DW-04 | unassigned | **S-05／F-06** `showModal` 的 catch 對真實瀏覽器錯誤也靜默降級成非模態，無 Diagnostic | REVIEW §S-05；`useBlockingSurface.ts:44-53` |
+| DW-05 | unassigned | **S-06／F-07** Settings focus restore 會在其他 blocking surface 活躍時搶走焦點 | REVIEW §S-06；`SettingsDialog.tsx:58-61` |
+| DW-06 | unassigned | **S-08／F-04** adapter 收到的 `prLinks` 在 `finalizeMeta` 遺失（資料保全性欠債，無消費端） | REVIEW §S-08；`normalizer.ts:86-94` |
+| DW-07 | unassigned | **S-09／F-11** fishbone／distiller／map 三處未回報的 silent first-target fallback，缺 fixtures | REVIEW §S-09 |
+| DW-08 | unassigned | **S-10** validator 缺口 | REVIEW §S-10 |
+| DW-09 | unassigned | **S-11** File System Access 上限的套用時機 | REVIEW §S-11 |
+| DW-10 | unassigned | **S-12／F-08** 三處 collapse 缺 keyboard／ARIA | REVIEW §S-12 |
+
+> **DW-02 的狀態在 2026-08-26 變了，不要照舊讀。** 複核當時判「程式仍存在、但 UI 全走
+> worker 所以踩不到」。R11.2 的 F-01／F-02 為了讓 worker 開機失敗能降級，**新增了一條從
+> 真實使用者載入通往同步路徑的路**（`sessionLoader.ts` 的 `defaultFallback`）。也就是說
+> 這筆欠債從休眠變成可觸發，而且它違反 CLAUDE.md 明寫的不變式——「一份讀不了的檔案不得
+> 讓整批失敗」。**這是修復本身抬高的風險，不是既有技術債的自然惡化**，所以它不該跟其他九
+> 項一起排隊等輪次。待作者裁示：就地補 try/catch（小，且是既有不變式的補齊），或明文接受
+> 這條降級路徑沒有檔案級隔離。
+
+### 來自 R11 M7 資安複核（`SECREVIEW_R11_M7_REDACTION.md`）
+
+| id | home | 項目 | 證據 |
+|---|---|---|---|
+| DW-11 | unassigned | **§4** 同一原值可能對到兩個不同佔位符（`mappingKey` 是 kind-scoped，高熵規則是上下文無關的第一條）。兩者都有被遮，不構成洩漏，但違反 `apply.ts` 自述的「同一個值永遠同一個編號」 | SECREVIEW §4；`src/core/privacy/apply.ts` |
+
+> §2（高熵 checkbox 在主開關關閉時無效）與 §3（單檔快照匯出不經遮蔽管線）**不在這份表裡**
+> ——D-014 已把它們裁定為**明文排除**，不是待辦。驗收看到它們不算缺陷。
+
+### 來自 R10.1 RCA 與 R11 的兩項作者裁決
+
+| id | home | 項目 | 證據 |
+|---|---|---|---|
+| DW-12 | unassigned | **RCA P1／P2／P3** Codex exec 名稱解析與 `*_end` 事件配對的修復（RCA 已寫、修復從未施工） | `docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_*.md` |
+| DW-13 | unassigned | **D-011** Codex 骨架覆蓋率：`DECISION_RE` 是對著 Claude Code 的 raw chain-of-thought 調的，`decision` 對 Codex 結構上不可達 | `RCA_R11_CODEX_SKELETON_COVERAGE.md`；D-011 |
+| DW-14 | unassigned | **D-010／WC-4.3** 未配對 `*_end` 卡片視覺降權，「僅在候選數造成歧義時升為 warn」。**被 DW-12 的 P1 擋住**（需要 P1 才有的候選數） | D-010；PSM_R11 M4 WC-4.3 |
+
+### 其他
+
+| id | home | 項目 | 證據 |
+|---|---|---|---|
+| DW-15 | unassigned | `src/` 註解語言統一（量到 1,308 行、涵蓋 65% 檔案）。純 chore，不需要輪次，任何一輪都可以順手吃掉 | 工單存放在 repo 之外 |
+| DW-16 | unassigned | **T-008** 壓縮過的 session 靠 `logicalParentUuid` 串成一場對話。主題上最接近 R12 的探索半邊（哪些檔案屬於同一場 session），但**明確不在 R12 v0.1 的卡片集內——這行不是承諾** | `references/DIT-tickets.md` T-008 |
+| DW-17 | unassigned | M9 的 Consider 級 spot-check 殘留：C-01／F-13（註解宣稱用 uuid 去重、實作用 200 字元前綴）、C-05（`activePreset` 無 allow-list，壞值靜默 no-op）、C-06（`resetToSample` 未清 `snapshotMode`）、C-07（無可重現的相依套件 audit gate）、S-07（死 CSS）、S-13（殘留文件對齊） | REVIEW §4、§5 第 7–8 項 |
+
+## 收工條件 (how an item leaves this table)
+
+一筆 DW 只有三種離開方式，**刪掉不算**：
+
+1. 某一輪吃下它 → `home` 改成該輪 id，並在該輪的 PSM 裡出現成一張卡。
+2. 被裁定為明文排除 → 移進 `references/DIT-decisions.md` 開一個 D-NNN，本表留一行指過去
+   （DW-11 上方那段就是 §2／§3 的樣子）。
+3. 被實作掉 → 標 `done` 並附 commit sha，下一次整理時才移出。
+
+<!--
+review-when: a round is allocated or its card set changes, a DW item is implemented or ruled
+out, or a new deferral is made. `home` values are validated by scripts/check-round-ids.mjs —
+they must be the literal `unassigned` or an id listed in docs/rounds/ROUNDS.md.
+-->

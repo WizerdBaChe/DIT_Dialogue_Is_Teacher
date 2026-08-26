@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build && vite build --config vite.snapshot.config.ts",
     "typecheck": "tsc --noEmit",
+    "check:rounds": "node scripts/check-round-ids.mjs",
     "test": "vitest run",
     "preview": "vite preview",
     "fixture:r5": "node scripts/generate-r5-fixture.mjs",
