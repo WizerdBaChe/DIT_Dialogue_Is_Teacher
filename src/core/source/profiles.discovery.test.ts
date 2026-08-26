@@ -5,7 +5,7 @@
  * because every one of them is a thing a later, well-meaning edit would quietly undo.
  */
 import { describe, expect, it } from "vitest";
-import { profileFor } from "./profiles";
+import { profileFor, SIDECAR_JOIN_KEYS } from "./profiles";
 
 describe("SourceProfile · discovery half (R12 M1)", () => {
   it("resolves for every supported source, and the two rows are not the same object", () => {
@@ -65,6 +65,9 @@ describe("SourceProfile · discovery half (R12 M1)", () => {
       expect(ladder.length).toBeGreaterThan(0);
       expect(ladder[ladder.length - 1]).toBe("filename");
     }
+    // "Producible" has to mean a non-empty VALUE, not just a rung with that name — review
+    // 2026-08-27 found a file called exactly `.jsonl` stripping to the empty string and
+    // reaching the UI. The behavioural half of this claim lives in sessionIndexer.test.ts.
   });
 
   it("declares no ladder rung that nothing can produce yet", () => {
@@ -111,8 +114,20 @@ describe("SourceProfile · discovery half (R12 M1)", () => {
     expect(rest).toHaveLength(0);
     expect(sidecar.path).toBe(".codex-global-state.json");
     // 61/61 descriptions resolved through this chain on the local corpus, 2026-08-26.
-    expect(sidecar.joinKey).toEqual(["session_meta", "payload", "id"]);
+    expect(sidecar.joinKey).toEqual({ recordType: "session_meta", path: ["payload", "id"] });
     expect(sidecar.recordsAt).toEqual(["electron-persisted-atom-state", "thread-descriptions-v1"]);
+  });
+
+  it("exposes every declared join key as a derived list the indexer can consume", () => {
+    /*
+     * Found by review 2026-08-27: `joinKey` was declared, documented and tested for its VALUE —
+     * and read by nothing. The real extraction was hardcoded in the indexer, so editing this
+     * field, the sanctioned place to change the join, did nothing at all. P-004's shape,
+     * inverted: a declaration with no consumer rather than a consumer contradicting it.
+     *
+     * Derived, not restated, so the list cannot drift from the profiles it comes from.
+     */
+    expect(SIDECAR_JOIN_KEYS).toEqual([profileFor("codex").discovery.sidecars[0].joinKey]);
   });
 
   it("gives Claude Code no sidecar, because its titles are records inside the transcript", () => {

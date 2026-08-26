@@ -14,7 +14,7 @@ import type { DirectoryFile } from "./contracts";
 const SPEC: SidecarSpec = {
   path: ".codex-global-state.json",
   recordsAt: ["electron-persisted-atom-state", "thread-descriptions-v1"],
-  joinKey: ["session_meta", "payload", "id"],
+  joinKey: { recordType: "session_meta", path: ["payload", "id"] },
 };
 
 const fileOf = (path: string, content: string): DirectoryFile => {
@@ -89,6 +89,27 @@ describe("readSidecars (R12 M5)", () => {
     ]);
     expect([...descriptions.keys()]).toEqual(["good"]);
     expect(diagnostics.find((d) => d.code === "INDEX_SIDECAR_ENTRY_SKIPPED")).toMatchObject({ tier: "info", count: 3 });
+  });
+
+  it("refuses an oversized sidecar by name rather than loading it", async () => {
+    /*
+     * Found by security review 2026-08-27. This module had no bound at all, while the transcript
+     * scan in the same round windows every read to 128 KiB/1 MiB precisely so a big directory
+     * cannot stall the UI. `.codex-global-state.json` is Electron-persisted state whose growth
+     * DIT does not control, so "it is 196 KB today" is not a bound.
+     */
+    const huge: DirectoryFile = { path: SPEC.path, size: 9 * 1024 * 1024, read: async () => new Blob(["{}"]) };
+    const { descriptions, diagnostics } = await readSidecars([SPEC], [huge]);
+
+    expect(descriptions.size).toBe(0);
+    expect(diagnostics[0]).toMatchObject({ tier: "warn", code: "INDEX_SIDECAR_TRUNCATED", detail: SPEC.path });
+  });
+
+  it("reads a normal-sized sidecar without complaining", async () => {
+    // The negative control: the cap must not fire on the real shape (measured at 196 KB / 61).
+    const { descriptions, diagnostics } = await readSidecars([SPEC], [sidecarFile({ a: "a purpose" })]);
+    expect(descriptions.size).toBe(1);
+    expect(diagnostics.some((d) => d.code === "INDEX_SIDECAR_TRUNCATED")).toBe(false);
   });
 
   it("never throws, whatever the file contains", async () => {

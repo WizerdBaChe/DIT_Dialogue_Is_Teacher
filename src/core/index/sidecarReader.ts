@@ -24,6 +24,20 @@ export interface SidecarLookup {
 
 const EMPTY: SidecarLookup = { descriptions: new Map(), diagnostics: [] };
 
+/**
+ * 上限 (R12，資安複核 2026-08-27 補)。
+ *
+ * 這個模組原本沒有任何上限——而同一個索引流程裡到處都有：表頭表尾各 128 KiB 的視窗、
+ * `INDEX_MAX_FILES = 500`，註解明寫是「免得一個大目錄把 UI 卡住」。新檔案沒有把那套紀律
+ * 帶進來，於是一個夾帶的 `.codex-global-state.json` 可以整個讀進字串再 `JSON.parse`，
+ * 條目也全數塞進 Map。影響只到「這個分頁自己卡住」，但它抵觸的正是本輪自己的目標。
+ *
+ * 實測作者的檔案是 196 KB / 61 筆，所以這兩個數字給得很寬——它們是防呆，不是預算。
+ * 超過就**具名回報**，不是安靜截斷（同一個模組的規矩）。
+ */
+const SIDECAR_MAX_BYTES = 8 * 1024 * 1024;
+const SIDECAR_MAX_ENTRIES = 20_000;
+
 /** 沿屬性鏈往下走。任何一節不是物件就停下——回傳 undefined，由呼叫端決定怎麼說。 */
 function walk(value: unknown, chain: readonly string[]): unknown {
   let current = value;
@@ -55,6 +69,16 @@ export async function readSidecars(
     const file = byPath.get(spec.path);
     if (!file) continue; // 碰不到——M3 已經具名報過，見上方註解。
 
+    if (file.size > SIDECAR_MAX_BYTES) {
+      diagnostics.push({
+        tier: "warn",
+        code: "INDEX_SIDECAR_TRUNCATED",
+        count: file.size,
+        detail: spec.path,
+      });
+      continue;
+    }
+
     let parsed: unknown;
     try {
       parsed = JSON.parse(await (await file.read()).text());
@@ -83,7 +107,11 @@ export async function readSidecars(
     }
 
     let skipped = 0;
-    for (const [id, value] of Object.entries(records as Record<string, unknown>)) {
+    const all = Object.entries(records as Record<string, unknown>);
+    if (all.length > SIDECAR_MAX_ENTRIES) {
+      diagnostics.push({ tier: "warn", code: "INDEX_SIDECAR_TRUNCATED", count: all.length, detail: spec.path });
+    }
+    for (const [id, value] of all.slice(0, SIDECAR_MAX_ENTRIES)) {
       // 實測 61/61 的值都是純字串。非字串代表遇到量測沒看過的形狀——略過並計數，不硬轉。
       if (typeof value === "string" && value.trim()) descriptions.set(id, value);
       else skipped += 1;

@@ -123,6 +123,7 @@ const zhTW: CopyTable = {
   INDEX_SIDECAR_UNREADABLE: { line: (d) => `找得到存放 session 目的的檔案，但讀不開（${d.detail}）。清單照常，只是少了那些標題。` },
   INDEX_SIDECAR_SHAPE_CHANGED: { line: (d) => `存放 session 目的的檔案結構跟預期不同（找不到 ${d.detail}），可能是該工具改版了。清單照常，只是少了那些標題。` },
   INDEX_SIDECAR_ENTRY_SKIPPED: { line: (d) => `有 ${n(d)} 筆 session 目的的格式不認得，已略過。` },
+  INDEX_SIDECAR_TRUNCATED: { line: (d) => `存放 session 目的的檔案 (${d.detail}) 超過可讀取的上限，未完整讀入；清單照常，只是少了部分標題。` },
 };
 
 const en: CopyTable = {
@@ -226,6 +227,7 @@ const en: CopyTable = {
   INDEX_SIDECAR_UNREADABLE: { line: (d) => `The file holding session purposes was found but could not be read (${d.detail}). The list is unaffected; those titles are just missing.` },
   INDEX_SIDECAR_SHAPE_CHANGED: { line: (d) => `The file holding session purposes is not shaped as expected (${d.detail} was not found) — the tool may have changed its format. The list is unaffected; those titles are just missing.` },
   INDEX_SIDECAR_ENTRY_SKIPPED: { line: (d) => `${n(d)} session purpose(s) were in an unrecognised format and were skipped.` },
+  INDEX_SIDECAR_TRUNCATED: { line: (d) => `The file holding session purposes (${d.detail}) is past the size the reader will load, so it was not read in full. The list is unaffected; some titles are missing.` },
 };
 
 const TABLES: Record<Locale, CopyTable> = { "zh-TW": zhTW, en };

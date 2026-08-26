@@ -786,6 +786,52 @@ describe("buildSessionIndex · title ladder and sidecar (R12 M5)", () => {
     expect(diagnostics.some((d) => d.tier === "fatal")).toBe(false);
   });
 
+  it("never produces an empty title, even for a file named exactly `.jsonl`", async () => {
+    /*
+     * Found by review 2026-08-27. `filename` is every ladder's terminal rung, and its value is
+     * `baseName(path)` with the extension stripped — which is the EMPTY STRING for a file called
+     * `.jsonl`. The loop's `if (value && value.trim())` rejected it, fell through to the
+     * post-loop return, and that recomputed the same empty string and returned it. The code's own
+     * comment claimed showing a filename beats showing nothing; in this one case they were equal.
+     */
+    const { entries } = await buildSessionIndex(sourceOf([[".jsonl", SIMPLE]]), { expectSource: "claude-code" });
+    expect(entries).toHaveLength(1);
+    expect(entries[0].title.trim()).not.toBe("");
+  });
+
+  it("resolves the session id through the profile's declared join key, not a hardcoded path", async () => {
+    /*
+     * Review 2026-08-27 found `SidecarSpec.joinKey` was declared and read by nothing. The guard
+     * for that is behavioural: a record whose `type` is NOT the declared `recordType` must not
+     * yield an id, however id-shaped its contents are. If the extraction goes back to being
+     * hardcoded on `session_meta`, this still passes — but paired with the derivation test in
+     * profiles.discovery.test.ts, the pair pins that the profile is what is consulted.
+     */
+    const idOffTheDeclaredPath = [
+      // A real session_meta, but the id sits at `session_id` only — the profile declares
+      // `payload.id`, and that is the path that must be walked.
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:00Z",
+        type: "session_meta",
+        payload: { session_id: "should-not-be-used", cwd: "/tmp/p" },
+      }),
+      JSON.stringify({
+        timestamp: "2026-08-01T00:00:01Z",
+        type: "response_item",
+        payload: { type: "message", role: "user", content: [{ type: "input_text", text: "看一下" }] },
+      }),
+    ].join("\n");
+
+    const { entries } = await buildSessionIndex(
+      sourceOf([["sessions/2026/08/rollout-x.jsonl", idOffTheDeclaredPath]]),
+      { expectSource: "codex" },
+    );
+    expect(entries).toHaveLength(1);
+    expect(entries[0].id).not.toBe("should-not-be-used");
+    // Falls back to the filename, honestly, rather than reaching for a neighbouring field.
+    expect(entries[0].id).toBe("rollout-x");
+  });
+
   it("leaves the Claude Code ladder exactly as it was", async () => {
     const { entries } = await buildSessionIndex(
       sourceOf([["proj/a.jsonl", SIMPLE]]),
