@@ -309,6 +309,59 @@ ABSENT rather than guessed for those that do not — print both counts against t
 corpus. INV-R12-2 still holds: this is Claude-specific data reaching a source-agnostic viewer
 *through the profile*, so no `if (source === "claude-code")` may appear under `src/components/`.
 
+**BUILT 2026-08-26** — confirmation first:
+[`RESEARCH_R12_CLAUDE_METADATA_2026-08-26.md`](RESEARCH_R12_CLAUDE_METADATA_2026-08-26.md)
+(full corpus, 525 files / 208,527 records, replacing this card's 200-file sample). Then
+`types/spanTree.ts`, `adapters/types.ts`, `adapters/claudeCodeJsonl.ts`, `normalize/normalizer.ts`,
+`source/profiles.ts`, `components/parts.tsx`, `i18n/locales.ts`, `styles/index.css`, plus three
+test files.
+
+**Acceptance, measured by running the shipped pipeline over the author's corpus** — both counts,
+as the card required:
+
+| | |
+|---|---|
+| sessions parsed | **285**, 0 failed |
+| sessions WITH attribution | **159 (55.8%)** |
+| sessions WITHOUT | 126 (44.2%) |
+| spans total | **91,229** |
+| spans WITH attribution | **15,764 (17.3%)** |
+| spans WITHOUT — absent, not guessed | **75,465 (82.7%)** |
+| by kind | subagent 5,134 · skill 4,323 · mcp-tool 7,022 · **85 distinct names** |
+
+INV-R12-2 is now enforced, not asserted: `components/sourceAgnostic.test.ts` globs every file
+under `src/components/` and fails on any `source === "claude-code"`-shaped comparison. It ships
+with two controls — a known-bad string must trip the pattern, and the glob must match >20 files,
+so a glob that silently matched nothing cannot pass vacuously.
+
+Design decisions that came from the measurement rather than from taste:
+
+1. **`attribution` is a source-agnostic array on the span, not Claude fields plumbed downward.**
+   `RawEvent` states it "knows no source format"; `attributionSkill` would have broken that. The
+   array is measured, not defensive: skill+agent co-occur on 646 records.
+2. **The profile declares `attribution.kinds`, and Codex's is `[]`.** That is what lets the view
+   distinguish "this step was not labelled" from "this system never labels steps" without
+   knowing which source it is rendering. Same shape as `classify.signals: []`.
+3. **Half an MCP pair is refused.** server and tool are never apart in the corpus (8,629 / 0 / 0),
+   so a half pair means an unmeasured shape — say nothing rather than name a tool after a server.
+4. **`attributionAgent` is read even though `isSidechain` already flags those records.** The flag
+   says "a subagent"; the field says *which* — that is the entire addition, so the existing group
+   gets a name instead of a new layer beside it.
+5. **`entrypoint` dropped by measurement**: 2 distinct values, 99.88% `claude-desktop`.
+
+**A wrong number I nearly published**: the first acceptance run reported 228/513 files failing
+and *zero* subagent attributions. Both were artifacts of the measurement loading each file alone,
+where a `subagents/*.jsonl` file is `NO_MAIN_TRANSCRIPT` by design. Grouping main + subagents the
+way `loadIndexEntry` does gives 0 failures and 5,134 subagent attributions. The instrument was
+broken, not the code — and a 0 that agrees with a plausible story ("subagent spans get dropped")
+is exactly the false negative worth re-checking before believing.
+
+**Not browser-verified**: the built-in sample is synthetic and carries no attribution, so the
+badge cannot appear without a real folder pick. The view half is covered by
+`components/attributionBadges.test.tsx` under jsdom instead; appearance stays a by-eye item.
+
+Gates: `typecheck` clean · `test` 575/575 (63 files) · `build` two-stage clean · `check:rounds` OK.
+
 ### M5 — Per-source title ladder, and the Codex sidecar (incidental; deferrable)
 
 `pickTitle` stops being one ladder with Claude-only rungs and walks `discovery.titleLadder`.

@@ -34,6 +34,29 @@ export type SourceId = "claude-code" | "codex";
  */
 export type TitleSource = "custom" | "ai" | "derived" | "filename";
 
+/**
+ * 「這一步是誰／哪個機制做的」(R12 M4)。
+ *
+ * 概念層刻意做成**來源無關**：`RawEvent` 的檔頭自述「Normalizer 只認 RawEvent[]，不認得任何
+ * 特定來源格式」，把 `attributionSkill` 這種欄位名帶下去會違反它。而「來歷」本身也不是
+ * Claude 專屬——Codex 有 `sub_agent_activity`，也有 MCP 呼叫。抽象放在概念，欄位名留在
+ * 各自的 adapter。
+ *
+ * 量測 (`RESEARCH_R12_CLAUDE_METADATA_2026-08-26.md`，525 檔 / 208,527 筆)：
+ * 73.1% 的 session 至少帶一種來歷，skill 27 種、subagent 9 種、MCP server 12 種。
+ */
+export interface Attribution {
+  kind: "skill" | "subagent" | "mcp-tool";
+  /** 來源紀錄的原字串。不改寫、不美化、不翻譯——它是那邊的識別名。 */
+  name: string;
+  /**
+   * 只有 `mcp-tool` 有：工具所屬的 server。
+   * 實測 server 與 tool **永遠成對**（both 8,629、serverOnly 0、toolOnly 0），所以缺一半時
+   * 不補、不猜——那代表遇到了量測沒看過的形狀，寧可少講也不要編。
+   */
+  server?: string;
+}
+
 /** Span 的語意型別。 */
 export type SpanType =
   | "user_msg"
@@ -134,6 +157,16 @@ export interface Span {
    * 可選欄位，不影響既有 SCHEMA_VERSION 的相容性。
    */
   synthetic?: boolean;
+  /**
+   * 這一步的來歷，來源有標才有 (R12 M4)。
+   *
+   * 是**陣列**而不是單值，因為實測會共現：skill 跑在 subagent 裡有 646 筆，
+   * agent+MCP 369 筆，四種齊全 1 筆。單值型別會逼實作在真實資料上做取捨。
+   *
+   * 缺席即「來源沒標」，不得解讀成「沒有來歷」——兩者的差別由側寫的
+   * `attribution.kinds` 回答（空陣列 = 這套系統不記錄這件事）。
+   */
+  attribution?: readonly Attribution[];
   tags: SpanTag[];
   annotation?: Annotation;
   /** 原始事件，保底可回溯 (資料流可追蹤)。 */

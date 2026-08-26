@@ -24,7 +24,7 @@
  * and 57 `system-reminder`. Splitting them would stop stripping preambles that are demonstrably
  * there, so the whitelist stays global and `core/text/preamble.ts` is unchanged.
  */
-import type { SourceId, TitleSource } from "@/types/spanTree";
+import type { Attribution, SourceId, TitleSource } from "@/types/spanTree";
 
 /**
  * ─── The discovery half (R12 M1) ────────────────────────────────────────────────────────────
@@ -191,6 +191,19 @@ export interface SourceProfile {
   outcomeFidelity: ToolOutcomeFidelity;
   /** Where this source's sessions live and how they are named. See `SourceDiscovery`. */
   discovery: SourceDiscovery;
+  /**
+   * Which kinds of step attribution this source records at all (R12 M4).
+   *
+   * This is what lets the viewer stay source-agnostic without lying. A span with no
+   * `attribution` means "this source did not label this step" — and an empty `kinds` list here
+   * means "this source does not label steps at all". Rendering both as blank would tell the
+   * reader the same thing about two different facts, which is the failure this codebase keeps
+   * re-learning: "we didn't look" must never be shown as "there is nothing".
+   *
+   * The view reads THIS, not the source id. That is how INV-R12-2 is satisfied without an
+   * `if (source === "claude-code")` under `src/components/`.
+   */
+  attribution: { kinds: readonly Attribution["kind"][] };
 }
 
 /**
@@ -212,6 +225,11 @@ const CLAUDE_CODE: SourceProfile = {
   filePathMapKeys: [],
   outcomeFidelity: "recorded",
   discovery: DISCOVERY["claude-code"],
+  /*
+   * All three, measured over 525 files / 208,527 records on 2026-08-26: 27 distinct skills,
+   * 9 subagents, 12 MCP servers across 54 tools. 73.1% of sessions carry at least one.
+   */
+  attribution: { kinds: ["skill", "subagent", "mcp-tool"] },
 };
 
 const CODEX: SourceProfile = {
@@ -225,6 +243,13 @@ const CODEX: SourceProfile = {
   // patch_apply_end.success and mcp_tool_call_end.result.Err carry an outcome; plain exec does not.
   outcomeFidelity: "partial",
   discovery: DISCOVERY.codex,
+  /*
+   * Empty, and it means "does not record", not "not implemented yet". Codex rollouts do carry
+   * `sub_agent_activity` and MCP calls, but nothing in them labels WHICH skill or agent
+   * produced a given step the way Claude Code's `attribution*` fields do. When that changes,
+   * this row is the one edit — and the viewer needs no change at all.
+   */
+  attribution: { kinds: [] },
 };
 
 // R11 M4 WC-4.4(3) / D-008: the "paste" profile is removed along with the SourceId member it

@@ -162,6 +162,15 @@ export function normalize(parsed: ParseResult): SessionDocument {
     // 讓逐字對話輸出能把它排除，不至於冒充成 AI 發言。
     if (ev.kind === "unknown") span.synthetic = true;
 
+    /*
+     * R12 M4：來歷原樣帶過去，不加工。
+     *
+     * 這裡刻意不做「沒有就補一個預設值」——缺席的意思是「來源沒有標」，而那跟「沒有來歷」
+     * 是兩件事。要區分它們的是側寫的 `attribution.kinds`（空陣列 = 這套系統不記錄），
+     * 不是在這裡塞一個佔位字串。
+     */
+    if (ev.attribution?.length) span.attribution = ev.attribution;
+
     if (ev.kind === "tool_use") {
       // R11.2 R2: a missing tool name is a *named* degradation, not a silent one — the reader
       // already sees it (this same UNNAMED_TOOL_NAME feeds both the card title and the tool
