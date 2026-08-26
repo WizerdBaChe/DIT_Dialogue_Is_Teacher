@@ -39,7 +39,7 @@ const zhTW = {
     loadFile: "選擇一則對話",
     loadFileTitle: "已經知道是哪個檔時用這個。Claude Code 通常在 ~/.claude/projects/<專案>/*.jsonl；Codex CLI 通常在 ~/.codex/sessions/rollout-*.jsonl。不確定要載哪一個，請改用左邊的「從對話集選擇」。",
     loadFolder: "從對話集選擇",
-    loadFolderTitle: "選一個 ~/.claude/projects/ 底下的資料夾，用可讀的標題挑，不必先知道檔名；子代理紀錄會一併帶入。瀏覽器每次重新載入頁面都會再問一次是否允許讀取該資料夾，那是瀏覽器的安全設計，不是 DIT 記不住。",
+    loadFolderTitle: "選一個資料夾，用可讀的標題挑，不必先知道檔名；Claude Code 的子代理紀錄會一併帶入。要選哪個資料夾，看上面那一行路徑提示。瀏覽器每次重新載入頁面都會再問一次是否允許讀取該資料夾，那是瀏覽器的安全設計，不是 DIT 記不住。",
     reset: "重置",
     resetTitle: "回到內建範例與預設設定",
     showAnnotations: "顯示教學講解",
@@ -63,6 +63,22 @@ const zhTW = {
     languageLabel: "語言",
     readFileFailed: (name: string) => `讀取檔案失敗：${name}`,
     loadFailed: (msg: string) => `載入失敗：${msg}`,
+  },
+
+  /*
+   * R12 M2 一級選單。刻意不做成「自動偵測」：偵測仍然存在，但它從此是**驗證**而不是主要機制
+   * ——使用者說了要讀哪一套，DIT 就去那一套的位置、用那一套的規則找；檔案內容如果不同意，
+   * 具名報出來 (INDEX_SOURCE_MISMATCH)，而不是安靜地改讀成另一套。
+   *
+   * 系統名稱 (Claude Code / Codex CLI) 是產品名，兩個語系相同，所以不在這裡逐語系重寫；
+   * 路徑提示也不放——它來自 `SourceProfile.discovery.rootHint`，那裡是它唯一的定義處。
+   */
+  sourcePicker: {
+    label: "先選你要讀哪一套 agent 系統",
+    hint: "目前只支援這兩套。選好之後才會出現「從對話集選擇」與「選擇一則對話」。",
+    change: "換一套",
+    changeTitle: "回到系統選單。會清掉目前的清單——那份清單屬於剛剛那一套系統。",
+    rootHintLabel: "通常在",
   },
 
   settings: {
@@ -701,7 +717,7 @@ const en: Messages = {
     loadFile: "Open one conversation",
     loadFileTitle: "Use this when you already know which file you want. Claude Code: usually ~/.claude/projects/<project>/*.jsonl; Codex CLI: usually ~/.codex/sessions/rollout-*.jsonl. If you are not sure, use “Choose from your conversations” instead.",
     loadFolder: "Choose from your conversations",
-    loadFolderTitle: "Pick a folder under ~/.claude/projects/ and choose by readable title — no file names needed; subagent records come along. The browser asks for folder access again on every fresh page load; that is the browser’s security design, not DIT forgetting.",
+    loadFolderTitle: "Pick a folder and choose by readable title — no file names needed; for Claude Code, subagent records come along. The path hint above tells you which folder. The browser asks for folder access again on every fresh page load; that is the browser’s security design, not DIT forgetting.",
     reset: "Reset",
     resetTitle: "Return to the built-in sample and defaults",
     showAnnotations: "Show teaching notes",
@@ -725,6 +741,14 @@ const en: Messages = {
     languageLabel: "Language",
     readFileFailed: (name: string) => `Failed to read file: ${name}`,
     loadFailed: (msg: string) => `Load failed: ${msg}`,
+  },
+
+  sourcePicker: {
+    label: "Which agent system do you want to read?",
+    hint: "These two are the only ones supported. Choosing one reveals the folder and single-file entries.",
+    change: "Switch system",
+    changeTitle: "Back to the system menu. This clears the current list — that list belongs to the system you had chosen.",
+    rootHintLabel: "usually at",
   },
 
   settings: {

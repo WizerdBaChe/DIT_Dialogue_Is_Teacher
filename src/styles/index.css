@@ -216,6 +216,19 @@ body {
   padding-left: 0; padding-right: 0; border-bottom: 0; background: transparent;
 }
 .session-load-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+/* R12 M2 一級選單。二級在選完之前不 render，所以這裡沒有 disabled 狀態要畫。 */
+.source-picker { flex-direction: column; align-items: flex-start; gap: 6px; }
+.source-picker-choices { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.source-picker-label { font-size: calc(13px * var(--ui-scale)); opacity: 0.85; margin-right: 2px; }
+.source-picker-hint { font-size: calc(12px * var(--ui-scale)); opacity: 0.7; margin: 0; }
+.source-choice { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.25; }
+.source-choice-root, .source-picker-root { font-size: calc(11px * var(--ui-scale)); opacity: 0.75; }
+.source-choice-root code, .source-picker-root code { font-size: inherit; }
+.source-back { display: inline-flex; align-items: baseline; gap: 6px; }
+.source-back::before { content: "‹"; opacity: 0.7; }
+.source-back-name { font-weight: 600; }
+.source-back-action { font-size: calc(11px * var(--ui-scale)); opacity: 0.7; }
 .settings-actions > label:not(.btn):not(.toggle) { color: var(--text-dark); font-size: var(--fs-xs); font-weight: 600; }
 /* 選項說明：常駐顯示一行小字，只掛在非自明的控制項下面 (批次講解模式／快取清除／M 快捷鍵)。 */
 .option-hint { margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }

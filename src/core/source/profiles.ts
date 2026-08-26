@@ -241,3 +241,16 @@ const PROFILES: Record<SourceId, SourceProfile> = {
 export function profileFor(source: SourceId): SourceProfile {
   return PROFILES[source];
 }
+
+/**
+ * Every supported source, **in the order the UI offers them** (R12 M2).
+ *
+ * Derived from `PROFILES` rather than written out again: a second hardcoded list is a second
+ * thing to forget, and the whole point of the registry is that adding a source is one edit.
+ * The cast is safe by construction — `PROFILES` is `Record<SourceId, …>`, so it is total.
+ *
+ * The order carries the author's 2026-08-26 ruling: Claude Code is adapted to the maximum and
+ * Codex is incidental, so Claude Code is offered first. That is a product decision, not a
+ * coincidence of object literal order, which is why a test pins it.
+ */
+export const SUPPORTED_SOURCES = Object.keys(PROFILES) as readonly SourceId[];

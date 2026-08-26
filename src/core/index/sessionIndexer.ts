@@ -306,6 +306,18 @@ export interface BuildIndexOptions {
   maxFiles?: number;
   /** 逐檔進度，供 UI 顯示；索引 140 個檔案要讀約 25 MB。 */
   onProgress?: (done: number, total: number) => void;
+  /**
+   * R12 M2：使用者在一級選單挑的 agent 系統。有值時，**認得出來但屬於另一套**的檔案不列入，
+   * 並以 `INDEX_SOURCE_MISMATCH` 報出被略過的筆數。
+   *
+   * 三件事刻意不變，因為它們是 R11 WC-1.2 通過驗收的行為：
+   *  - 沒給值時，行為與 R11 完全相同（一個位元組都不差），所有既有測試因此仍然有效。
+   *  - `source === null`（表頭讀不完整、無從判定）**不會**被濾掉。「讀不到」跟「讀到了、
+   *    說不是這一套」是兩件事，把前者當後者濾掉正是 C1 那個缺陷的形狀。
+   *  - 略過**永遠帶著計數說出來**，不是安靜地少幾筆。作者當初回報的就是「Codex session
+   *    憑空消失」，無聲的過濾不因為這次有選單就變得可以接受。
+   */
+  expectSource?: SourceId;
 }
 
 export async function buildSessionIndex(
@@ -327,6 +339,7 @@ export async function buildSessionIndex(
   const entries: SessionIndexEntry[] = [];
   let unreadable = 0;
   let unreadableDetail = "";
+  let otherSource = 0;
 
   for (const [done, file] of scanned.entries()) {
     options.onProgress?.(done, scanned.length);
@@ -354,6 +367,16 @@ export async function buildSessionIndex(
      *    every Codex session from the folder browser (UAT C1) even though it was fully readable.
      */
     if (headScanUsable && !source) continue;
+
+    /*
+     * R12 M2: the level-1 choice decides WHERE to look, so a readable file belonging to the
+     * other harness is out of scope for this browse. Counted and reported, never silent — and
+     * `source === null` deliberately falls through to be kept (see BuildIndexOptions.expectSource).
+     */
+    if (options.expectSource && source && source !== options.expectSource) {
+      otherSource += 1;
+      continue;
+    }
 
     /*
      * `<dir>/<id>/subagents/` is a Claude Code layout convention; Codex rollouts have no such
@@ -407,6 +430,9 @@ export async function buildSessionIndex(
 
   if (unreadable > 0) {
     diagnostics.push({ tier: "warn", code: "INDEX_FILE_UNREADABLE", count: unreadable, detail: unreadableDetail });
+  }
+  if (otherSource > 0) {
+    diagnostics.push({ tier: "warn", code: "INDEX_SOURCE_MISMATCH", count: otherSource, detail: options.expectSource });
   }
   // 具名降級的出口：一條聚合 info，而不是每個檔案一次 console (RC-B)。
   const titleFromFilename = entries.filter((entry) => entry.titleSource === "filename").length;

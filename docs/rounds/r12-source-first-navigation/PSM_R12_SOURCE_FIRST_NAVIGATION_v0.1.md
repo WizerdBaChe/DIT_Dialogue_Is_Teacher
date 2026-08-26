@@ -177,6 +177,41 @@ persist a handle, `INDEX_HANDLE_NOT_PERSISTED` still fires per source and does n
 A mismatch between the chosen source and the file content produces a named diagnostic, never a
 silent reinterpretation.
 
+**BUILT 2026-08-26** — `SessionLoadActions.tsx` (+ its test), `handleRepository.ts` (+ a new
+test), `sessionIndexer.ts` (+ tests), `sessionStore.ts`, `locales.ts`, `diagnostics/contracts.ts`,
+`i18n/diagnosticCopy.ts`, `core/index/index.ts`, `core/source/profiles.ts`, `styles/index.css`.
+
+Delivered: the level-1 gate (level 2 is **absent**, not disabled — a button you cannot press
+still invites you to press it), per-`SourceId` directory memory, and index-time verification.
+`SUPPORTED_SOURCES` is derived from `PROFILES` so the supported list cannot drift from the
+registry, and its ORDER carries the Claude-Code-first ruling (pinned by a test).
+
+Four things worth carrying forward:
+
+1. **Carrying the chosen source into single-file loading is deferred to M3.** The ingest layer
+   has no `sourceId` anywhere — not in `loadFromBlobs`, not in the worker message contract —
+   so it is a protocol change, which is exactly M3's "per-source path adaptation". M2 delivers
+   the other half of that bullet (indexing) in full.
+2. **The pre-R12 single remembered folder is discarded, not migrated, and it says so**
+   (`INDEX_HANDLE_SOURCE_SPLIT`). Nothing recorded which system it belonged to and after R11
+   WC-1.2 both harnesses can appear in one folder, so there is nothing to infer from. Guessing
+   sends the user to the other harness's directory; silence looks like the app lost a setting.
+3. **`expectSource` does not undo R11 WC-1.2.** Without it, behaviour is unchanged; with it, an
+   unresolved source (`null`, head scan unusable) is still KEPT — only a file that resolves to
+   the *other* harness is skipped, counted, and reported. "Could not read enough to ask" and
+   "read it, it says the other one" stay different facts. Four tests pin this, both directions.
+4. **The source buttons had no accessible name** — name-from-content did not compute across the
+   two nested spans, so a screen reader got "button". Found by reading the a11y tree in the real
+   build, not by any test; fixed with an explicit `aria-label` that also stops the label running
+   into the path with no separator.
+
+Gates: `typecheck` clean · `test` 542/542 (60 files) · `build` two-stage clean ·
+`check:rounds` OK. Browser-verified against `npm run preview` by DOM read, not pixels: level 1
+offers two choices and zero load entries; choosing Claude Code yields `data-level="2"`,
+`data-source="claude-code"`, root hint `~/.claude/projects`, and exactly the two load entries in
+the R9.1 F1 order; going back returns to level 1 with both choices. **Appearance is NOT verified**
+— the pane reports `visibilityState: "hidden"`, and layout/legibility is a by-eye item.
+
 ### M3 — Per-source root and path adaptation
 
 The indexer walks per `discovery.transcripts` instead of one hard-coded shape.
