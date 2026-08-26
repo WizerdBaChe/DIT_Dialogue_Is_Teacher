@@ -18,6 +18,7 @@ import { detectAdapter } from "@/core/adapters";
 import { flattenTextBlocks as flattenCodexTextBlocks, isAutoReviewDump as isCodexAutoReviewDump } from "@/core/adapters/codexJsonl";
 import type { Diagnostic } from "@/core/diagnostics/contracts";
 import { stripInjectedPreamble } from "@/core/text/preamble";
+import { profileFor } from "@/core/source/profiles";
 import type { SourceId } from "@/types/spanTree";
 import { classifySession, isSubagentPath, isSyntheticPrompt } from "./classifySession";
 import type { DirectoryFile, DirectorySource, SessionIndex, SessionIndexEntry, TitleSource } from "./contracts";
@@ -276,6 +277,23 @@ function baseName(path: string): string {
   return path.split("/").pop() ?? path;
 }
 
+/**
+ * R12 M3：哪些檔案算是這個來源的 transcript，由側寫表說了算，不是寫死一種形狀。
+ *
+ * 沒有選來源時維持 R9 的行為（任何 `*.jsonl`），一個位元組都不差——既有測試因此仍然有效。
+ *
+ * 比對的是**檔名**不是完整路徑：Codex 的 rollout 埋在 `sessions/<年>/<月>/<日>/` 底下，
+ * 拿 `^rollout-` 去比整條路徑永遠不會中。
+ *
+ * 誠實的落差：Codex 的樣式（`^rollout-*.jsonl`）真的可以讓 Claude 的檔案連掃都不掃；
+ * Claude 的樣式是 `*.jsonl`，掃得到 Codex 的 rollout，要等掃完認出來源才會被 M2 的
+ * `expectSource` 濾掉。結果正確，但省不掉那次掃描。收緊成 UUID 形狀會誤殺，不划算。
+ */
+function isTranscript(path: string, expectSource: SourceId | undefined): boolean {
+  if (!expectSource) return /\.jsonl$/i.test(path);
+  return profileFor(expectSource).discovery.transcripts.filePattern.test(baseName(path));
+}
+
 function pickTitle(stats: ScanStats, path: string): { title: string; titleSource: TitleSource } {
   if (stats.customTitle) return { title: firstLine(stats.customTitle, TITLE_MAX_LENGTH), titleSource: "custom" };
   if (stats.aiTitle) return { title: firstLine(stats.aiTitle, TITLE_MAX_LENGTH), titleSource: "ai" };
@@ -327,9 +345,49 @@ export async function buildSessionIndex(
   const maxFiles = options.maxFiles ?? INDEX_MAX_FILES;
   const diagnostics: Diagnostic[] = [];
 
-  const all = (await source.list()).filter((file) => /\.jsonl$/i.test(file.path));
+  const listed = await source.list();
+  /*
+   * R12 M3：三層，語意各不相同，不能合併。實測 `~/.codex` 才看清楚為什麼（9,699 個檔案、
+   * 361 個 `.jsonl`、358 個 rollout）：
+   *
+   *  1. `.jsonl` — 基準線。`.md`／`.json` 從來就不是候選，R9 起靜靜略過，沒人需要被告知。
+   *  2. 來源自己的檔名樣式 — 「是 `.jsonl`，但不是這套系統的 transcript」。剩下那 3 個是
+   *     `session_index.jsonl`、`transcription-history.jsonl` 與一個外掛 fixture——**它們就是
+   *     Codex 的檔案**，只是不是對話紀錄。所以這裡**不能**說「不屬於你選的那套系統」，那句話
+   *     是假的。走 info 級的 `INDEX_NOT_TRANSCRIPT`：不吵人，但也不是無聲，使用者看到
+   *     361 變 358 時查得到原因。
+   *  3. 掃過之後內容判定屬於另一套 — 這才是 `INDEX_SOURCE_MISMATCH`（warn），因為它真正的
+   *     意思是「你可能選錯系統了」，是使用者可以行動的。
+   *
+   * 第 2 層原本被我併進第 3 層，實測才發現那會讓每一次 Codex 根目錄選取都固定謊報 3 筆。
+   */
+  const jsonl = listed.filter((file) => /\.jsonl$/i.test(file.path));
+  const all = jsonl.filter((file) => isTranscript(file.path, options.expectSource));
   const mains = all.filter((file) => !isSubagentPath(file.path));
   const subagents = all.filter((file) => isSubagentPath(file.path));
+  const excludedByName = jsonl.filter((file) => !isTranscript(file.path, options.expectSource) && !isSubagentPath(file.path)).length;
+
+  /*
+   * R12 M3：接受 `~/.codex` 也接受 `~/.codex/sessions`——後者是既有習慣，直接拒絕它只會
+   * 讓人以為壞了。但兩者不等價：sidecar 在 `sessions/` 的上一層，而瀏覽器讀不到所選目錄的
+   * 母目錄，所以選深了那個檔案就是碰不到。
+   *
+   * 判定用的是「sidecar 在不在清單裡」這個**正面事實**，不是從路徑形狀去推。推論在使用者
+   * 選了更上層（例如家目錄）時會說出錯的話；直接找檔案不會。
+   */
+  const sidecars = options.expectSource ? profileFor(options.expectSource).discovery.sidecars : [];
+  if (sidecars.length > 0 && all.length > 0) {
+    const present = new Set(listed.map((file) => file.path));
+    const missing = sidecars.filter((sidecar) => !present.has(sidecar.path));
+    if (missing.length > 0) {
+      diagnostics.push({
+        tier: "warn",
+        code: "INDEX_SIDECAR_OUT_OF_REACH",
+        count: missing.length,
+        detail: profileFor(options.expectSource!).discovery.rootHint,
+      });
+    }
+  }
 
   const scanned = mains.slice(0, maxFiles);
   if (mains.length > maxFiles) {
@@ -433,6 +491,9 @@ export async function buildSessionIndex(
   }
   if (otherSource > 0) {
     diagnostics.push({ tier: "warn", code: "INDEX_SOURCE_MISMATCH", count: otherSource, detail: options.expectSource });
+  }
+  if (excludedByName > 0) {
+    diagnostics.push({ tier: "info", code: "INDEX_NOT_TRANSCRIPT", count: excludedByName });
   }
   // 具名降級的出口：一條聚合 info，而不是每個檔案一次 console (RC-B)。
   const titleFromFilename = entries.filter((entry) => entry.titleSource === "filename").length;

@@ -109,6 +109,13 @@ const zhTW: CopyTable = {
     line: () => "資料夾改為「每套系統各記一個」，之前只記住的那一個因為分不出屬於哪一套，已清除；請重選一次。",
   },
   INDEX_SOURCE_MISMATCH: { line: (d) => `這個資料夾裡有 ${n(d)} 筆不屬於你選的那套系統，已略過。` },
+  INDEX_SIDECAR_OUT_OF_REACH: {
+    line: (d) => `Session 清單讀得到，但這套系統把 session 目的存在另一個檔案裡，而它在你所選資料夾的上一層——瀏覽器讀不到上一層。改選 ${d.detail} 就能一併讀到。`,
+  },
+  INDEX_NOT_TRANSCRIPT: { line: (d) => `另有 ${n(d)} 個 .jsonl 的檔名不符合這套系統的紀錄命名，沒有掃描。` },
+  LOAD_SOURCE_MISMATCH: {
+    line: (d) => `這個檔案實際上是 ${d.detail} 的紀錄，跟你選的那套系統不同。內容以檔案本身為準，已照它原本的樣子解讀。`,
+  },
 };
 
 const en: CopyTable = {
@@ -199,6 +206,13 @@ const en: CopyTable = {
     line: () => "Folders are now remembered per agent system. The single folder remembered before could not be attributed to one, so it was cleared — please pick it again.",
   },
   INDEX_SOURCE_MISMATCH: { line: (d) => `${n(d)} file(s) in this folder do not belong to the agent system you chose and were skipped.` },
+  INDEX_SIDECAR_OUT_OF_REACH: {
+    line: (d) => `The session list is readable, but this system keeps session purposes in a separate file one level above the folder you picked — a browser cannot read the parent of a picked folder. Pick ${d.detail} instead to include it.`,
+  },
+  INDEX_NOT_TRANSCRIPT: { line: (d) => `${n(d)} other .jsonl file(s) are not named the way this system names its records, and were not scanned.` },
+  LOAD_SOURCE_MISMATCH: {
+    line: (d) => `This file is actually a ${d.detail} record, not the system you chose. The file itself is authoritative, so it was read as what it is.`,
+  },
 };
 
 const TABLES: Record<Locale, CopyTable> = { "zh-TW": zhTW, en };
