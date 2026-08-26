@@ -156,13 +156,23 @@ const CODEX_DISCOVERY: SourceDiscovery = {
    */
   titleLadder: ["sidecar", "derived", "filename"],
   /*
-   * Empty, and measured. `agentId`/`isSidechain` are Claude Code field names that cannot appear
-   * here. `human-turn-count` is listed nowhere because R11.2 R1 measured it as near-informationless
-   * for this source: 356/358 rollouts classify as `dialogue`, yet 108 of those files contain no
-   * human-typed text anywhere. A counter that says "dialogue" for a file with no human in it is
-   * not a signal. This is what `codex-unclassified` reports instead of guessing.
+   * `human-turn-count` and nothing else — and this row was WRONG until R12 M6.
+   *
+   * M1 declared it `[]` with the note "empty, and measured", reasoning that R11.2 R1 found the
+   * count near-informationless here (356/358 rollouts come out `dialogue`, yet 108 of those
+   * files contain no human-typed text anywhere). But that is a claim about the signal's VALUE,
+   * not its EXISTENCE — and `classifySession` has read Codex's own two signals since R11.2 R1,
+   * classifying 346 of 346 successfully. Declaring `[]` while the code read two was a lie the
+   * type system could not catch, and implementing M6 literally against it would have taken a
+   * module with zero regressions and made it classify nothing.
+   *
+   * The low information value is real and stays recorded — here, in a comment, rather than by
+   * pretending the field does not exist.
+   *
+   * Still genuinely absent: `agent-id-field` and `all-sidechain` are Claude Code field names
+   * that cannot appear in a rollout, and `subagent-path` is a Claude Code directory convention.
    */
-  classify: { signals: [] },
+  classify: { signals: ["human-turn-count"] },
 };
 
 /** Whether a source records the outcome (success/failure) of a tool call at all. */
