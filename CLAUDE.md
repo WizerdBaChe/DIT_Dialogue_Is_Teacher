@@ -21,7 +21,7 @@ different rounds both call themselves R9 in July/August 2026.
 
 | Counter | Where it lives | Rule |
 |---|---|---|
-| **Round id** `r<N>[.<m>]-<slug>` | directory name, doc filenames, branch name, backlog item prefix | one round = one id, allocated **once**, never reused. `.m` is a follow-up to the round it hangs off (R9.1 remediates R9). |
+| **Round id** `<YYYY-MM>-<slug>` | directory name, doc filenames, branch name, backlog item prefix | one round = one id, allocated **once**, never reused. The `r<N>[.<m>]-<slug>` form is a **closed legacy namespace**: R1–R12 keep their ids forever, nothing new joins them. See `docs/rounds/ROUNDS.md`. |
 | **Phase number** | `references/DIT-phase-log.md` only | monotonic, one checkpoint per round, never renumbered downward. It counts checkpoints, not rounds — historically one phase has covered several rounds. |
 
 Rules:
@@ -30,26 +30,41 @@ Rules:
   the registry — **not** the `docs/rounds/` directory listing, which cannot show you a round
   with no directory (R4) or one that is reserved but unstarted (R11.1). A round that ships
   without an id has to be retro-labeled later, which is worse (see `r9.2-transcript-export`).
-- **Never defer work to a round id that is not allocated yet.** "Deferred to R<next number>"
-  silently reserves that id, and the theme that eventually claims it will be something else —
-  this is how R9 collided and how R12 collided again on 2026-08-26. Unhomed work goes to
-  `docs/DEFERRED.md` with a `DW-NN` id and `home: unassigned`. Enforced: `npm run check:rounds`.
-- **`docs/rounds/**` is frozen.** A shipped round's documents are the evidence a post-mortem
-  reads; when one of them turns out to be misleading, add a dated correction note — do not
-  rewrite the verdict. Live records (`references/DIT-*.md`, `docs/DEFERRED.md`, this file) are
-  the opposite: they describe the present and must be corrected in place.
+- **The R-number namespace is closed at R12 (author ruling 2026-08-26).** New rounds use
+  `<YYYY-MM>-<slug>`, e.g. `2026-09-codex-provenance`. This is not cosmetic: a sequential number
+  is *predictable*, so it can be written down before it exists — which is precisely how "deferred
+  to R12" got written, and how R9 collided before it. A date-plus-slug id cannot be forward-
+  referenced, because naming the theme IS allocating the round. Follow-up rounds take their own
+  slug (`…-repairs`) instead of `.m`, which read like "remediates R<N>" even when it did not
+  (R9.2 was a feature).
+- **Never defer work to a round id that is not allocated yet.** Unhomed work goes to
+  `docs/DEFERRED.md` with a `DW-NN` id and `home: unassigned`. Enforced: `npm run check:rounds`,
+  whose live-record rule is now a guard over the closed R-number namespace — the new id shape
+  cannot be forward-referenced by construction.
+- **`docs/rounds/**` is frozen, and as of 2026-08-26 it is also CLOSED to further annotation.**
+  Those documents are the evidence a post-mortem reads. Three dated correction notes were added
+  on 2026-08-26 (R11 UAT §D, R11.2 UAT §D, REVIEW_R11_BLIND_SPOTS §5) and they are the last:
+  when a frozen document turns out to be misleading, **fix the register, not the document** —
+  `docs/rounds/ROUNDS.md` and `docs/DEFERRED.md` are the translation layer between what was
+  written then and what is true now. Live records (`references/DIT-*.md`, `docs/DEFERRED.md`,
+  this file) are the opposite: they describe the present and are corrected in place.
+  One exception, and it is about status not vintage: **`UAT_R11.2_v1.0.md` is not old, it is the
+  live acceptance card** and is still awaiting the author's run.
 - **Every closed round gets a phase checkpoint.** A missing checkpoint is what made the collision
   invisible: Phases 9 and 10 were only written on 2026-08-14, weeks after the work.
-- **Doc filenames carry the round id**: `PSM_R<N>_*.md`, `UAT_R<N>_v*.md`, `RCA_R<N>_*.md`,
-  `RESEARCH_R<N>_*.md`, `DESIGN_R<N>_*.md`, `HANDOFF_R<N>.md`, `R<N>_KICKOFF_PROMPT.md`.
-- **Branches**: round work is `feat/r<N>[.<m>]-<slug>`, matching the round directory exactly.
+- **Doc filenames carry the round id**: `PSM_<id>_*.md`, `UAT_<id>_v*.md`, `RCA_<id>_*.md`,
+  `RESEARCH_<id>_*.md`, `DESIGN_<id>_*.md`, `HANDOFF_<id>.md`, `<id>_KICKOFF_PROMPT.md`.
+  Legacy rounds use the `R<N>` form of the same names; do not retro-rename them.
+- **Branches**: round work is `feat/<round-id>`, matching the round directory exactly.
   Non-round work is `chore/<slug>` or `fix/<slug>` and gets no round id. The historical `codex/`
   prefix is retired — it named the agent that did the work, which is not a property of the branch.
 - **Cloud sessions** produce auto-named `claude/<random-slug>` branches. Those are transport, not
   identity: merge one into `main` (or into its properly named round branch), then delete it.
   Never let an auto-named branch be the record of a round.
-- **A cloud session cannot allocate a round id safely** — it branches from `origin/main`, which
-  may be behind local work it cannot see. Either hand it the id, or renumber on merge.
+- **A cloud session can now allocate a round id safely**, which it could not under the old
+  scheme. It branches from `origin/main` and may be behind local work it cannot see, so it could
+  never know whether `R<next>` was taken; `<YYYY-MM>-<slug>` needs no such knowledge. Give it the
+  theme and it can name its own round.
 
 ## Invariants worth knowing before editing
 

@@ -52,6 +52,14 @@ const LIVE_RECORDS = [
 /** `R12`, `R9.1`, and the `R11-Q3` / `R7B-05` / `INV-R12-1` shapes, which carry a bare number. */
 const ROUND_REF = /\bR(\d+(?:\.\d+)?)\b/g;
 
+/**
+ * The two id shapes. `R<N>` is the CLOSED legacy namespace (R1..R12, author ruling 2026-08-26);
+ * `<YYYY-MM>-<slug>` is what every round from the next one on uses. The new shape is why P1 below
+ * is now a guard over old ids only: you cannot forward-reference an id whose slug names a theme
+ * nobody has chosen yet, so there is nothing left for that rule to catch on new rounds.
+ */
+const ROW_ID = /^\|\s*(R\d+(?:\.\d+)?|\d{4}-\d{2}-[a-z0-9][a-z0-9-]*)\s*\|\s*([^|]*?)\s*\|/;
+
 const read = (rel) => readFileSync(join(repoRoot, rel), "utf8").replace(/^﻿/, "");
 
 /** Parse the registry table. Returns Map<id, {dir, line}>; `dir` is null for a round with no directory. */
@@ -59,7 +67,7 @@ function parseRegistry(text) {
   const rows = new Map();
   const duplicates = [];
   text.split(/\r?\n/).forEach((line, i) => {
-    const m = /^\|\s*R(\d+(?:\.\d+)?)\s*\|\s*([^|]*?)\s*\|/.exec(line);
+    const m = ROW_ID.exec(line);
     if (!m) return;
     const [, id, dirCell] = m;
     const dir = /^[—-]$/.test(dirCell.trim()) ? null : dirCell.replace(/`/g, "").trim();
@@ -68,6 +76,10 @@ function parseRegistry(text) {
   });
   return { rows, duplicates };
 }
+
+/** The bare numbers of the legacy R ids, which are the only ids P1 can rule on. */
+const legacyNumbers = (rows) =>
+  new Set([...rows.keys()].filter((id) => id.startsWith("R")).map((id) => id.slice(1)));
 
 /** Collect every round id referenced in `text`, with the line each was seen on. */
 function collectRefs(text) {
@@ -106,9 +118,17 @@ function selftest() {
     && [...collectRefs(clean)].every(([id]) => allocated.has(id));
   const positive = [...collectRefs(dirty)].some(([id]) => !allocated.has(id));
 
+  // The registry parser has to read both id shapes, or a new-style round silently vanishes
+  // from the table and every one of P2/P3/P4 goes quiet about it.
+  const parsed = parseRegistry(
+    "| R11.2 | `r11.2-uat-repairs` | x | y |\n| 2026-09-codex-provenance | `2026-09-codex-provenance` | x | y |\n| id | dir | x | y |",
+  ).rows;
+  const bothShapes = parsed.size === 2 && parsed.has("R11.2") && parsed.has("2026-09-codex-provenance");
+
   const failures = [];
   if (!negative) failures.push("negative control FAILED: a clean input was flagged");
-  if (!positive) failures.push("positive control FAILED: `deferred to R13` was NOT flagged");
+  if (!positive) failures.push("positive control FAILED: a deferral to an unallocated R id was NOT flagged");
+  if (!bothShapes) failures.push(`registry parser FAILED: expected both id shapes, got [${[...parsed.keys()]}]`);
   return { negative, positive, failures };
 }
 
@@ -125,7 +145,7 @@ function main() {
   if (selftestOnly) return;
 
   const { rows, duplicates } = parseRegistry(read(REGISTRY));
-  const allocated = new Set(rows.keys());
+  const allocated = legacyNumbers(rows);
   const problems = [];
 
   // P2 — no id allocated twice, no directory claimed twice.
@@ -135,14 +155,14 @@ function main() {
   const byDir = new Map();
   for (const [id, { dir, line }] of rows) {
     if (!dir) continue;
-    if (byDir.has(dir)) problems.push(`${REGISTRY}:${line} directory \`${dir}\` is claimed by both R${byDir.get(dir)} and R${id}`);
+    if (byDir.has(dir)) problems.push(`${REGISTRY}:${line} directory \`${dir}\` is claimed by both ${byDir.get(dir)} and ${id}`);
     else byDir.set(dir, id);
   }
 
   // P3 — registry and filesystem agree in both directions.
   for (const [id, { dir, line }] of rows) {
     if (dir && !existsSync(join(repoRoot, ROUNDS_DIR, dir))) {
-      problems.push(`${REGISTRY}:${line} R${id} names \`${dir}\`, which does not exist`);
+      problems.push(`${REGISTRY}:${line} ${id} names \`${dir}\`, which does not exist`);
     }
   }
   const onDisk = readdirSync(join(repoRoot, ROUNDS_DIR), { withFileTypes: true })
@@ -166,11 +186,8 @@ function main() {
       const m = /^\|\s*DW-(\d+)\s*\|\s*([^|]*?)\s*\|/.exec(line);
       if (!m) return;
       const home = m[2].replace(/`/g, "").trim();
-      if (home === "unassigned") return;
-      const id = /^R(\d+(?:\.\d+)?)$/.exec(home);
-      if (!id || !allocated.has(id[1])) {
-        problems.push(`${REGISTER}:${i + 1} DW-${m[1]} has home \`${home}\`; expected \`unassigned\` or an allocated round id`);
-      }
+      if (home === "unassigned" || rows.has(home)) return;
+      problems.push(`${REGISTER}:${i + 1} DW-${m[1]} has home \`${home}\`; expected \`unassigned\` or an id listed in ${REGISTRY}`);
     });
   }
 
