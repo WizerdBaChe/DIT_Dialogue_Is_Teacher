@@ -33,6 +33,28 @@
   等項目**在 R9.1 分支上已經修掉**（RC-B），對 main 才成立。
 - `_MAIN.md` §C-07 的相依套件 advisory 屬於易變外部事實，引用前需重查。
 
+## 📌 2026-08-26 讀取層的版本前提（非 round 的 chore，執行卡已開，未施工）
+
+> 完整卡片見 [`WORKCARD_CC-READING-LAYER_2026-08-26.md`](misc/WORKCARD_CC-READING-LAYER_2026-08-26.md)。
+> 起因：`~/.claude` 對帳 Claude Code 2.1.200→2.1.246 時，發現 8 條全域 ops 事實已走樣且沒有任何
+> 機制會發現；DIT 的 `CLAUDE.md` 有**同一類**問題。分支 `chore/cc-reading-layer`，
+> **不吃 round id**（2026-08-26 作者裁定）。純文件，不動 `src/`。
+
+- [ ] **M1 為受 harness 影響的斷言蓋版本戳**：`CLAUDE.md` §Round layout 裡有兩條其實是在描述
+  **Claude Code 的行為**而非 DIT 慣例（cloud session 產生 `claude/<slug>` 分支；cloud session
+  從 `origin/main` 開分支所以無法安全分配 round id），卻寫得像專案規則，沒有 `as-of`，
+  也沒有指名什麼事件會讓它失效。這是唯一「不做就會繼續被誤讀」的一項。
+- [ ] **M2 把 worktree 納入分支契約**：`/fork` 自 CC **2.1.221** 起會**自己開一個 worktree**，
+  不再共用原 session 的 checkout。現行契約只講分支不講 worktree，等於 round 工作可以落在
+  契約沒有命名的 checkout 裡，而照著契約找的人不會想到去那裡看。
+  （DIT 目前這一軸是乾淨的：只有主 checkout、零 `claude/*` 分支 —— 趁便宜補契約，不是收爛攤。）
+- [ ] **M3 `AGENTS.md` ↔ `CLAUDE.md` 漂移檢查器**（2026-08-26 裁定：走檢查器，不走一行
+  `review-when`）：`AGENTS.md` 自己就記著「完整複製兩週內就走樣」，薄指標設計**不動**，
+  它是檢查器的輸入；缺的是沒有東西驗證那份短名單仍然忠實。**必須附正對照** —— 一條刻意
+  去同步的規則，證明檢查器抓得到；只跑過通過側的檢查器等於沒測過。
+
+降級順序 **M1 → M2 → M3**，保底 **M1**。
+
 ## 📌 2026-08-11 R10 研究筆記產出（三項候選，待使用者裁定）
 
 > 完整證據與逐條核對見 [RESEARCH_R10_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md](rounds/r10-source-awareness/RESEARCH_R10_SOURCE_AWARENESS_AND_CODEX_FIDELITY_v0.1.md)。
