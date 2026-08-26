@@ -120,6 +120,9 @@ const zhTW: CopyTable = {
   LOAD_SOURCE_MISMATCH: {
     line: (d) => `這個檔案實際上是 ${d.detail} 的紀錄，跟你選的那套系統不同。內容以檔案本身為準，已照它原本的樣子解讀。`,
   },
+  INDEX_SIDECAR_UNREADABLE: { line: (d) => `找得到存放 session 目的的檔案，但讀不開（${d.detail}）。清單照常，只是少了那些標題。` },
+  INDEX_SIDECAR_SHAPE_CHANGED: { line: (d) => `存放 session 目的的檔案結構跟預期不同（找不到 ${d.detail}），可能是該工具改版了。清單照常，只是少了那些標題。` },
+  INDEX_SIDECAR_ENTRY_SKIPPED: { line: (d) => `有 ${n(d)} 筆 session 目的的格式不認得，已略過。` },
 };
 
 const en: CopyTable = {
@@ -220,6 +223,9 @@ const en: CopyTable = {
   LOAD_SOURCE_MISMATCH: {
     line: (d) => `This file is actually a ${d.detail} record, not the system you chose. The file itself is authoritative, so it was read as what it is.`,
   },
+  INDEX_SIDECAR_UNREADABLE: { line: (d) => `The file holding session purposes was found but could not be read (${d.detail}). The list is unaffected; those titles are just missing.` },
+  INDEX_SIDECAR_SHAPE_CHANGED: { line: (d) => `The file holding session purposes is not shaped as expected (${d.detail} was not found) — the tool may have changed its format. The list is unaffected; those titles are just missing.` },
+  INDEX_SIDECAR_ENTRY_SKIPPED: { line: (d) => `${n(d)} session purpose(s) were in an unrecognised format and were skipped.` },
 };
 
 const TABLES: Record<Locale, CopyTable> = { "zh-TW": zhTW, en };

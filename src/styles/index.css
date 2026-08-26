@@ -309,6 +309,9 @@ body {
 .session-browser-row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 只有檔名可用時視覺上要看得出來是降級——那正是使用者原本在抱怨的狀態。 */
 .session-browser-row-title.title-filename { font-family: var(--font-mono, monospace); font-weight: 400; color: var(--text-dark); }
+/* R12 M5：sidecar 是 Codex 階梯的**最上**階，不是降級——它是那個 session 真正的目的敘述。
+   所以刻意不做成 `title-filename` 那種「這不是標題」的樣子；差異靠 tooltip 說明即可。 */
+.session-browser-row-title.title-sidecar { font-style: normal; }
 .session-browser-row-meta { font-size: var(--fs-xs); color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-browser-row-facts {
   flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;

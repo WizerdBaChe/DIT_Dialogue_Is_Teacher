@@ -380,6 +380,60 @@ number the run actually produced beside the expected one. A session with no desc
 fall through to the next rung, never error. The sidecar file being absent or malformed must
 degrade to today's behaviour with a named diagnostic, not fail the index.
 
+**BUILT 2026-08-26** — confirmation first:
+[`RESEARCH_R12_CODEX_SIDECAR_2026-08-26.md`](RESEARCH_R12_CODEX_SIDECAR_2026-08-26.md). Then
+`core/index/sidecarReader.ts` (new, + tests), `core/index/sessionIndexer.ts` (+ tests),
+`core/source/profiles.ts`, `types/spanTree.ts`, `diagnostics/contracts.ts`,
+`i18n/diagnosticCopy.ts`, `i18n/locales.ts`, `styles/index.css`.
+
+**Acceptance, run against the real `~/.codex` with the shipped indexer** — expected beside
+actual, as the card required:
+
+```
+EXPECTED (from the research doc): 61 sidecar / 297 derived-or-filename
+ACTUAL:                           61 sidecar / 297 other          match: YES
+
+files listed 9,699 · entries indexed 358
+by rung: sidecar 61 · derived 174 · filename 123
+entries whose id is still a filename: 0        ← DW-18 closed
+diagnostics: INDEX_NOT_TRANSCRIPT(3), INDEX_TITLE_FROM_FILENAME(123)
+```
+
+Sample titles now shown where an excerpt of the first message used to be: 「Prism R9 實驗設計對齊、
+階段偏移與錯誤的文件化獨立審查」,「調查 GPT 5.6 Luna max subagent 可用性判定、官方文件與實際
+使用權限差異」.
+
+**The finding that mattered most, which the card does not mention.** `session_meta.payload`
+carries TWO id fields, both on all 358 rollouts, disagreeing on 135 — exactly the ones with
+`parent_thread_id`. Those are forked threads: `id` is the thread's own, `session_id` is the
+conversation it came from.
+
+| join key | hits | wrong |
+|---|---|---|
+| `payload.id` (used) | 61 | **0** |
+| `payload.session_id` | 190 | **129 — the parent's description** |
+| forked threads with a description of their own | 0 | — |
+
+`session_id` scores 17% → 53% coverage and is wrong 129 times, with no visible tell: a fluent
+title, roughly related to the content. **Optimising for coverage would have shipped the
+wrong-target defect disguised as a better number.** A test pins the correct key precisely so a
+future "let's raise coverage" change fails instead of looking like an improvement.
+
+Also settled: M1's flagged unknown — `electron-persisted-atom-state` is a plain object, no second
+parse, and the description values are plain strings, not objects with a `.description` field.
+
+Recorded, deliberately NOT built: showing a fork its parent's description. It would need its own
+ladder rung and an on-screen "inherited from the parent conversation", or it simply *is* the bug
+above. That is a product ruling, not the implementer's.
+
+Two guards behaved as designed rather than being worked around: adding the `sidecar` rung failed
+`tsc` at `t.browser.titleSources[...]` until the copy existed, and M1's "no rung nothing can
+produce" test failed until the producer shipped in this same change — which is the only
+circumstance in which growing that set is legitimate.
+
+Gates: `typecheck` clean · `test` 593/593 (64 files) · `build` two-stage clean · `check:rounds` OK.
+**Not browser-verified**: seeing this needs a real `~/.codex` folder pick; by-eye item.
+
 ### M6 — Classification declares its own signals
 
 `classifySession` reads `discovery.classify` instead of Claude Code field names. The

@@ -70,10 +70,15 @@ describe("SourceProfile · discovery half (R12 M1)", () => {
   it("declares no ladder rung that nothing can produce yet", () => {
     /*
      * The `paste` SourceId and the `milestone` span type were both declared, never produced, and
-     * listed in the UI anyway. A `sidecar` rung before M5 writes the code that fills it would be
-     * the third instance. `pickTitle` can currently emit exactly these four.
+     * listed in the UI anyway. This guard exists so a ladder rung cannot become the third.
+     *
+     * `sidecar` was added to this set in R12 M5 — and only then, because M5 is the card that
+     * wrote `rungValue`'s `case "sidecar"` and the reader behind it. Growing this set is
+     * legitimate only when the producer ships in the same change; if you are here because the
+     * test failed and you are about to add a rung name to make it pass, that is the failure it
+     * is designed to catch. Keep in step with `rungValue` in `core/index/sessionIndexer.ts`.
      */
-    const producible = new Set(["custom", "ai", "derived", "filename"]);
+    const producible = new Set(["custom", "ai", "derived", "sidecar", "filename"]);
     for (const source of ["claude-code", "codex"] as const) {
       for (const rung of profileFor(source).discovery.titleLadder) {
         expect(producible.has(rung)).toBe(true);

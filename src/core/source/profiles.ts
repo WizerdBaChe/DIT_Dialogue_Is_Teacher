@@ -147,11 +147,14 @@ const CODEX_DISCOVERY: SourceDiscovery = {
   /*
    * No `custom`/`ai` rungs: measured over 542 `session_meta` records, Codex rollouts carry no
    * title field at all, and `thread_goal_updated.goal.objective` appears 10 times corpus-wide.
-   * No `sidecar` rung either — the sidecar above is declared so M5 has a contract to implement,
-   * but nothing reads it yet, and a rung no path can produce is the `paste`/`milestone` mistake.
-   * M5 adds the rung and the code that fills it in one card.
+   *
+   * `sidecar` goes FIRST (R12 M5). Measured 2026-08-26: it resolves for 61 of 358 sessions, and
+   * those 61 are real statements of purpose — "將 Claude 規則內容移植到 Codex 環境…" — where
+   * `derived` would have shown an excerpt of the first message. When it is absent, and for 297
+   * sessions it is, the ladder falls through; every rung below the first is a named degradation
+   * with its own `titleSource` and its own affordance in the list.
    */
-  titleLadder: ["derived", "filename"],
+  titleLadder: ["sidecar", "derived", "filename"],
   /*
    * Empty, and measured. `agentId`/`isSidechain` are Claude Code field names that cannot appear
    * here. `human-turn-count` is listed nowhere because R11.2 R1 measured it as near-informationless

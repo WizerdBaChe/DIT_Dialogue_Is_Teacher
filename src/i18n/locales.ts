@@ -229,6 +229,8 @@ const zhTW = {
       custom: "你自己設定的標題",
       ai: "AI 產生的標題",
       derived: "取自第一則你說的話",
+      // R12 M5：Codex 把 session 目的存在 transcript 之外的檔案裡，這是從那裡接回來的。
+      sidecar: "這套系統另外記錄的 session 目的",
       filename: "沒有標題可用，顯示檔名",
     },
     counts: (human: number, assistant: number, exact: boolean) =>
@@ -900,6 +902,7 @@ const en: Messages = {
       custom: "Title you set yourself",
       ai: "AI-generated title",
       derived: "Taken from your first message",
+      sidecar: "The session purpose this system records outside the transcript",
       filename: "No title available; showing the filename",
     },
     counts: (human: number, assistant: number, exact: boolean) =>

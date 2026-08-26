@@ -27,12 +27,11 @@ export type SourceId = "claude-code" | "codex";
  * 不動）。理由是層級：階梯的**順序**現在由 `core/source/profiles.ts` 的探索側寫宣告、由
  * `core/index/` 執行，兩者是同層的兄弟切片，不該互相 import；共用的詞彙要住在下層。
  *
- * 刻意還沒有 `"sidecar"`。Codex 的 session 目的存在 transcript 之外
- * （`.codex-global-state.json`），但讀它的程式碼要到 R12 M5 才寫。先宣告一個沒有任何路徑
- * 會產生的值，正是這個檔案上面那段 `"paste"`／`milestone` 的教訓——型別裡有、從未產出、
- * 清單卻照樣列出。M5 要把「加這一階」和「產生這一階」放在同一張卡裡做完。
+ * `"sidecar"` 在 R12 M5 加入——**和產生它的程式碼同一張卡**，遵守這個檔案上面那段
+ * `"paste"`／`milestone` 的教訓：型別裡宣告了、從來沒有路徑產出、清單卻照樣列出。
+ * M1 當時刻意不先加，就是為了不重演第三次。
  */
-export type TitleSource = "custom" | "ai" | "derived" | "filename";
+export type TitleSource = "custom" | "ai" | "derived" | "sidecar" | "filename";
 
 /**
  * 「這一步是誰／哪個機制做的」(R12 M4)。

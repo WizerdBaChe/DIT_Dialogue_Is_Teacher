@@ -21,6 +21,7 @@ import { stripInjectedPreamble } from "@/core/text/preamble";
 import { profileFor } from "@/core/source/profiles";
 import type { SourceId } from "@/types/spanTree";
 import { classifySession, isSubagentPath, isSyntheticPrompt } from "./classifySession";
+import { readSidecars } from "./sidecarReader";
 import type { DirectoryFile, DirectorySource, SessionIndex, SessionIndexEntry, TitleSource } from "./contracts";
 
 export const INDEX_SCAN_HEAD_BYTES = 128 * 1024;
@@ -121,6 +122,24 @@ function humanTurn(record: Record<string, unknown>): { text: string | null } | n
 function absorb(stats: ScanStats, record: Record<string, unknown>): void {
   stats.recordCount += 1;
   if (typeof record.sessionId === "string" && !stats.sessionId) stats.sessionId = record.sessionId;
+
+  /*
+   * R12 M5 (closes DW-18)：Codex 自報的 id。在此之前只讀 Claude 的 `record.sessionId`，
+   * 於是每個 Codex 條目的 `id` 都退化成檔名——「沒去看」被記成「沒有」。
+   *
+   * 讀的是 `payload.id`，**不是 `payload.session_id`**，而這不是隨手挑一個。實測 358 份
+   * rollout 兩個欄位都有，其中 135 份不相等（正好等於帶 `parent_thread_id` 的份數）：那些是
+   * 分叉執行緒，`id` 是它自己的、`session_id` 指向母對話。sidecar 是 thread-descriptions，
+   * 用 `session_id` 去接會多出 129 筆**接到母對話描述**的假命中，覆蓋率從 17% 漂亮地跳到
+   * 53%，而且完全看不出破綻。細節見 `RESEARCH_R12_CODEX_SIDECAR_2026-08-26.md` §4。
+   */
+  if (record.type === "session_meta" && !stats.sessionId) {
+    const payload = record.payload;
+    if (payload !== null && typeof payload === "object") {
+      const id = (payload as Record<string, unknown>).id;
+      if (typeof id === "string" && id.trim()) stats.sessionId = id;
+    }
+  }
   if (typeof record.cwd === "string" && !stats.cwd) stats.cwd = record.cwd;
   if (typeof record.agentId === "string") stats.hasAgentId = true;
   if (record.isSidechain === true) stats.sidechainCount += 1;
@@ -294,19 +313,54 @@ function isTranscript(path: string, expectSource: SourceId | undefined): boolean
   return profileFor(expectSource).discovery.transcripts.filePattern.test(baseName(path));
 }
 
-function pickTitle(stats: ScanStats, path: string): { title: string; titleSource: TitleSource } {
-  if (stats.customTitle) return { title: firstLine(stats.customTitle, TITLE_MAX_LENGTH), titleSource: "custom" };
-  if (stats.aiTitle) return { title: firstLine(stats.aiTitle, TITLE_MAX_LENGTH), titleSource: "ai" };
-  if (stats.firstHumanText) return { title: firstLine(stats.firstHumanText, TITLE_MAX_LENGTH), titleSource: "derived" };
-  /*
-   * 連第一則真人訊息都沒有，只能顯示 HASH。
-   *
-   * R9.1 RC-B：這裡原本呼叫 `reportFallback`，每索引一次就把 console 洗一輪。那條通道是為了
-   * 抓「使用者看不見的替代」——本專案已經因為無聲降級吃過一次指向錯目標的虧。但這一處不是：
-   * `titleSource: "filename"` 是回傳型別的一部分，清單上有自己的 class 與 tooltip，使用者本來
-   * 就看得到「這是檔名不是標題」。**已經說出口的降級不必再從暗處喊一次**；改由索引器在
-   * 收尾時出一條聚合診斷（見 buildSessionIndex 的 INDEX_TITLE_FROM_FILENAME）。
-   */
+/**
+ * 這一階能不能產出標題？產得出來就回字串，產不出來回 null。
+ *
+ * `filename` 永遠產得出來，所以它是每個階梯的最後一階——那不是巧合，是側寫測試釘住的性質
+ * （「每個 ladder 都以 filename 收尾」），因為一個走完仍然沒有標題的階梯等於沒有標題可顯示。
+ */
+function rungValue(
+  rung: TitleSource,
+  stats: ScanStats,
+  path: string,
+  sidecar: ReadonlyMap<string, string>,
+): string | null {
+  switch (rung) {
+    case "custom": return stats.customTitle ?? null;
+    case "ai": return stats.aiTitle ?? null;
+    case "sidecar": return (stats.sessionId && sidecar.get(stats.sessionId)) || null;
+    case "derived": return stats.firstHumanText ?? null;
+    case "filename": return baseName(path).replace(/\.jsonl$/i, "");
+  }
+}
+
+/**
+ * 走側寫宣告的階梯 (R12 M5)。
+ *
+ * 在此之前這是一條寫死的鏈，前兩階（`custom`／`ai`）是 Claude Code 專屬的紀錄型別——於是每個
+ * Codex session 都直接落到 `derived`，顯示第一則訊息的節錄而不是目的。那正是作者回報的 B1。
+ *
+ * 沒有選來源時（`expectSource` 未給）維持原本那條鏈，一階不差，既有測試因此仍然有效。
+ *
+ * R9.1 RC-B 的判斷在這裡照舊成立：**每一階都是具名降級，不走 `reportFallback`**。
+ * `titleSource` 是回傳型別的一部分，清單上有自己的 class 與 tooltip，使用者看得見；
+ * 已經說出口的降級不必再從暗處喊一次。聚合診斷由 `buildSessionIndex` 收尾時出。
+ */
+const DEFAULT_LADDER: readonly TitleSource[] = ["custom", "ai", "derived", "filename"];
+
+function pickTitle(
+  stats: ScanStats,
+  path: string,
+  expectSource: SourceId | undefined,
+  sidecar: ReadonlyMap<string, string>,
+): { title: string; titleSource: TitleSource } {
+  const ladder = expectSource ? profileFor(expectSource).discovery.titleLadder : DEFAULT_LADDER;
+  for (const rung of ladder) {
+    const value = rungValue(rung, stats, path, sidecar);
+    if (value && value.trim()) return { title: firstLine(value, TITLE_MAX_LENGTH), titleSource: rung };
+  }
+  // 側寫測試保證每個階梯以 `filename` 收尾，所以理論上到不了這裡；到得了就是側寫壞了，
+  // 而「顯示檔名」仍然比顯示空字串誠實。
   return { title: baseName(path).replace(/\.jsonl$/i, ""), titleSource: "filename" };
 }
 
@@ -389,6 +443,10 @@ export async function buildSessionIndex(
     }
   }
 
+  // R12 M5：讀一次，整批共用。讀不到／壞掉都只是「少了那些標題」，索引照常完成。
+  const { descriptions: sidecarTitles, diagnostics: sidecarDiagnostics } = await readSidecars(sidecars, listed);
+  diagnostics.push(...sidecarDiagnostics);
+
   const scanned = mains.slice(0, maxFiles);
   if (mains.length > maxFiles) {
     diagnostics.push({ tier: "info", code: "INDEX_TRUNCATED", detail: String(maxFiles), count: mains.length - maxFiles });
@@ -444,7 +502,7 @@ export async function buildSessionIndex(
     const subagentPaths = source === "claude-code"
       ? subagents.filter((candidate) => candidate.path.startsWith(subagentPrefixFor(file.path))).map((candidate) => candidate.path)
       : [];
-    const { title, titleSource } = pickTitle(stats, file.path);
+    const { title, titleSource } = pickTitle(stats, file.path, options.expectSource, sidecarTitles);
 
     const { kind, reason } = classifySession({
       path: file.path,
