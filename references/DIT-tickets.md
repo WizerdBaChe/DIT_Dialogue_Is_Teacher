@@ -52,7 +52,7 @@ notes: User approved the sole-source contract `docs/rounds/r6-export/PSM_R6_EXPO
 ## Archive
 
 ## T-008 Compacted sessions render as ONE logical conversation via logicalParentUuid
-status: open  owner: dispatcher  blocked-by: - (R12 candidate; independent of R11 merge)
+status: open  owner: dispatcher  blocked-by: - (unhomed: `docs/DEFERRED.md` DW-16; independent of R11 merge)
 type: build
 acceptance: loading a folder containing a real compacted chain (a continuation file whose head `compact_boundary` record carries `logicalParentUuid` pointing into an earlier file) shows ONE logical session in the browser - chained files grouped, timeline stitched in order, the boundary rendered as the existing marker event; a fixture with a real chained pair passes; typecheck/tests/build stay green.
 notes: Filed 2026-08-16 by the claude-config session (co-upgrade loop, workflow-checkpoint round 1). The norm is already recorded in-repo: PSM_R9_WORKCARDS_v0.1.md line 50 says the field exists but is unapplied; adapter already parses compact_boundary's compactMetadata, so this is consuming one more field plus a browser-side grouping. Why it matters NOW: a daily transcript archive exists at D:\AIWork\_session-archive\ (README there) precisely so history stays queryable in DIT; until this ticket lands, every compacted conversation in that archive displays as multiple unrelated sessions - the user reads that as "records lost", which is a DIT rendering gap, not data loss. Verified 2026-08-16: both halves of a real chain exist on disk and the uuid resolves across files.
