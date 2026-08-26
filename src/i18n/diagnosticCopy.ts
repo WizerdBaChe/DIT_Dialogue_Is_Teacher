@@ -81,6 +81,14 @@ const zhTW: CopyTable = {
     title: "載入沒有完成",
     body: (d) => `讀取過程中發生預期外的問題（${d.detail}）。上一份 session 未被更動，可以直接重試或換一個檔案。`,
   },
+  WORKER_BOOT_FAILED: {
+    line: (d) => `背景解析執行緒沒有啟動，主執行緒接手也失敗（${d.detail}）。`,
+    title: "背景解析執行緒沒有啟動",
+    body: (d) => `瀏覽器沒能建立背景解析執行緒，改用主執行緒重試也失敗了（${d.detail}）。這通常不是檔案的問題，而是「怎麼開啟」的問題：請確認是從網站根目錄提供服務（例如 \`npm run preview\`），而不是直接開啟 \`dist/index.html\`；若目前的瀏覽器不支援 module worker，換 Chrome 或 Edge 再試一次。上一份 session 未被更動。`,
+  },
+  WORKER_FALLBACK_SYNC: {
+    line: (d) => `背景解析執行緒沒有啟動，這份 session 改在主執行緒解析（${d.detail}）。大檔案會讓畫面短暫沒有反應。`,
+  },
 
   INDEX_TRUNCATED: { line: (d) => `這個目錄的檔案較多，只掃描了前 ${d.detail} 個，其餘 ${n(d)} 個未列入清單。` },
   INDEX_FILE_UNREADABLE: { line: (d) => `${n(d)} 個檔案無法讀取，未列入清單（${d.detail}）。` },
@@ -158,6 +166,14 @@ const en: CopyTable = {
     line: (d) => `Load failed: ${d.detail}`,
     title: "The load did not finish",
     body: (d) => `Something unexpected happened while reading (${d.detail}). The previous session is untouched; retry or pick another file.`,
+  },
+  WORKER_BOOT_FAILED: {
+    line: (d) => `The background parsing worker never started, and the main-thread retry failed too (${d.detail}).`,
+    title: "The background parser never started",
+    body: (d) => `The browser could not create the background parsing worker, and parsing on the main thread failed as well (${d.detail}). This usually points at how the app is being served rather than at the file: check that it is served from the site root (for example \`npm run preview\`) rather than opened as \`dist/index.html\`, and try Chrome or Edge if this browser has no module-worker support. The previous session is untouched.`,
+  },
+  WORKER_FALLBACK_SYNC: {
+    line: (d) => `The background parsing worker never started, so this session was parsed on the main thread (${d.detail}). Large files will briefly freeze the view.`,
   },
 
   INDEX_TRUNCATED: { line: (d) => `This directory is large; only the first ${d.detail} files were scanned, ${n(d)} were not listed.` },
