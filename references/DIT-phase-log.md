@@ -501,3 +501,44 @@
 - Four rulings wanted from the author, all in UAT_R11.2_v1.0.md section F: Codex classification is 356 `dialogue` / 2 `machine` because the turn counter increments before preamble stripping (108 files provably contain no human-typed text yet read as `dialogue`); the disclosure line's emphasis; provider config field guidance (still blocks B11/B12); image-bearing session markers.
 - Findings recorded, deliberately not fixed: `src/core/normalize/normalizer.ts` emits user-facing Chinese that never switches locale (pre-existing convention, flagged as debt, not conflated with this round's work); C6's second observation (a session unreadable until a full app reload) is unreproduced and explicitly not claimed fixed.
 - Deferred to R12, unchanged: the ten REVIEW_R11_BLIND_SPOTS findings, the three SECREVIEW suggestions (two now D-014 exclusions), RCA P1/P2/P3, the Codex skeleton gap (D-011), WC-4.3 (D-010), and the src/ comment-language unification (1,308 lines across 65% of files; ticket held outside the repo). T-008 (compact-chain stitching) remains an uncommitted note from another session.
+
+---
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 17 – R11.2 UAT verdicts landed and root-caused; F-01/F-02 fixed; R12 allocated and specced
+- Status: in-progress (R11.2 still NOT accepted; R12 specced but unbuilt)
+- Date: 2026-08-26
+- Detail: docs/rounds/r11.2-uat-repairs/RCA_R11.2_WORKER_BOUNDARY_2026-08-26.md · docs/rounds/r12-source-first-navigation/PSM_R12_SOURCE_FIRST_NAVIGATION_v0.1.md
+- Transcript: fd04f079-22fb-4246-bd36-d4c482708943.jsonl — archived: PENDING (daily mirror last OK 2026-08-26 13:00:02; this session postdates that run)
+
+## Goals
+- Land the R11.2 UAT verdicts and the 2026-08-20 deep review, both of which had been sitting untracked.
+- Root-cause premise 1 (Codex sessions unloadable) instead of accepting the review's leading hypothesis.
+- Fix F-01/F-02 on request, then answer why the author still sees the same titles.
+- Turn the title failure into a design fix rather than a patch.
+
+## Decisions
+- **The review's worker-404 hypothesis is REFUTED for the author's workflow.** `npm run build` + `npm run preview` serves from the root; measured 200 + a booting module worker + three real Codex rollouts reaching COMPLETE with zero fallbacks. Six candidate causes closed, including stale-dist (R11.2 src commits are 08-17, the dist on disk was 08-18, and a rebuild reproduces identical content hashes). The review's location of the fault to the BOUNDARY stands; only its single-cause guess was wrong.
+- **F-01/F-02: boot failure and run failure are different faults.** A worker that has spoken is alive, so a later `onerror` stays fatal (`LOAD_FAILED`, location preserved). One that dies before its first message never started, points at the environment, and is the ONLY case that degrades to a main-thread parse (`WORKER_FALLBACK_SYNC`, warn). A fallback that swallowed both would hide real data faults. `WORKER_BOOT_FAILED` when the retry also fails.
+- One assertion in `transitions.test.ts` had to change: its `toBeNull()` pinned the cleanup of a path that only failed because node has no Worker, and that path now succeeds through the fallback. What it used to catch — a progress bar left mid-phase — is re-pinned by a new regression case with an input that genuinely fails. A loosened gate ships with a case reproducing the original failure.
+- **B1 is not a title bug and F-05 is the wrong root cause.** `pickTitle`'s top two rungs are Claude Code record types (`custom-title` / `ai-title`), which Codex does not have, so all 358 Codex sessions fall to the first-user-message excerpt. F-05 patches the fallback's cosmetics and can never produce a purpose.
+- **This is the SECOND occurrence of the same defect.** R10-B fixed exactly this in `denoise()`/`distill()` by introducing `SourceProfile`, but that profile covered RENDERING only, and nothing made "source differences go through the profile" a property of the asset — so it regrew one layer up in discovery. R12's answer is a discovery half held as a typed exhaustive `Record<SourceId, …>`, which fails to compile when a source is added without one.
+- **Author rulings 2026-08-26**: split discovery per agent system and converge the viewer; state Claude Code and Codex as the only supported systems; the two existing entry modes move to a second level under a source choice; position memory is PER SOURCE (not one last-folder) so the level-1 choice assists locating; 17% sidecar coverage is accepted as-is because an undefined purpose is the session's own gap; **Claude Code is adapted to the maximum, Codex is incidental**; `product-design-thinking` is declined (direction already ruled, root cause measured, and the skill excludes building to an existing spec) — the LLM title-condensation round is named as the case where it would pay.
+
+## Changes
+- docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md: author verdicts committed (`cf3c12b`) — two premises failed, B1 not passed, B2 passed, A2 is a question.
+- docs/rounds/r11.2-uat-repairs/REVIEW_R11.2_STATE_AND_DESIGN_2026-08-20.{md,findings.json,coverage.json}: landed (`df3fa1a`) after six days untracked, during which it already answered the UAT's open question.
+- docs/rounds/r11.2-uat-repairs/RCA_R11.2_WORKER_BOUNDARY_2026-08-26.md: new (`3345289`) — the refutation, six closed causes, two remaining questions.
+- src/core/ingest/sessionLoader.ts + .test.ts, src/core/diagnostics/contracts.ts, src/i18n/diagnosticCopy.ts, src/store/transitions.test.ts: F-01/F-02 (`1fc44b0`). typecheck clean, 58 files / **514** tests (was 508), build green, `git diff --check` clean.
+- references/DIT-tickets.md: T-008 filed (`3ba0ff6`) — closes the "uncommitted note from another session" carried in Phase 16.
+- docs/rounds/r12-source-first-navigation/PSM_R12_SOURCE_FIRST_NAVIGATION_v0.1.md: new round (`54dc1d9`, reweighted `e54742a`). Seven cards, degradation M1→M7 with M1+M2 as the floor.
+- Measured and recorded in the spec so nobody re-derives it: Codex rollouts carry no title field (542 `session_meta`, counted per key); `thread_goal_updated.goal.objective` exists but only 10 times corpus-wide; the purpose lives OUTSIDE the transcript in `.codex-global-state.json` → `thread-descriptions-v1`, keyed by `session_meta.payload.id`, 61/61 resolving to a file on disk = 17% of 358. On the Claude side, attribution (~13k records), `toolUseResult` (17,686), `gitBranch` (66,524), `entrypoint` (66,524) and `leafUuid`/`lastPrompt` (4,523) are referenced NOWHERE in `src/`; `slug` is ruled out as a per-session random codename.
+
+## Open Questions / TODO
+- **R11.2 IS STILL NOT ACCEPTED.** Premise 1 now needs only two answers, both from the author: which browser was used, and whether a Claude Code session fails in the same run. Premise 2 (F-06, the flattened-path masking leak) and B1 remain open; B1's real fix is R12.
+- **Round-id hygiene**: Phase 16 deferred a set of items "to R12" (the ten REVIEW_R11_BLIND_SPOTS findings, three SECREVIEW suggestions, RCA P1/P2/P3, the Codex skeleton gap D-011, WC-4.3 D-010, the src/ comment-language unification). R12 has since been allocated to `source-first-navigation`, a different theme. Those items need re-homing — either explicitly absorbed into R12's scope or moved to R13 — before anyone treats "deferred to R12" as a commitment. Do not let this become the R9 collision again.
+- F-05 (preamble whitelist) is deliberately unfixed: after R12's M4/M5 the `derived` rung stops being Codex's only source, so re-evaluate whether it is still worth fixing rather than fixing it now.
+- The remaining 83% of Codex sessions with no purpose need the LLM title-condensation round, which is also the round that would give titles to old Claude Code sessions with no `ai-title` (only 6 records corpus-wide carry one). Not scoped; `product-design-thinking` is the right tool there.
+- R12's branch was cut from `feat/r11.2-uat-repairs`, so it carries F-01/F-02 and cannot merge before R11.2 does. Re-cutting from `main` is still cheap if that coupling is unwanted.
+- Manual acceptance owed for F-01/F-02: the fallback path can only be seen by blocking `session.worker-*.js` in DevTools and re-loading a session — no model-side check covers it.
