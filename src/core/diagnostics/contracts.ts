@@ -44,6 +44,21 @@ export type DiagnosticCode =
   | "NO_RENDERABLE_CONTENT"
   | "EMPTY_INPUT"
   | "LOAD_FAILED"
+  // --- worker boundary (R11.2 F-01/F-02) ---
+  /**
+   * The Worker could not be constructed or died before it said anything, AND the
+   * synchronous fallback did not save the load. Distinct from LOAD_FAILED, which
+   * means the worker was alive and something inside the run went wrong: this one
+   * says the machine never started, which points at the environment (CSP, file://,
+   * a browser without module workers, a 404 on the worker chunk), not at the data.
+   */
+  | "WORKER_BOOT_FAILED"
+  /**
+   * The Worker never started, so the file was parsed on the main thread instead.
+   * A NAMED degradation, not a silent fallback: it is in the return value and it
+   * renders, so it reports through Diagnostic and never through reportFallback.
+   */
+  | "WORKER_FALLBACK_SYNC"
   // --- session index (R9 M3) ---
   | "INDEX_TRUNCATED"
   | "INDEX_FILE_UNREADABLE"
