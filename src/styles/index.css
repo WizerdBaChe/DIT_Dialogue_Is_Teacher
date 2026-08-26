@@ -693,23 +693,9 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .overview-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; }
 .overview-actions .btn { --btn-min-h: 40px; padding-inline: 20px; }
 .overview-empty { gap: 18px; }
-.overview-legend { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--text-muted); }
-.overview-legend summary { cursor: pointer; font-size: calc(13px * var(--ui-scale)); font-weight: 600; color: var(--text-dark); }
-.overview-legend-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-top: 14px; }
-.overview-legend-body h4 { margin: 0 0 8px; font-size: calc(12px * var(--ui-scale)); font-weight: 700; color: var(--text-dark); }
-.overview-legend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: calc(12px * var(--ui-scale)); }
-.overview-legend-list li { display: flex; align-items: baseline; gap: 8px; overflow-wrap: break-word; }
-.overview-legend-list span { font-family: var(--font-mono); font-size: calc(15px * var(--ui-scale)); color: var(--text-muted); min-width: 1.2em; }
-/* R9.1 RC-G：骨架分類改成三段式定義（是什麼／怎麼判／長什麼樣），因此需要比單行清單更多的
-   縱向空間。判準一行刻意做得比定義暗一階：它是給「想知道能不能信這個標記」的人看的補充。 */
-.overview-legend-defs { margin: 0; display: flex; flex-direction: column; gap: 12px; font-size: calc(12px * var(--ui-scale)); }
-.overview-legend-def dt { display: flex; align-items: baseline; gap: 8px; font-weight: 700; color: var(--text-dark); }
-.overview-legend-def dt span { font-family: var(--font-mono); font-size: calc(15px * var(--ui-scale)); color: var(--text-muted); min-width: 1.2em; }
-.overview-legend-def dd { margin: 3px 0 0 calc(1.2em + 8px); display: flex; flex-direction: column; gap: 2px; }
-.overview-legend-def p { margin: 0; line-height: 1.55; overflow-wrap: break-word; }
-.overview-legend-what { color: var(--text-main); }
-.overview-legend-rule { color: var(--text-muted); }
-.overview-legend-example { color: var(--text-dark); font-style: italic; }
+/* R12 M2（作者裁決 2026-08-26）：載入入口自己一整列，不跟 CTA 擠 .overview-actions 那排。
+   一級選單是「說明 + 兩顆按鈕」的區塊，塞進單排 flex 會讓標題跟按鈕並排成交錯的一列。 */
+.overview-load { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule); }
 
 /* R11.2 R3：info 分級診斷的唯一介面——預設收起、不打斷閱讀，讀者按了才展開。 */
 .overview-info-summary { margin-top: 6px; }
