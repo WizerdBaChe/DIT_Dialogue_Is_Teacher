@@ -694,3 +694,105 @@ describe("buildSessionIndex · per-source paths (R12 M3)", () => {
     expect(entries).toHaveLength(2);
   });
 });
+
+/**
+ * R12 M5 — the title ladder walks the profile, and Codex's top rung comes from the sidecar.
+ *
+ * Before this, `pickTitle` was one hard-coded chain whose top two rungs (`custom`, `ai`) are
+ * Claude Code record types, so every Codex session fell straight through to `derived` and showed
+ * an excerpt of its first message instead of its purpose. That was the author's B1 report.
+ */
+describe("buildSessionIndex · title ladder and sidecar (R12 M5)", () => {
+  const SIDECAR_PATH = ".codex-global-state.json";
+
+  /** A Codex rollout. `id` is the thread's own id; `session_id` is the conversation it came from. */
+  const rolloutWithIds = (id: string, sessionId = id): string => [
+    JSON.stringify({
+      timestamp: "2026-08-01T00:00:00Z",
+      type: "session_meta",
+      payload: { id, session_id: sessionId, cwd: "/tmp/p" },
+    }),
+    JSON.stringify({
+      timestamp: "2026-08-01T00:00:01Z",
+      type: "response_item",
+      payload: { type: "message", role: "user", content: [{ type: "input_text", text: "幫我看一下這段程式碼有沒有問題" }] },
+    }),
+  ].join("\n");
+
+  const sidecarOf = (descriptions: Record<string, string>): [string, string] => [
+    SIDECAR_PATH,
+    JSON.stringify({ "electron-persisted-atom-state": { "thread-descriptions-v1": descriptions } }),
+  ];
+
+  it("prefers the sidecar description over an excerpt of the first message", async () => {
+    const { entries } = await buildSessionIndex(sourceOf([
+      sidecarOf({ "thread-1": "將 Claude 規則內容移植到 Codex 環境" }),
+      ["sessions/2026/08/rollout-a.jsonl", rolloutWithIds("thread-1")],
+    ]), { expectSource: "codex" });
+
+    expect(entries[0].title).toBe("將 Claude 規則內容移植到 Codex 環境");
+    expect(entries[0].titleSource).toBe("sidecar");
+  });
+
+  it("falls through to the next rung when a session has no description, without erroring", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([
+      sidecarOf({ "some-other-thread": "不相干的描述" }),
+      ["sessions/2026/08/rollout-a.jsonl", rolloutWithIds("thread-1")],
+    ]), { expectSource: "codex" });
+
+    expect(entries[0].titleSource).toBe("derived");
+    expect(entries[0].title).toContain("幫我看一下");
+    expect(diagnostics.some((d) => d.tier === "fatal")).toBe(false);
+  });
+
+  it("JOINS ON payload.id, NOT payload.session_id — the higher-coverage key is the wrong one", async () => {
+    /*
+     * The finding that matters most in this card. Measured over 358 rollouts: both id fields are
+     * always present and they DISAGREE on 135 of them — the forked threads, where `session_id`
+     * points at the parent conversation. Joining on `session_id` scores 190 hits instead of 61,
+     * but 129 of those are a fork wearing its PARENT's purpose: a fluent, plausible, wrong title
+     * with no visible tell. Zero forked threads have a description of their own.
+     *
+     * So this test exists to stop a future "let's raise coverage" change. If it fails because
+     * someone switched to `session_id`, the number went up and the product got worse.
+     */
+    const { entries } = await buildSessionIndex(sourceOf([
+      sidecarOf({ "parent-thread": "母對話的目的" }),
+      // A forked thread: its own id is `fork-1`, but it came from `parent-thread`.
+      ["sessions/2026/08/rollout-a.jsonl", rolloutWithIds("fork-1", "parent-thread")],
+    ]), { expectSource: "codex" });
+
+    expect(entries[0].titleSource).not.toBe("sidecar");
+    expect(entries[0].title).not.toBe("母對話的目的");
+  });
+
+  it("gives a Codex entry its real session id instead of the filename (closes DW-18)", async () => {
+    const { entries } = await buildSessionIndex(sourceOf([
+      ["sessions/2026/08/rollout-a.jsonl", rolloutWithIds("thread-1")],
+    ]), { expectSource: "codex" });
+
+    expect(entries[0].id).toBe("thread-1");
+  });
+
+  it("indexes normally when the sidecar is malformed, only losing those titles", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([
+      [SIDECAR_PATH, "{ not json"],
+      ["sessions/2026/08/rollout-a.jsonl", rolloutWithIds("thread-1")],
+    ]), { expectSource: "codex" });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].titleSource).toBe("derived");
+    expect(diagnostics.find((d) => d.code === "INDEX_SIDECAR_UNREADABLE")).toBeDefined();
+    expect(diagnostics.some((d) => d.tier === "fatal")).toBe(false);
+  });
+
+  it("leaves the Claude Code ladder exactly as it was", async () => {
+    const { entries } = await buildSessionIndex(
+      sourceOf([["proj/a.jsonl", SIMPLE]]),
+      { expectSource: "claude-code" },
+    );
+    expect(entries[0].titleSource).toBe("derived");
+    // And Claude Code never grows a sidecar rung — it keeps its titles inside the transcript.
+    expect(entries[0].title).toContain("幫我修一個 bug");
+  });
+});

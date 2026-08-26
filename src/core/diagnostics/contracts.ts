@@ -112,6 +112,17 @@ export type DiagnosticCode =
    * filenames, and no next step. `detail` is the chosen source's label, `count` the rejected files.
    */
   | "INDEX_EMPTY_WRONG_SOURCE"
+  // --- session index (R12 M5) ---
+  /** The sidecar file is present but could not be read or is not JSON. Distinct from out-of-reach. */
+  | "INDEX_SIDECAR_UNREADABLE"
+  /**
+   * The sidecar parsed, but the property chain the profile declares is not there — almost always
+   * because the upstream tool changed how it stores this. That is a fact for the profile to
+   * catch up with, not something the user did wrong, so the copy says so.
+   */
+  | "INDEX_SIDECAR_SHAPE_CHANGED"
+  /** Entries in the sidecar whose value was not a usable string. Counted, never coerced. */
+  | "INDEX_SIDECAR_ENTRY_SKIPPED"
   /**
    * A loaded file's actual harness differs from the one chosen at level 1. On the LOAD path
    * the content wins — the adapter has already read the file and re-reading a Codex rollout as
