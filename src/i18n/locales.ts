@@ -73,6 +73,23 @@ const zhTW = {
    * 系統名稱 (Claude Code / Codex CLI) 是產品名，兩個語系相同，所以不在這裡逐語系重寫；
    * 路徑提示也不放——它來自 `SourceProfile.discovery.rootHint`，那裡是它唯一的定義處。
    */
+  /*
+   * R12 M4 來歷徽章。前綴用符號而不是文字：一張卡片上可能同時出現 skill 與 subagent
+   * （實測 646 筆共現），兩個中文詞會把徽章列撐開，讀者要找的是名字本身。
+   * 名字不翻譯——它是那套系統裡的識別名，翻了就對不回去。
+   */
+  attribution: {
+    prefix: { skill: "⚡", subagent: "◈", "mcp-tool": "⧉" } as Record<string, string>,
+    kindName: { skill: "技能 (skill)", subagent: "子代理 (subagent)", "mcp-tool": "MCP 工具" } as Record<string, string>,
+    title: (kind: string, name: string, server?: string): string => {
+      const kinds: Record<string, string> = { skill: "技能 (skill)", subagent: "子代理 (subagent)", "mcp-tool": "MCP 工具" };
+      const what = kinds[kind] ?? kind;
+      return server ? `這一步由 ${server} 的 ${what}「${name}」產生` : `這一步由${what}「${name}」產生`;
+    },
+    /** 來源根本不記錄這件事時說的話——跟「這一步沒有來歷」不是同一句。 */
+    unsupported: "這套 agent 系統不會記錄每一步是哪個技能或子代理做的，所以這裡沒有來歷可顯示。",
+  },
+
   sourcePicker: {
     label: "先選你要讀哪一套 agent 系統",
     hint: "目前只支援這兩套。選好之後才會出現「從對話集選擇」與「選擇一則對話」。",
@@ -745,6 +762,17 @@ const en: Messages = {
     languageLabel: "Language",
     readFileFailed: (name: string) => `Failed to read file: ${name}`,
     loadFailed: (msg: string) => `Load failed: ${msg}`,
+  },
+
+  attribution: {
+    prefix: { skill: "⚡", subagent: "◈", "mcp-tool": "⧉" } as Record<string, string>,
+    kindName: { skill: "skill", subagent: "subagent", "mcp-tool": "MCP tool" } as Record<string, string>,
+    title: (kind: string, name: string, server?: string): string => {
+      const kinds: Record<string, string> = { skill: "skill", subagent: "subagent", "mcp-tool": "MCP tool" };
+      const what = kinds[kind] ?? kind;
+      return server ? `Produced by the ${what} “${name}” on ${server}` : `Produced by the ${what} “${name}”`;
+    },
+    unsupported: "This agent system does not record which skill or subagent produced each step, so there is nothing to show here.",
   },
 
   sourcePicker: {

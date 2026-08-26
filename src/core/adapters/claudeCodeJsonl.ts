@@ -21,6 +21,7 @@
  */
 import type { Diagnostic } from "@/core/diagnostics/contracts";
 import type { SourceAdapter, ParseResult, RawEvent } from "./types";
+import type { Attribution } from "@/types/spanTree";
 import { stripInjectedPreamble } from "@/core/text/preamble";
 
 interface ContentBlock {
@@ -81,6 +82,39 @@ function flattenResultContent(content: unknown): string {
     return String((content as ContentBlock).text ?? "");
   }
   return "";
+}
+
+/**
+ * 讀出一筆 assistant 紀錄的來歷 (R12 M4)。
+ *
+ * 四個欄位都在紀錄**頂層**（實測巢狀出現 0 筆），所以這裡不需要走訪。
+ *
+ * 三件事是量測結果，不是防禦性寫法（見 `RESEARCH_R12_CLAUDE_METADATA_2026-08-26.md`）：
+ *
+ *  - **回傳陣列**：skill 與 agent 會共現（646 筆），四種齊全也有 1 筆。單值會逼人取捨。
+ *  - **MCP 的 server 與 tool 必須同時存在才收**：實測 both 8,629、serverOnly 0、toolOnly 0。
+ *    只有一半代表遇到量測沒看過的形狀，那時**寧可不報**也不要拿半套拼一個名字出來。
+ *  - **`attributionAgent` 照收，不因為 `isSidechain` 已經知道就跳過**：那個旗標說的是
+ *    「這是子代理」，這個欄位說的是「哪一種子代理」。前者 DIT 早就有，後者是新的。
+ */
+function readAttribution(record: Record<string, unknown>): readonly Attribution[] | undefined {
+  const out: Attribution[] = [];
+  const str = (key: string): string | undefined => {
+    const value = record[key];
+    return typeof value === "string" && value.trim() ? value : undefined;
+  };
+
+  const skill = str("attributionSkill");
+  if (skill) out.push({ kind: "skill", name: skill });
+
+  const agent = str("attributionAgent");
+  if (agent) out.push({ kind: "subagent", name: agent });
+
+  const server = str("attributionMcpServer");
+  const tool = str("attributionMcpTool");
+  if (server && tool) out.push({ kind: "mcp-tool", name: tool, server });
+
+  return out.length > 0 ? out : undefined;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -208,14 +242,18 @@ export class ClaudeCodeJsonlAccumulator {
       case "assistant": {
         const message = record.message as { content?: unknown; model?: string } | undefined;
         if (message && typeof message.model === "string" && !this.meta.model) this.meta.model = message.model;
+        // R12 M4：來歷只掛在 assistant 紀錄上（實測其他 record type 為 0 筆），一筆算一次，
+        // 該筆產生的每個 span 共用它——三種 block 都會帶（tool_use 15,076／thinking 7,750／
+        // text 3,421），所以不能只掛在工具呼叫上。
+        const attribution = readAttribution(record);
         const content = message?.content;
         if (Array.isArray(content)) {
           for (const block of content as ContentBlock[]) {
             if (!block || typeof block !== "object") continue;
             if (block.type === "text" && block.text?.trim()) {
-              this.events.push({ kind: "assistant_text", uuid, parentUuid, timestamp, isSidechain, text: block.text, raw: block });
+              this.events.push({ kind: "assistant_text", uuid, parentUuid, timestamp, isSidechain, attribution, text: block.text, raw: block });
             } else if (block.type === "thinking" && block.thinking?.trim()) {
-              this.events.push({ kind: "thinking", uuid, parentUuid, timestamp, isSidechain, text: block.thinking, raw: block });
+              this.events.push({ kind: "thinking", uuid, parentUuid, timestamp, isSidechain, attribution, text: block.thinking, raw: block });
             } else if (block.type === "tool_use") {
               this.events.push({
                 kind: "tool_use",
@@ -223,6 +261,7 @@ export class ClaudeCodeJsonlAccumulator {
                 parentUuid,
                 timestamp,
                 isSidechain,
+                attribution,
                 toolName: block.name ?? "unknown",
                 toolInput: block.input ?? {},
                 toolUseId: block.id,
@@ -231,7 +270,7 @@ export class ClaudeCodeJsonlAccumulator {
             }
           }
         } else if (typeof content === "string" && content.trim()) {
-          this.events.push({ kind: "assistant_text", uuid, parentUuid, timestamp, isSidechain, text: content, raw: record });
+          this.events.push({ kind: "assistant_text", uuid, parentUuid, timestamp, isSidechain, attribution, text: content, raw: record });
         }
         break;
       }

@@ -950,6 +950,11 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   white-space: nowrap; text-transform: uppercase; letter-spacing: 0.07em;
 }
 .badge.tool { border-color: var(--rule-strong); color: var(--text-main); font-family: var(--font-mono); text-transform: none; letter-spacing: 0; }
+/* R12 M4 來歷徽章。刻意比工具徽章暗一階：它回答「誰做的」，工具名回答「做了什麼」，
+   後者才是讀者掃視卡片時要找的東西，來歷是補充而不是主角。三種來歷共用同一個視覺，
+   靠前綴符號區分——一種來歷一個顏色會讓徽章列變成需要圖例才能讀的東西 (SA-01)。 */
+.badge.attribution { border-color: var(--rule); color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+.badge.attribution::before { content: ""; }
 .badge.milestone { border-color: var(--accent-primary); color: var(--accent-primary); }
 .badge.decision { border-color: var(--decision); color: var(--decision); }
 .badge.retry, .badge.error { border-color: var(--danger); color: var(--danger); }
