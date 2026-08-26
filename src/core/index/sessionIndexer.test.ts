@@ -468,7 +468,14 @@ describe("buildSessionIndex · expectSource (R12 M2)", () => {
   it("works the other way round, so the rule is not a Claude Code special case", async () => {
     const { entries, diagnostics } = await buildSessionIndex(mixed(), { expectSource: "codex" });
     expect(entries.map((e) => e.source)).toEqual(["codex"]);
-    expect(diagnostics.filter((d) => d.code === "INDEX_SOURCE_MISMATCH")[0]).toMatchObject({ count: 1 });
+    /*
+     * R12 M3 moved WHERE this exclusion happens, not whether it does. Codex declares a filename
+     * convention, so the Claude Code file is rejected on its name and never opened — reported as
+     * `INDEX_NOT_TRANSCRIPT` rather than `INDEX_SOURCE_MISMATCH`, because a name can only tell
+     * us "not one of ours", never "it is the other one's". The exclusion is still counted and
+     * still stated; only the claim it makes got narrower, to match what was actually determined.
+     */
+    expect(diagnostics.filter((d) => d.code === "INDEX_NOT_TRANSCRIPT")[0]).toMatchObject({ tier: "info", count: 1 });
   });
 
   it("says nothing when every file belongs to the chosen harness", async () => {
@@ -487,13 +494,156 @@ describe("buildSessionIndex · expectSource (R12 M2)", () => {
      * hat. An unresolved file stays listed, under any chosen source.
      */
     const unreadable = `${"x".repeat(INDEX_SCAN_HEAD_BYTES)}\n`;
+    // R12 M3: named `rollout-*` on purpose, so it clears the Codex FILENAME filter and the test
+    // still exercises the thing it was written for — a file we could not read enough of to ask.
     const { entries, diagnostics } = await buildSessionIndex(
-      sourceOf([["proj/huge-first-line.jsonl", unreadable]]),
+      sourceOf([["sessions/rollout-huge-first-line.jsonl", unreadable]]),
       { expectSource: "codex" },
     );
 
     expect(entries).toHaveLength(1);
     expect(entries[0].source).toBeNull();
     expect(diagnostics.some((d) => d.code === "INDEX_SOURCE_MISMATCH")).toBe(false);
+  });
+});
+
+/**
+ * R12 M3 — the walk follows `discovery.transcripts`, and both Codex roots are accepted.
+ *
+ * `~/.codex/sessions` is the habit people already have, so rejecting it would read as "broken".
+ * But it is not equivalent to `~/.codex`: the sidecar sits one level above the transcripts and a
+ * browser cannot read the parent of a picked directory, so from `sessions/` it is unreachable.
+ * That difference is stated rather than silently absorbed.
+ */
+describe("buildSessionIndex · per-source paths (R12 M3)", () => {
+  const rollout = (id: string): string => [
+    JSON.stringify({ timestamp: "2026-08-01T00:00:00Z", type: "session_meta", payload: { session_id: id, cwd: "/tmp/p" } }),
+    JSON.stringify({
+      timestamp: "2026-08-01T00:00:01Z",
+      type: "response_item",
+      payload: { type: "message", role: "user", content: [{ type: "input_text", text: "看一下這段" }] },
+    }),
+  ].join("\n");
+
+  const SIDECAR = ".codex-global-state.json";
+
+  it("indexes the same sessions whether the user picks ~/.codex or ~/.codex/sessions", async () => {
+    const fromRoot = await buildSessionIndex(sourceOf([
+      [SIDECAR, "{}"],
+      ["sessions/2026/08/rollout-a.jsonl", rollout("a")],
+      ["sessions/2026/08/rollout-b.jsonl", rollout("b")],
+    ]), { expectSource: "codex" });
+
+    const fromSessions = await buildSessionIndex(sourceOf([
+      ["2026/08/rollout-a.jsonl", rollout("a")],
+      ["2026/08/rollout-b.jsonl", rollout("b")],
+    ]), { expectSource: "codex" });
+
+    expect(fromRoot.entries.map((e) => e.path)).toEqual([
+      "sessions/2026/08/rollout-a.jsonl",
+      "sessions/2026/08/rollout-b.jsonl",
+    ]);
+    expect(fromSessions.entries.map((e) => e.path)).toEqual([
+      "2026/08/rollout-a.jsonl",
+      "2026/08/rollout-b.jsonl",
+    ]);
+    // Same sessions, same count, either way in.
+    expect(fromRoot.entries).toHaveLength(fromSessions.entries.length);
+  });
+
+  it("KNOWN GAP for M5: a Codex entry's id is its filename, not its session id", async () => {
+    /*
+     * `absorb()` only reads Claude Code's `record.sessionId`. Codex self-reports its id at
+     * `session_meta.payload.id` and nothing looks there, so the entry falls back to the
+     * filename — "we did not look" being recorded as "it is missing", which is the exact
+     * anti-pattern this codebase keeps having to re-learn.
+     *
+     * It is not fixed here because M3 is path adaptation, not record parsing, and the id has no
+     * consumer until M5 joins the sidecar on precisely that key. This test exists so the gap is
+     * a recorded fact rather than a surprise when M5 starts: change it there, with the join.
+     */
+    const { entries } = await buildSessionIndex(sourceOf([
+      [SIDECAR, "{}"],
+      ["sessions/2026/08/rollout-a.jsonl", rollout("a")],
+    ]), { expectSource: "codex" });
+
+    expect(entries[0].id).toBe("rollout-a");
+  });
+
+  it("says the sidecar is out of reach when the user picked one level too deep", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([
+      ["2026/08/rollout-a.jsonl", rollout("a")],
+    ]), { expectSource: "codex" });
+
+    expect(entries).toHaveLength(1);
+    const notice = diagnostics.filter((d) => d.code === "INDEX_SIDECAR_OUT_OF_REACH");
+    expect(notice).toHaveLength(1);
+    // The message has to name the folder that WOULD reach it, or it is not actionable.
+    expect(notice[0]).toMatchObject({ tier: "warn", detail: "~/.codex" });
+  });
+
+  it("stays quiet when the sidecar is reachable", async () => {
+    const { diagnostics } = await buildSessionIndex(sourceOf([
+      [SIDECAR, "{}"],
+      ["sessions/2026/08/rollout-a.jsonl", rollout("a")],
+    ]), { expectSource: "codex" });
+
+    expect(diagnostics.some((d) => d.code === "INDEX_SIDECAR_OUT_OF_REACH")).toBe(false);
+  });
+
+  it("stays quiet for a source that declares no sidecar", async () => {
+    // Claude Code keeps its titles inside the transcript, so there is nothing to be out of reach.
+    const { diagnostics } = await buildSessionIndex(
+      sourceOf([["proj/a.jsonl", SIMPLE]]),
+      { expectSource: "claude-code" },
+    );
+    expect(diagnostics.some((d) => d.code === "INDEX_SIDECAR_OUT_OF_REACH")).toBe(false);
+  });
+
+  it("does not accuse an empty folder of hiding the sidecar", async () => {
+    // No transcripts at all is "wrong folder", not "sidecar out of reach" — saying the latter
+    // would send the user to re-pick a parent that has nothing in it either.
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([["notes.md", "hi"]]), { expectSource: "codex" });
+    expect(entries).toHaveLength(0);
+    expect(diagnostics.some((d) => d.code === "INDEX_SIDECAR_OUT_OF_REACH")).toBe(false);
+  });
+
+  it("never scans the other harness's shape when the source declares its own", async () => {
+    // A Claude Code transcript in a Codex folder is rejected on its NAME — it is never opened.
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([
+      [SIDECAR, "{}"],
+      ["sessions/2026/08/rollout-a.jsonl", rollout("a")],
+      ["sessions/2026/08/0199a1b2-3c4d.jsonl", SIMPLE],
+    ]), { expectSource: "codex" });
+
+    expect(entries.map((e) => e.path)).toEqual(["sessions/2026/08/rollout-a.jsonl"]);
+    /*
+     * Excluded by NAME is reported as `INDEX_NOT_TRANSCRIPT` (info), not as
+     * `INDEX_SOURCE_MISMATCH` (warn). Measuring the real corpus is what forced this apart: the
+     * three non-rollout `.jsonl` files under `~/.codex` are Codex's own index and history files,
+     * so a warn saying "these do not belong to the system you chose" would have been false, and
+     * it would have fired on every single Codex root pick.
+     */
+    expect(diagnostics.filter((d) => d.code === "INDEX_NOT_TRANSCRIPT")[0]).toMatchObject({ tier: "info", count: 1 });
+    expect(diagnostics.some((d) => d.code === "INDEX_SOURCE_MISMATCH")).toBe(false);
+  });
+
+  it("stays silent about non-.jsonl files, which were never candidates", () => {
+    // The baseline filter is not a degradation and gets no diagnostic — that is R9 behaviour.
+    return buildSessionIndex(sourceOf([
+      [SIDECAR, "{}"],
+      ["sessions/2026/08/rollout-a.jsonl", rollout("a")],
+      ["README.md", "hello"],
+    ]), { expectSource: "codex" }).then(({ diagnostics }) => {
+      expect(diagnostics.some((d) => d.code === "INDEX_NOT_TRANSCRIPT")).toBe(false);
+    });
+  });
+
+  it("keeps the R9 walk exactly when no source is chosen", async () => {
+    const { entries } = await buildSessionIndex(sourceOf([
+      ["proj/claude.jsonl", SIMPLE],
+      ["sessions/2026/08/rollout-a.jsonl", rollout("a")],
+    ]));
+    expect(entries).toHaveLength(2);
   });
 });

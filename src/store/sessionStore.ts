@@ -332,6 +332,24 @@ const SESSION_SCOPED_INITIAL_STATE = {
 /** 測試用：斷言「所有 session 範圍欄位都在同一份清單裡」。 */
 export const __sessionScopedKeys = Object.keys(SESSION_SCOPED_INITIAL_STATE);
 
+/**
+ * R12 M3：把一級選單的選擇帶進**載入**路徑——但只當作驗證，不當作覆寫。
+ *
+ * 索引那一側（M2 的 `expectSource`）是「去哪裡找」，選擇具有決定權。載入這一側不同：檔案已經
+ * 在手上了，adapter 也已經按內容認出它是什麼。這時若選擇與內容不合，**內容才是事實**——照著
+ * 選擇去重新解讀一份 Codex 檔案只會長出一棵錯的樹。所以這裡不改任何解析結果，只多說一句。
+ *
+ * 也就是 INV-R12-3 的落地：不合就具名講出來，絕不無聲改判。
+ */
+function verifyAgainstChosenSource(result: PipelineResult, chosen: SourceId | null): PipelineResult {
+  const actual = result.doc.session.source;
+  if (!chosen || actual === chosen) return result;
+  return {
+    doc: result.doc,
+    diagnostics: [...result.diagnostics, { tier: "warn", code: "LOAD_SOURCE_MISMATCH", detail: actual }],
+  };
+}
+
 function publishPipelineResult({ doc, diagnostics }: PipelineResult, sessionOrigin: SessionOrigin): void {
   const current = useSessionStore.getState();
   const snapshotMode = current.snapshotMode;
@@ -792,7 +810,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       activeSessionLoad = task;
       const result = await task.promise;
       if (activeSessionLoad !== task) return;
-      publishPipelineResult(result, origin);
+      publishPipelineResult(verifyAgainstChosenSource(result, get().activeSource), origin);
       set({
         sessionLoadProgress: {
           phase: "ready",

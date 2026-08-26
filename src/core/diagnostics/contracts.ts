@@ -81,7 +81,36 @@ export type DiagnosticCode =
    * chosen source is authoritative for WHERE to look; this reports the disagreement by name
    * instead of silently reinterpreting the pick (INV-R12-3).
    */
-  | "INDEX_SOURCE_MISMATCH";
+  | "INDEX_SOURCE_MISMATCH"
+  // --- session index (R12 M3) ---
+  /**
+   * The source declares a sidecar and the picked directory does not contain it — the usual
+   * cause is picking one level too deep (`~/.codex/sessions` rather than `~/.codex`), which is
+   * an established habit and therefore accepted rather than rejected. It is not equivalent
+   * though: a browser cannot read the parent of a picked directory, so from there the sidecar
+   * is simply unreachable. `detail` carries the root that would reach it.
+   */
+  | "INDEX_SIDECAR_OUT_OF_REACH"
+  /**
+   * `.jsonl` files whose NAME does not match this source's record convention. Measured on the
+   * real corpus: `~/.codex` holds 361 `.jsonl` files of which 358 are rollouts — the other three
+   * are Codex's own `session_index.jsonl`, `transcription-history.jsonl` and a plugin fixture.
+   *
+   * The copy states only what the name determines. A name tells us the file is not one of THIS
+   * source's records; it cannot tell us whether it is the other harness's transcript or not a
+   * conversation at all, so it must claim neither. Info tier: it explains a count rather than
+   * asking for an action — contrast INDEX_SOURCE_MISMATCH, which means "you may have picked the
+   * wrong system" and is warn because the user can act on it.
+   */
+  | "INDEX_NOT_TRANSCRIPT"
+  /**
+   * A loaded file's actual harness differs from the one chosen at level 1. On the LOAD path
+   * the content wins — the adapter has already read the file and re-reading a Codex rollout as
+   * Claude Code would only grow a wrong tree — so this changes nothing and only says so.
+   * `detail` is what the file actually is. Contrast INDEX_SOURCE_MISMATCH, where the choice
+   * governs because the question there is where to look, not what a file is.
+   */
+  | "LOAD_SOURCE_MISMATCH";
 
 export interface Diagnostic {
   tier: DiagnosticTier;

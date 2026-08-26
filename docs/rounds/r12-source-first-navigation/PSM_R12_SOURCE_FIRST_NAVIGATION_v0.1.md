@@ -229,6 +229,49 @@ can act on beats a silent worse result.
 **Acceptance**: both picks index the same 358 sessions; only the root pick reports sidecar
 titles; the `sessions/`-pick path prints the named degradation. Paste the counts.
 
+**BUILT 2026-08-26** — `sessionIndexer.ts` (+ tests), `sessionStore.ts`,
+`diagnostics/contracts.ts`, `i18n/diagnosticCopy.ts`.
+
+**Measured on the real corpus** (`~/.codex`, 2026-08-26), which is what the card asked for:
+
+| pick | files walked | `.jsonl` | `rollout-*` | excluded by name | sidecar |
+|---|---|---|---|---|---|
+| `~/.codex` | 9,699 | 361 | **358** | 3 | REACHABLE |
+| `~/.codex/sessions` | 358 | 358 | **358** | 0 | out of reach |
+
+Same 358 either way, and the sidecar difference is the only difference — exactly the card's
+prediction. The Codex pattern also means a Claude Code pick's files are never opened at all.
+
+Three things the measurement changed, none of which were visible from the unit tests:
+
+1. **Those 3 excluded-by-name files are Codex's own** — `session_index.jsonl`,
+   `transcription-history.jsonl`, and a plugin fixture. I had folded name-exclusions into
+   `INDEX_SOURCE_MISMATCH` ("these do not belong to the system you chose"), which would have
+   fired a false warn on **every** Codex root pick. Split into `INDEX_NOT_TRANSCRIPT` (info).
+2. **The copy then had to narrow again.** A name can tell us "not one of THIS source's records";
+   it cannot tell us whether the file is the other harness's transcript or not a conversation at
+   all. The first wording said "not conversation records (a tool's own index, for example)",
+   which is false for a Claude transcript sitting in a Codex folder. It now claims only what the
+   name determines. Three layers, three different claims: `.jsonl` baseline (silent, never a
+   candidate) → name (info) → content (warn, actionable).
+3. **Load-path verification does NOT override the file.** M2's `expectSource` governs indexing
+   because the question there is *where to look*. On load the file is already in hand and the
+   adapter has read it, so content wins and `LOAD_SOURCE_MISMATCH` only says so — re-reading a
+   Codex rollout as Claude Code would just grow a wrong tree. This is the piece M2 deferred here;
+   it needed no worker-protocol change after all, only a check after the document is built.
+
+**KNOWN GAP, blocks M5**: a Codex entry's `id` is its filename. `absorb()` only reads Claude
+Code's `record.sessionId`; Codex self-reports at `session_meta.payload.id` and nothing looks
+there, so "we did not look" is being recorded as "it is missing". M5's sidecar join uses exactly
+that key, so it must be fixed there, with the join. Pinned by a test so it is a recorded fact
+rather than a surprise.
+
+**Not verifiable yet**: the card's "only the root pick reports sidecar titles". Nothing reads the
+sidecar until M5, so what M3 can prove is *reachability* — the diagnostic fires on the
+`sessions/` pick and not on the root pick — and the copy is worded to claim only that.
+
+Gates: `typecheck` clean · `test` 556/556 (60 files) · `build` two-stage clean · `check:rounds` OK.
+
 ### M4 — Claude Code: consume the metadata it already ships (priority card)
 
 Measured 2026-08-26 over a 200-file sample of the 522 files in `~/.claude/projects`. The
