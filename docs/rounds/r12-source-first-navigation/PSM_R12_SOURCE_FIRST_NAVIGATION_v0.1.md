@@ -462,6 +462,52 @@ Do not take this as a reason to merge the two dispatches: Claude Code runs four 
 runs two of a different shape. They are not one rule set over different signals, and pretending
 otherwise would cost more than it buys.
 
+**BUILT 2026-08-26** — confirmation first:
+[`RESEARCH_R12_CLASSIFY_SIGNALS_2026-08-26.md`](RESEARCH_R12_CLASSIFY_SIGNALS_2026-08-26.md).
+Then `core/index/classifySession.ts` (+ tests), `core/source/profiles.ts`,
+`core/source/profiles.discovery.test.ts`.
+
+**The card's premise had expired, and M1 had written a false line.** Both found by measuring,
+not by reading:
+
+1. M6 asks for the `無法判定` count to be explainable from the profile. Measured with the shipped
+   indexer: **`codex-unclassified` fires 0 times** on 346 real rollouts. R11.2 R1 already removed
+   it. There was no batch of bad verdicts left to explain, so the card's value moved rather than
+   vanished — to making the declaration true and the dispatch checkable.
+2. **M1's `classify: { signals: [] }` for Codex was false.** `classifySession` has read two Codex
+   signals since R11.2 R1 and classifies 346/346. M1's comment reasoned that R11.2 R1 measured
+   the human-turn count as near-informationless here — a claim about the signal's VALUE, written
+   as if it were about its EXISTENCE. Implementing the card literally against that row would have
+   taken a module with zero regressions and made it classify nothing for Codex.
+
+**Zero regression, cell for cell**, which is this card's real acceptance:
+
+| | before | after |
+|---|---|---|
+| `~/.claude/projects` | 287 · dialogue 287 · has-human-prompt 287 | **identical** |
+| `~/.codex` | 346 · dialogue 344 + machine 2 | **identical** |
+
+**INV-R12-1's dispatch gap is closed.** The third-source probe now fails in **three** places, up
+from M1's two — `classifySession.ts` joins the two profile tables:
+
+```
+classifySession.ts(187,9): Type '"probe-third-source"' is not assignable to type 'never'
+profiles.ts(241,7):        Property '"probe-third-source"' is missing in Record<SourceId, SourceDiscovery>
+profiles.ts(290,7):        Property '"probe-third-source"' is missing in Record<SourceId, SourceProfile>
+```
+
+Scope held to what the architectural review recommended: only *which signals apply* is
+data-driven. The rules stay written per source, because Claude Code runs four and Codex two of a
+different shape — they are not one rule set over different signals. Rule 11's catch-all also
+stops borrowing `codex-unclassified`, which labelled an unknown third source with the wrong
+source's name; rule 8 keeps it, where it is accurate.
+
+Guarded behaviourally, not just by types: a test asserts a Codex machine run still classifies as
+`machine`. A type check cannot notice a signal list that is merely *wrong* — only behaviour can,
+which is exactly how M1's row survived.
+
+Gates: `typecheck` clean · `test` 597/597 (64 files) · `build` two-stage clean · `check:rounds` OK.
+
 ### M7 — Viewing converges (guard card)
 
 No view-layer change is expected; this card exists to prove the split stayed in discovery.

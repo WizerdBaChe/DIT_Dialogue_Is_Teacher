@@ -86,14 +86,23 @@ describe("SourceProfile · discovery half (R12 M1)", () => {
     }
   });
 
-  it("says out loud that Codex supplies no classification signal", () => {
+  it("declares the signals each source actually supplies", () => {
     /*
-     * Empty is the measured answer, not an unfinished row. `agentId`/`isSidechain` are Claude Code
-     * field names; `human-turn-count` is excluded because R11.2 R1 measured 356/358 rollouts as
-     * `dialogue` while 108 of those files contain no human-typed text at all. `codex-unclassified`
-     * is what the classifier reports instead of guessing — see core/index/contracts.ts.
+     * Corrected in R12 M6. This previously asserted Codex supplied NOTHING, matching a profile
+     * comment reading "empty, and measured" — while `classifySession` had been reading two Codex
+     * signals since R11.2 R1 and classifying 346 of 346 successfully.
+     *
+     * The mistake was conflating two claims. R11.2 R1 measured the human-turn count as carrying
+     * little INFORMATION here (356/358 come out `dialogue`, and 108 of those files hold no
+     * human-typed text at all). That is not the same as the signal not EXISTING, and writing
+     * them as one thing put a falsehood exactly where the type system cannot reach.
      */
-    expect(profileFor("codex").discovery.classify.signals).toEqual([]);
+    expect(profileFor("codex").discovery.classify.signals).toEqual(["human-turn-count"]);
+
+    // Still genuinely absent: Claude Code field names and a Claude Code path convention.
+    for (const absent of ["agent-id-field", "all-sidechain", "subagent-path"] as const) {
+      expect(profileFor("codex").discovery.classify.signals).not.toContain(absent);
+    }
     expect(profileFor("claude-code").discovery.classify.signals).toContain("agent-id-field");
   });
 

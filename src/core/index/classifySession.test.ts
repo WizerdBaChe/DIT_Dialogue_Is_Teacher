@@ -134,6 +134,56 @@ describe("classifySession — one case per rule, in order", () => {
   });
 });
 
+/**
+ * R12 M6 — which rules apply to a source is declared in the profile, not remembered here.
+ *
+ * These are the behavioural guards on that declaration. The failure they exist to catch already
+ * happened once: M1 declared Codex's `classify.signals` as `[]` while the classifier read two
+ * Codex signals, and nothing failed — a falsehood sitting exactly where the type system cannot
+ * reach. A type check cannot notice a list that is merely wrong; only behaviour can.
+ */
+describe("classification signals come from the profile (R12 M6)", () => {
+  it("still classifies a Codex machine run, which an empty signal list would break", () => {
+    /*
+     * This is the regression case for that bug. If `codex`'s `classify.signals` is emptied, the
+     * human-turn rule stops applying and this falls through to `dialogue` — 346 sessions
+     * silently reclassified. Measured before the change: 344 dialogue / 2 machine.
+     */
+    expect(classifySession({
+      ...base,
+      source: "codex",
+      humanTurnCount: 0,
+      codexSignalUsable: true,
+      codexHumanTurnCount: 0,
+    })).toEqual({ kind: "machine", reason: "no-human-prompt" });
+  });
+
+  it("still classifies a Codex dialogue", () => {
+    expect(classifySession({
+      ...base,
+      source: "codex",
+      codexSignalUsable: true,
+      codexHumanTurnCount: 4,
+    })).toEqual({ kind: "dialogue", reason: "has-human-prompt" });
+  });
+
+  it("keeps `codex-unclassified` for the case it actually describes", () => {
+    // Read the window, saw no message records at all: nothing to count, which is not the same
+    // as counting zero. This is the only place that reason code is honest.
+    expect(classifySession({ ...base, source: "codex", codexSignalUsable: false }))
+      .toEqual({ kind: "unknown", reason: "codex-unclassified" });
+  });
+
+  it("applies Claude Code's subagent signals, which Codex does not declare", () => {
+    expect(classifySession({ ...base, hasAgentId: true }))
+      .toEqual({ kind: "subagent", reason: "field-agentid" });
+    // The same input under Codex must NOT take that rule: `agent-id-field` is a Claude Code
+    // field name that cannot appear in a rollout, and the profile says so.
+    expect(classifySession({ ...base, source: "codex", hasAgentId: true, codexSignalUsable: true, codexHumanTurnCount: 2 }))
+      .toEqual({ kind: "dialogue", reason: "has-human-prompt" });
+  });
+});
+
 describe("supporting predicates", () => {
   it("isSubagentPath matches only a subagents/ path segment", () => {
     expect(isSubagentPath("a/b/subagents/c.jsonl")).toBe(true);
