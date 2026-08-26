@@ -1,0 +1,107 @@
+/**
+ * R12 M1 — the discovery half of `SourceProfile`.
+ *
+ * These tests do not check that fields exist; `tsc` does that better. They pin the DECISIONS,
+ * because every one of them is a thing a later, well-meaning edit would quietly undo.
+ */
+import { describe, expect, it } from "vitest";
+import { profileFor } from "./profiles";
+
+describe("SourceProfile · discovery half (R12 M1)", () => {
+  it("resolves for every supported source, and the two rows are not the same object", () => {
+    const claude = profileFor("claude-code").discovery;
+    const codex = profileFor("codex").discovery;
+    expect(claude).toBeDefined();
+    expect(codex).toBeDefined();
+    expect(claude).not.toBe(codex);
+  });
+
+  it("roots Codex at ~/.codex, NOT ~/.codex/sessions — the sidecar lives above the transcripts", () => {
+    /*
+     * This is a browser constraint, not a preference: the File System Access API cannot read the
+     * parent of a picked directory. Narrowing this to `sessions/` puts `.codex-global-state.json`
+     * out of reach and takes the purpose of every Codex session with it. That is the bug R12 exists
+     * to fix, so it gets a test rather than a comment.
+     */
+    expect(profileFor("codex").discovery.rootHint).toBe("~/.codex");
+    expect(profileFor("claude-code").discovery.rootHint).toBe("~/.claude/projects");
+  });
+
+  it("recognises a real Codex rollout filename and rejects a Claude Code one", () => {
+    const { filePattern, subdir } = profileFor("codex").discovery.transcripts;
+    expect(filePattern.test("rollout-2026-08-14T09-12-33-0199a1b2.jsonl")).toBe(true);
+    // A Claude Code transcript is `<session-uuid>.jsonl` with no prefix — must not match.
+    expect(filePattern.test("0199a1b2-3c4d-5e6f-8899-aabbccddeeff.jsonl")).toBe(false);
+    expect(subdir).toBe("sessions");
+  });
+
+  it("lets Claude Code transcripts sit anywhere under the picked root", () => {
+    const { filePattern, subdir } = profileFor("claude-code").discovery.transcripts;
+    expect(subdir).toBe("");
+    expect(filePattern.test("D--AIWork-DIT/0199a1b2.jsonl")).toBe(true);
+    expect(filePattern.test("notes.md")).toBe(false);
+  });
+
+  it("gives Codex no custom/ai rungs, because it has no title field to read", () => {
+    /*
+     * Measured over 542 `session_meta` records: Codex rollouts carry no title anywhere, so those
+     * two rungs are Claude Code records, not a ladder every source happens to share. Putting them
+     * back is what made every Codex session display an excerpt of its first message.
+     */
+    const ladder = profileFor("codex").discovery.titleLadder;
+    expect(ladder).not.toContain("custom");
+    expect(ladder).not.toContain("ai");
+    expect(profileFor("claude-code").discovery.titleLadder).toEqual([
+      "custom",
+      "ai",
+      "derived",
+      "filename",
+    ]);
+  });
+
+  it("ends every ladder at `filename`, so a title is always producible", () => {
+    for (const source of ["claude-code", "codex"] as const) {
+      const ladder = profileFor(source).discovery.titleLadder;
+      expect(ladder.length).toBeGreaterThan(0);
+      expect(ladder[ladder.length - 1]).toBe("filename");
+    }
+  });
+
+  it("declares no ladder rung that nothing can produce yet", () => {
+    /*
+     * The `paste` SourceId and the `milestone` span type were both declared, never produced, and
+     * listed in the UI anyway. A `sidecar` rung before M5 writes the code that fills it would be
+     * the third instance. `pickTitle` can currently emit exactly these four.
+     */
+    const producible = new Set(["custom", "ai", "derived", "filename"]);
+    for (const source of ["claude-code", "codex"] as const) {
+      for (const rung of profileFor(source).discovery.titleLadder) {
+        expect(producible.has(rung)).toBe(true);
+      }
+    }
+  });
+
+  it("says out loud that Codex supplies no classification signal", () => {
+    /*
+     * Empty is the measured answer, not an unfinished row. `agentId`/`isSidechain` are Claude Code
+     * field names; `human-turn-count` is excluded because R11.2 R1 measured 356/358 rollouts as
+     * `dialogue` while 108 of those files contain no human-typed text at all. `codex-unclassified`
+     * is what the classifier reports instead of guessing — see core/index/contracts.ts.
+     */
+    expect(profileFor("codex").discovery.classify.signals).toEqual([]);
+    expect(profileFor("claude-code").discovery.classify.signals).toContain("agent-id-field");
+  });
+
+  it("describes the Codex sidecar by the join key that was actually measured", () => {
+    const [sidecar, ...rest] = profileFor("codex").discovery.sidecars;
+    expect(rest).toHaveLength(0);
+    expect(sidecar.path).toBe(".codex-global-state.json");
+    // 61/61 descriptions resolved through this chain on the local corpus, 2026-08-26.
+    expect(sidecar.joinKey).toEqual(["session_meta", "payload", "id"]);
+    expect(sidecar.recordsAt).toEqual(["electron-persisted-atom-state", "thread-descriptions-v1"]);
+  });
+
+  it("gives Claude Code no sidecar, because its titles are records inside the transcript", () => {
+    expect(profileFor("claude-code").discovery.sidecars).toEqual([]);
+  });
+});

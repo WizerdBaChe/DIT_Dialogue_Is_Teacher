@@ -11,7 +11,7 @@
  * 「讀得到完整的行、卻沒有任何 adapter 認領」才排除。三者不可互相取代，**不猜測**任何一邊。
  */
 import type { Diagnostic } from "@/core/diagnostics/contracts";
-import type { SourceId } from "@/types/spanTree";
+import type { SourceId, TitleSource } from "@/types/spanTree";
 
 /**
  * 一份 transcript 是什麼。分類是**徽章，不是預設篩選**——只有第 3 條是啟發式，
@@ -36,7 +36,11 @@ export type SessionKindReason =
    */
   | "codex-unclassified";
 
-export type TitleSource = "custom" | "ai" | "derived" | "filename";
+/**
+ * R12 M1：定義移到 `@/types/spanTree`，這裡只 re-export。探索側寫 (`core/source/profiles.ts`)
+ * 宣告階梯順序、索引層執行它，兩個同層切片不該互相 import，共用詞彙住在下層。
+ */
+export type { TitleSource };
 
 export interface SessionIndexEntry {
   /** transcript 自報的 sessionId；缺漏時退回檔名 (見 titleSource 的同一原則：不假裝知道)。 */

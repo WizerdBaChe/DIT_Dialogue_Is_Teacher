@@ -19,6 +19,21 @@ export const SCHEMA_VERSION = "0.1" as const;
  */
 export type SourceId = "claude-code" | "codex";
 
+/**
+ * 一個 session 的標題是從哪一階來的。**每一階都是具名降級 (named degradation)**：清單上有
+ * 自己的 class 與 tooltip，使用者看得見，所以不走 `reportFallback` 那條「無聲替代」通道。
+ *
+ * R12 M1 起，這個聯集從 `core/index/contracts.ts` 移到這裡（原處改為 re-export，呼叫端全部
+ * 不動）。理由是層級：階梯的**順序**現在由 `core/source/profiles.ts` 的探索側寫宣告、由
+ * `core/index/` 執行，兩者是同層的兄弟切片，不該互相 import；共用的詞彙要住在下層。
+ *
+ * 刻意還沒有 `"sidecar"`。Codex 的 session 目的存在 transcript 之外
+ * （`.codex-global-state.json`），但讀它的程式碼要到 R12 M5 才寫。先宣告一個沒有任何路徑
+ * 會產生的值，正是這個檔案上面那段 `"paste"`／`milestone` 的教訓——型別裡有、從未產出、
+ * 清單卻照樣列出。M5 要把「加這一階」和「產生這一階」放在同一張卡裡做完。
+ */
+export type TitleSource = "custom" | "ai" | "derived" | "filename";
+
 /** Span 的語意型別。 */
 export type SpanType =
   | "user_msg"

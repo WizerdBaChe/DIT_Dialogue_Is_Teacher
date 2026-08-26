@@ -119,6 +119,32 @@ change. The render half is not touched.
   title ladder `sidecar → derived → filename`.
 
 **Files**: `src/core/source/profiles.ts`, `src/types/spanTree.ts` (if `TitleSource` gains `sidecar`).
+
+**BUILT 2026-08-26** — `src/core/source/profiles.ts`, `src/types/spanTree.ts`,
+`src/core/index/contracts.ts`, `src/core/source/profiles.discovery.test.ts`. Three deltas
+against the card, each with a reason:
+
+1. `TitleSource` lives in `core/index/contracts.ts`, not `types/spanTree.ts` as this card
+   guessed. It was MOVED to `types/spanTree.ts` (re-exported from its old home, so no call site
+   changed) because the ladder's ORDER is now declared in `core/source/` and EXECUTED in
+   `core/index/` — sibling slices that must not import each other, so the shared vocabulary has
+   to sit below both.
+2. **`TitleSource` did NOT gain `sidecar`, and Codex's ladder is `derived → filename`, not
+   `sidecar → derived → filename`.** Declaring a rung before M5 writes the code that produces it
+   is the `paste` SourceId / `milestone` span mistake for the third time — the type declares it,
+   nothing emits it, the UI lists it anyway. M5 adds the rung and its producer in one card. The
+   sidecar SPEC is here (path, `recordsAt`, `joinKey`) so M5 has a contract; only the ladder rung
+   waits.
+3. The acceptance probe found something the card did not anticipate. Adding a third `SourceId`
+   fails `tsc` in exactly two places, both inside `profiles.ts` — and **the rest of `src/`
+   compiles clean**, which is not the invariant holding. Three real source branches
+   (`classifySession.ts:126`, `:143`, `sessionIndexer.ts:363`) fall silently past a new source
+   instead of failing. M1 therefore DECLARES INV-R12-1; **M6 and M7 are what make it true**, and
+   `sessionIndexer.ts:363` (`subagentPaths` computed only for `claude-code`) is discovery work
+   that had not been assigned to a card — it goes to M7.
+
+Gates: `typecheck` clean · `test` 524/524 (59 files) · `build` two-stage clean ·
+`check:rounds` OK. Not browser-verifiable by construction: data only, zero call sites.
 **Acceptance**: `profileFor("claude-code").discovery` and `profileFor("codex").discovery` both
 resolve; a deliberately added third `SourceId` fails `tsc` until its row exists — demonstrate
 this once in the PR body, then revert the probe. A registry that cannot fail this way has not
