@@ -131,11 +131,15 @@ const zhTW = {
     loadFileTitle: "已經知道是哪個檔時用這個；不確定就用「從對話集選擇」。",
     loadFolder: "從對話集選擇",
     loadFolderTitle: "選一個資料夾，用可讀的標題挑一份 session，不必先知道檔名。",
-    legend: {
-      label: "符號說明",
-      spanHeading: "Span 層 · transcript 發生了什麼",
-      skeletonHeading: "Skeleton 層 · 學習魚骨的節點／支線種類",
-    },
+    /*
+     * R12 M2（作者裁決 2026-08-26）：總覽的「符號說明」整塊移除，這三個 key 跟著退役。
+     * 作者的理由是那份圖例是一次失敗實作的產物，先前回報過但沒有被修好——留著一個沒修好的
+     * 說明比沒有說明更糟，因為它會被當成可信的解釋。
+     *
+     * 定義表本身沒有被孤立：`core/view/categoryDefinitions` 仍是唯一來源，`SessionMapDialog`
+     * 仍在消費它（含 tooltip 的完整三段式內容），所以 R9.1 RC-G 想解決的「使用者無從判斷
+     * 該不該相信這個標記」在 Session 地圖裡仍有出口。
+     */
     // R11.2 R3：info 分級診斷（例如 Codex 事件配不上對應呼叫）沒有可歸屬的介面，於是
     // M4 把它們降級之後就從畫面上徹底消失了。這裡是它們唯一的呈現位置——平時收起、
     // 讀者可自行展開，絕不打斷閱讀，也絕不當作錯誤處理。
@@ -801,11 +805,6 @@ const en: Messages = {
     loadFileTitle: "Use this when you already know which file you want; otherwise use “Choose from your conversations”.",
     loadFolder: "Choose from your conversations",
     loadFolderTitle: "Pick a folder and choose a session by its readable title — no file names needed.",
-    legend: {
-      label: "Symbol guide",
-      spanHeading: "Span layer · what happened in the transcript",
-      skeletonHeading: "Skeleton layer · fishbone node/rib kinds",
-    },
     // R11.2 R3: info-tier diagnostics (e.g. a Codex event with no matching call) had no home
     // once M4 demoted them, so they vanished from the screen entirely. This is their only
     // surface — collapsed by default, opened on demand, never treated as an error.

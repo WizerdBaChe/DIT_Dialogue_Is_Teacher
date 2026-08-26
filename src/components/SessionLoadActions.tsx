@@ -44,8 +44,13 @@ export function SessionLoadActions({ labels = "header", className = "" }: Sessio
   if (!activeSource) {
     return (
       <div className={`session-load-actions source-picker ${className}`.trim()} data-level="1">
-        <div data-role="choices" className="source-picker-choices" role="group" aria-label={t.sourcePicker.label}>
-          <span className="source-picker-label">{t.sourcePicker.label}</span>
+        {/*
+          說明在上、按鈕在下。標題原本住在 choices 那排 flex 裡，於是它跟兩顆按鈕並排成
+          一列，讀起來是交錯的。標題與提示是文字、按鈕是動作，兩者不共用一排。
+        */}
+        <p data-role="label" id="source-picker-label" className="source-picker-label">{t.sourcePicker.label}</p>
+        <p data-role="hint" className="source-picker-hint">{t.sourcePicker.hint}</p>
+        <div data-role="choices" className="source-picker-choices" role="group" aria-labelledby="source-picker-label">
           {SUPPORTED_SOURCES.map((source) => (
             <button
               key={source}
@@ -69,7 +74,6 @@ export function SessionLoadActions({ labels = "header", className = "" }: Sessio
             </button>
           ))}
         </div>
-        <p data-role="hint" className="source-picker-hint">{t.sourcePicker.hint}</p>
       </div>
     );
   }
