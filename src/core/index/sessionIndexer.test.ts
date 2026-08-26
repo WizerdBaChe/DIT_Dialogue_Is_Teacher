@@ -427,3 +427,73 @@ describe("title degradation is reported once, as a diagnostic (R9.1 RC-B)", () =
     expect(diagnostics.some((d) => d.code === "INDEX_TITLE_FROM_FILENAME")).toBe(false);
   });
 });
+
+/**
+ * R12 M2 — the level-1 choice decides where to look, and detection becomes VERIFICATION.
+ *
+ * The behaviour R11 WC-1.2 shipped (author's own C1 report: Codex sessions vanished from the
+ * folder browser) is not being undone here. Without `expectSource` nothing changes at all; with
+ * it, out-of-scope files are counted and reported rather than silently missing.
+ */
+describe("buildSessionIndex · expectSource (R12 M2)", () => {
+  const codexRollout = [
+    JSON.stringify({ timestamp: "2026-08-01T00:00:00Z", type: "session_meta", payload: { session_id: "cx-1", cwd: "/tmp/proj" } }),
+    JSON.stringify({
+      timestamp: "2026-08-01T00:00:01Z",
+      type: "response_item",
+      payload: { type: "message", role: "user", content: [{ type: "input_text", text: "看一下這段" }] },
+    }),
+  ].join("\n");
+
+  const mixed = (): DirectorySource => sourceOf([
+    ["proj/claude.jsonl", SIMPLE],
+    ["proj/rollout-cx1.jsonl", codexRollout],
+  ]);
+
+  it("without a chosen source, lists both harnesses exactly as R11 WC-1.2 does", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(mixed());
+    expect(entries.map((e) => e.source).sort()).toEqual(["claude-code", "codex"]);
+    expect(diagnostics.some((d) => d.code === "INDEX_SOURCE_MISMATCH")).toBe(false);
+  });
+
+  it("keeps only the chosen harness and reports the skipped count by name", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(mixed(), { expectSource: "claude-code" });
+
+    expect(entries.map((e) => e.source)).toEqual(["claude-code"]);
+    const mismatch = diagnostics.filter((d) => d.code === "INDEX_SOURCE_MISMATCH");
+    expect(mismatch).toHaveLength(1);
+    expect(mismatch[0]).toMatchObject({ tier: "warn", count: 1, detail: "claude-code" });
+  });
+
+  it("works the other way round, so the rule is not a Claude Code special case", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(mixed(), { expectSource: "codex" });
+    expect(entries.map((e) => e.source)).toEqual(["codex"]);
+    expect(diagnostics.filter((d) => d.code === "INDEX_SOURCE_MISMATCH")[0]).toMatchObject({ count: 1 });
+  });
+
+  it("says nothing when every file belongs to the chosen harness", async () => {
+    const { entries, diagnostics } = await buildSessionIndex(
+      sourceOf([["proj/claude.jsonl", SIMPLE]]),
+      { expectSource: "claude-code" },
+    );
+    expect(entries).toHaveLength(1);
+    expect(diagnostics.some((d) => d.code === "INDEX_SOURCE_MISMATCH")).toBe(false);
+  });
+
+  it("does NOT drop a file whose source could not be resolved at all", async () => {
+    /*
+     * "Could not read enough to ask" and "read it, it says the other harness" are different
+     * facts, and collapsing the first into the second is exactly the C1 defect wearing a new
+     * hat. An unresolved file stays listed, under any chosen source.
+     */
+    const unreadable = `${"x".repeat(INDEX_SCAN_HEAD_BYTES)}\n`;
+    const { entries, diagnostics } = await buildSessionIndex(
+      sourceOf([["proj/huge-first-line.jsonl", unreadable]]),
+      { expectSource: "codex" },
+    );
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0].source).toBeNull();
+    expect(diagnostics.some((d) => d.code === "INDEX_SOURCE_MISMATCH")).toBe(false);
+  });
+});

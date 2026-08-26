@@ -24,4 +24,5 @@ export {
   pickDirectory,
   restoreDirectorySource,
 } from "./directorySource";
-export { clearDirectoryHandle, readDirectoryHandle, saveDirectoryHandle } from "./handleRepository";
+export { clearDirectoryHandle, readDirectoryHandles, saveDirectoryHandle } from "./handleRepository";
+export type { StoredDirectoryHandles } from "./handleRepository";

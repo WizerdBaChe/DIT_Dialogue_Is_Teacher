@@ -67,7 +67,21 @@ export type DiagnosticCode =
   // --- session index (R9.1) ---
   | "INDEX_DIRECTORY_UNREADABLE"
   | "INDEX_TITLE_FROM_FILENAME"
-  | "INDEX_HANDLE_NOT_PERSISTED";
+  | "INDEX_HANDLE_NOT_PERSISTED"
+  // --- session index (R12 M2) ---
+  /**
+   * The single remembered folder from before folders were remembered per agent system was
+   * discarded, because nothing recorded which system it belonged to and guessing wrong sends
+   * the user to the other harness's directory. Named rather than silent: "the app forgot my
+   * folder" with no explanation is exactly the shape INDEX_HANDLE_NOT_PERSISTED exists to avoid.
+   */
+  | "INDEX_HANDLE_SOURCE_SPLIT"
+  /**
+   * The user picked an agent system at level 1 and the files in the folder say otherwise. The
+   * chosen source is authoritative for WHERE to look; this reports the disagreement by name
+   * instead of silently reinterpreting the pick (INV-R12-3).
+   */
+  | "INDEX_SOURCE_MISMATCH";
 
 export interface Diagnostic {
   tier: DiagnosticTier;

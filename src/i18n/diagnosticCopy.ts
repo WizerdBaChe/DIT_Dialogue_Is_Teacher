@@ -105,6 +105,10 @@ const zhTW: CopyTable = {
   },
   INDEX_TITLE_FROM_FILENAME: { line: (d) => `${n(d)} 筆沒有可用的標題訊號，清單上以檔名顯示。` },
   INDEX_HANDLE_NOT_PERSISTED: { line: (d) => `這次無法記住所選資料夾，下次要重新選一次（${d.detail}）。` },
+  INDEX_HANDLE_SOURCE_SPLIT: {
+    line: () => "資料夾改為「每套系統各記一個」，之前只記住的那一個因為分不出屬於哪一套，已清除；請重選一次。",
+  },
+  INDEX_SOURCE_MISMATCH: { line: (d) => `這個資料夾裡有 ${n(d)} 筆不屬於你選的那套系統，已略過。` },
 };
 
 const en: CopyTable = {
@@ -191,6 +195,10 @@ const en: CopyTable = {
   },
   INDEX_TITLE_FROM_FILENAME: { line: (d) => `${n(d)} session(s) had no usable title signal and are listed by file name.` },
   INDEX_HANDLE_NOT_PERSISTED: { line: (d) => `This folder could not be remembered; you will have to pick it again next time (${d.detail}).` },
+  INDEX_HANDLE_SOURCE_SPLIT: {
+    line: () => "Folders are now remembered per agent system. The single folder remembered before could not be attributed to one, so it was cleared — please pick it again.",
+  },
+  INDEX_SOURCE_MISMATCH: { line: (d) => `${n(d)} file(s) in this folder do not belong to the agent system you chose and were skipped.` },
 };
 
 const TABLES: Record<Locale, CopyTable> = { "zh-TW": zhTW, en };
