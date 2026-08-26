@@ -118,4 +118,17 @@ describe("SourceProfile · discovery half (R12 M1)", () => {
   it("gives Claude Code no sidecar, because its titles are records inside the transcript", () => {
     expect(profileFor("claude-code").discovery.sidecars).toEqual([]);
   });
+
+  it("declares each source's subagent file layout, or null where there is none (R12 M7)", () => {
+    /*
+     * "Which files belong to this session" is a property of the harness's directory convention.
+     * This was a `source === "claude-code" ? … : []` ternary in the indexer, which M1's
+     * third-source probe found failing SILENTLY — a new source would simply have got no
+     * subagents, with nothing to notice. Now a missing row fails to compile.
+     */
+    expect(profileFor("claude-code").discovery.subagents).toEqual({ siblingDir: "subagents" });
+    // null means "this source has no such layout", not "not implemented": a Codex rollout has
+    // no sibling directory, and prefix-guessing would risk a coincidental false pairing.
+    expect(profileFor("codex").discovery.subagents).toBeNull();
+  });
 });
