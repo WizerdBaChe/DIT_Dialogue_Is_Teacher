@@ -15,6 +15,9 @@ const SPEC: SidecarSpec = {
   path: ".codex-global-state.json",
   recordsAt: ["electron-persisted-atom-state", "thread-descriptions-v1"],
   joinKey: { recordType: "session_meta", path: ["payload", "id"] },
+  // Required, not optional, so a new sidecar spec has to SAY whether its source has forked
+  // threads rather than inheriting `undefined` and silently never offering the parent rung.
+  parentJoinKey: { recordType: "session_meta", path: ["payload", "session_id"] },
 };
 
 const fileOf = (path: string, content: string): DirectoryFile => {

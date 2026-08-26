@@ -90,6 +90,21 @@ export interface SidecarSpec {
    * (first segment means a record type) that made it awkward to consume; this shape does not.
    */
   joinKey: { recordType: string; path: readonly string[] };
+  /**
+   * Where the PARENT session's id lives, for a source whose threads can be forked; `null` when
+   * the source has no such notion (2026-08-27, author ruling).
+   *
+   * Read only when `joinKey` produced no description of this session's own — it feeds the
+   * `sidecar-parent` rung, never `sidecar`. Keeping it a separate field rather than a fallback
+   * inside `joinKey` is what keeps the two distinguishable all the way to the screen: the user
+   * must be able to tell "this session's stated purpose" from "the purpose of the thread it was
+   * forked out of", because a fork can have gone somewhere else entirely.
+   *
+   * Codex writes both ids into the same `session_meta.payload`, and they differ exactly when the
+   * thread is a fork — measured 135/358 locally, of which 129 have a described parent and 0 have
+   * a description of their own. That asymmetry is the whole reason this rung is worth having.
+   */
+  parentJoinKey: { recordType: string; path: readonly string[] } | null;
 }
 
 export interface SourceDiscovery {
@@ -174,6 +189,14 @@ const CODEX_DISCOVERY: SourceDiscovery = {
        * D-018. Changing this line changes the join, which is the whole point of it being here.
        */
       joinKey: { recordType: "session_meta", path: ["payload", "id"] },
+      /*
+       * The same `session_id` D-018 rejected as a JOIN key, admitted here for what it actually
+       * is: the id of the thread this one was forked from. Rejecting it as `sidecar` and using
+       * it as `sidecar-parent` is not a reversal — D-018's finding was that it is wrong 129
+       * times *as a claim about this session's own purpose*, which is exactly the claim this
+       * rung does not make.
+       */
+      parentJoinKey: { recordType: "session_meta", path: ["payload", "session_id"] },
     },
   ],
   // Rollouts have no sibling directory; `parent_thread_id` relates threads, not files.
@@ -188,7 +211,13 @@ const CODEX_DISCOVERY: SourceDiscovery = {
    * sessions it is, the ladder falls through; every rung below the first is a named degradation
    * with its own `titleSource` and its own affordance in the list.
    */
-  titleLadder: ["sidecar", "derived", "filename"],
+  /*
+   * `sidecar-parent` inserted 2026-08-27 (author ruling: 「只要確認名稱不髒就可以擴」). It sits
+   * ABOVE `derived` because a fork's parent describes the WORK, while `derived` describes only
+   * how the first message happened to open — and for a fork that first message is usually a
+   * continuation with no context in it. Measured: coverage 17.0% → 53.1%.
+   */
+  titleLadder: ["sidecar", "sidecar-parent", "derived", "filename"],
   /*
    * `human-turn-count` and nothing else — and this row was WRONG until R12 M6.
    *
@@ -358,3 +387,14 @@ export const SUPPORTED_SOURCES = Object.keys(PROFILES) as readonly SourceId[];
  */
 export const SIDECAR_JOIN_KEYS: readonly SidecarSpec["joinKey"][] =
   SUPPORTED_SOURCES.flatMap((source) => PROFILES[source].discovery.sidecars.map((sidecar) => sidecar.joinKey));
+
+/**
+ * The parent-id keys, same shape and same reason as `SIDECAR_JOIN_KEYS` — declared here so the
+ * indexer reads the profile rather than hardcoding a second field path (2026-08-27). Sources with
+ * no notion of a forked thread contribute nothing, so this is empty for Claude Code by omission
+ * rather than by a special case.
+ */
+export const SIDECAR_PARENT_KEYS: readonly NonNullable<SidecarSpec["parentJoinKey"]>[] =
+  SUPPORTED_SOURCES.flatMap((source) => PROFILES[source].discovery.sidecars
+    .map((sidecar) => sidecar.parentJoinKey)
+    .filter((key): key is NonNullable<SidecarSpec["parentJoinKey"]> => key !== null));

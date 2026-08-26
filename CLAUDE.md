@@ -48,8 +48,11 @@ Rules:
   `docs/rounds/ROUNDS.md` and `docs/DEFERRED.md` are the translation layer between what was
   written then and what is true now. Live records (`references/DIT-*.md`, `docs/DEFERRED.md`,
   this file) are the opposite: they describe the present and are corrected in place.
-  One exception, and it is about status not vintage: **`UAT_R11.2_v1.0.md` is not old, it is the
-  live acceptance card** and is still awaiting the author's run.
+  One exception, and it is about status not vintage: **the live acceptance card is
+  `docs/rounds/r12-source-first-navigation/UAT_R12_v1.0.md`** (2026-08-27), which merges R11.2's
+  unfinished items into R12's because R12's branch was cut from R11.2 and carries all of it.
+  `UAT_R11.2_v1.0.md` is now a record — it holds the author's filled-in verdicts and is **not**
+  edited; the merged card carries those answers forward instead of asking for them again.
 - **Every closed round gets a phase checkpoint.** A missing checkpoint is what made the collision
   invisible: Phases 9 and 10 were only written on 2026-08-14, weeks after the work.
 - **Doc filenames carry the round id**: `PSM_<id>_*.md`, `UAT_<id>_v*.md`, `RCA_<id>_*.md`,

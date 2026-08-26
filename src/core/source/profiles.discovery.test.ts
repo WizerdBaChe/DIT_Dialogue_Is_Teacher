@@ -81,7 +81,10 @@ describe("SourceProfile · discovery half (R12 M1)", () => {
      * test failed and you are about to add a rung name to make it pass, that is the failure it
      * is designed to catch. Keep in step with `rungValue` in `core/index/sessionIndexer.ts`.
      */
-    const producible = new Set(["custom", "ai", "derived", "sidecar", "filename"]);
+    // `sidecar-parent` joined on 2026-08-27 under exactly the condition stated above: its
+    // producer (`rungValue`'s `case "sidecar-parent"`, plus `SIDECAR_PARENT_KEYS` and the
+    // `parentSessionId` capture) ships in the same change as this line.
+    const producible = new Set(["custom", "ai", "derived", "sidecar", "sidecar-parent", "filename"]);
     for (const source of ["claude-code", "codex"] as const) {
       for (const rung of profileFor(source).discovery.titleLadder) {
         expect(producible.has(rung)).toBe(true);
