@@ -77,8 +77,19 @@ export interface SidecarSpec {
   path: string;
   /** Property chain from the file's root down to the map of records, keyed by session id. */
   recordsAt: readonly string[];
-  /** Property chain inside a transcript record that yields the key into `recordsAt`. */
-  joinKey: readonly string[];
+  /**
+   * Where the join id lives inside a transcript record.
+   *
+   * Split into the record TYPE and a property path, because the two are read differently —
+   * `recordType` is matched against `record.type`, `path` is walked from the record. It was a
+   * single flat chain (`["session_meta","payload","id"]`) until review on 2026-08-27 pointed
+   * out that nothing read it at all: the extraction was hardcoded in the indexer, so editing
+   * this field — the sanctioned place to change the join — did nothing. That is the same
+   * declared-but-unenforced failure as P-004, inverted: a declaration with no consumer rather
+   * than a consumer contradicting its declaration. The flat shape hid an implicit convention
+   * (first segment means a record type) that made it awkward to consume; this shape does not.
+   */
+  joinKey: { recordType: string; path: readonly string[] };
 }
 
 export interface SourceDiscovery {
@@ -156,7 +167,13 @@ const CODEX_DISCOVERY: SourceDiscovery = {
        * the join key is what was measured, the encoding is not.
        */
       recordsAt: ["electron-persisted-atom-state", "thread-descriptions-v1"],
-      joinKey: ["session_meta", "payload", "id"],
+      /*
+       * `payload.id`, NOT `payload.session_id`. Measured over 358 rollouts: both fields are
+       * always present and disagree on 135 — the forked threads. Joining on `session_id` scores
+       * 190 hits against 61 and is wrong 129 times, giving a fork its parent's purpose. See
+       * D-018. Changing this line changes the join, which is the whole point of it being here.
+       */
+      joinKey: { recordType: "session_meta", path: ["payload", "id"] },
     },
   ],
   // Rollouts have no sibling directory; `parent_thread_id` relates threads, not files.
@@ -325,3 +342,19 @@ export function profileFor(source: SourceId): SourceProfile {
  * coincidence of object literal order, which is why a test pins it.
  */
 export const SUPPORTED_SOURCES = Object.keys(PROFILES) as readonly SourceId[];
+
+/**
+ * Every sidecar join key any source declares (R12, review follow-up 2026-08-27).
+ *
+ * The indexer scans a record without yet knowing which source claims the file, so it cannot ask
+ * `profileFor(source)`. It consults this list instead: a record either carries the declared
+ * `recordType` or it does not, and only one harness ever emits a given type, so there is no
+ * collision to resolve.
+ *
+ * Derived rather than restated, for the reason this whole file exists — a second hand-written
+ * copy is a second thing to forget. This is what makes `SidecarSpec.joinKey` load-bearing:
+ * editing it in a profile now changes behaviour, which it did not before review caught that
+ * nothing read the field at all.
+ */
+export const SIDECAR_JOIN_KEYS: readonly SidecarSpec["joinKey"][] =
+  SUPPORTED_SOURCES.flatMap((source) => PROFILES[source].discovery.sidecars.map((sidecar) => sidecar.joinKey));

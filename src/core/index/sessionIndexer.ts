@@ -18,7 +18,7 @@ import { detectAdapter } from "@/core/adapters";
 import { flattenTextBlocks as flattenCodexTextBlocks, isAutoReviewDump as isCodexAutoReviewDump } from "@/core/adapters/codexJsonl";
 import type { Diagnostic } from "@/core/diagnostics/contracts";
 import { stripInjectedPreamble } from "@/core/text/preamble";
-import { profileFor } from "@/core/source/profiles";
+import { profileFor, SIDECAR_JOIN_KEYS } from "@/core/source/profiles";
 import type { SourceId } from "@/types/spanTree";
 import { classifySession, isSubagentPath, isSyntheticPrompt } from "./classifySession";
 import { readSidecars } from "./sidecarReader";
@@ -119,25 +119,40 @@ function humanTurn(record: Record<string, unknown>): { text: string | null } | n
   return { text: text || null };
 }
 
+/** 沿屬性鏈往下走；任何一節不是物件就停下。與 `sidecarReader` 的 `walk` 同一個形狀。 */
+function walkPath(value: unknown, path: readonly string[]): unknown {
+  let current: unknown = value;
+  for (const key of path) {
+    if (current === null || typeof current !== "object" || Array.isArray(current)) return undefined;
+    current = (current as Record<string, unknown>)[key];
+  }
+  return current;
+}
+
 function absorb(stats: ScanStats, record: Record<string, unknown>): void {
   stats.recordCount += 1;
   if (typeof record.sessionId === "string" && !stats.sessionId) stats.sessionId = record.sessionId;
 
   /*
-   * R12 M5 (closes DW-18)：Codex 自報的 id。在此之前只讀 Claude 的 `record.sessionId`，
+   * R12 M5 (closes DW-18)：來源自報的 session id。在此之前只讀 Claude 的 `record.sessionId`，
    * 於是每個 Codex 條目的 `id` 都退化成檔名——「沒去看」被記成「沒有」。
    *
-   * 讀的是 `payload.id`，**不是 `payload.session_id`**，而這不是隨手挑一個。實測 358 份
-   * rollout 兩個欄位都有，其中 135 份不相等（正好等於帶 `parent_thread_id` 的份數）：那些是
-   * 分叉執行緒，`id` 是它自己的、`session_id` 指向母對話。sidecar 是 thread-descriptions，
-   * 用 `session_id` 去接會多出 129 筆**接到母對話描述**的假命中，覆蓋率從 17% 漂亮地跳到
-   * 53%，而且完全看不出破綻。細節見 `RESEARCH_R12_CODEX_SIDECAR_2026-08-26.md` §4。
+   * **要讀哪個欄位由側寫說了算**（`SidecarSpec.joinKey`）。2026-08-27 的複核抓到這裡原本是
+   * 寫死的 `payload.id`：側寫宣告了 join key、卻沒有任何程式讀它，所以照著文件去改
+   * `profiles.ts` 的那一行**什麼都不會發生**——正是 P-004 那個「宣告與實作對不上」的形狀，
+   * 只是方向相反。而且本輪的 `sourceKnowledge` 閘門抓不到它：這個檔案沒有寫出來源字面量。
+   *
+   * 掃描當下還不知道哪個 adapter 會認領這個檔案，所以比對的是「有沒有這種 record type」——
+   * 一種 type 只有一套 harness 會產，不會撞。
    */
-  if (record.type === "session_meta" && !stats.sessionId) {
-    const payload = record.payload;
-    if (payload !== null && typeof payload === "object") {
-      const id = (payload as Record<string, unknown>).id;
-      if (typeof id === "string" && id.trim()) stats.sessionId = id;
+  if (!stats.sessionId) {
+    for (const key of SIDECAR_JOIN_KEYS) {
+      if (record.type !== key.recordType) continue;
+      const id = walkPath(record, key.path);
+      if (typeof id === "string" && id.trim()) {
+        stats.sessionId = id;
+        break;
+      }
     }
   }
   if (typeof record.cwd === "string" && !stats.cwd) stats.cwd = record.cwd;
@@ -330,7 +345,15 @@ function rungValue(
     case "ai": return stats.aiTitle ?? null;
     case "sidecar": return (stats.sessionId && sidecar.get(stats.sessionId)) || null;
     case "derived": return stats.firstHumanText ?? null;
-    case "filename": return baseName(path).replace(/\.jsonl$/i, "");
+    case "filename": {
+      /*
+       * 複核 2026-08-27：一個真的叫做 `.jsonl` 的檔案，去掉副檔名之後是**空字串**——而這一階
+       * 是每個階梯的最後一階，於是那個空字串會一路走到畫面上，跟這裡原本的註解「顯示檔名
+       * 仍然比顯示空字串誠實」剛好相反。去不掉副檔名就用完整檔名。
+       */
+      const stripped = baseName(path).replace(/\.jsonl$/i, "");
+      return stripped.trim() ? stripped : baseName(path);
+    }
   }
 }
 
@@ -359,9 +382,8 @@ function pickTitle(
     const value = rungValue(rung, stats, path, sidecar);
     if (value && value.trim()) return { title: firstLine(value, TITLE_MAX_LENGTH), titleSource: rung };
   }
-  // 側寫測試保證每個階梯以 `filename` 收尾，所以理論上到不了這裡；到得了就是側寫壞了，
-  // 而「顯示檔名」仍然比顯示空字串誠實。
-  return { title: baseName(path).replace(/\.jsonl$/i, ""), titleSource: "filename" };
+  // 側寫測試保證每個階梯以 `filename` 收尾，所以理論上到不了這裡；到得了就是側寫壞了。
+  return { title: rungValue("filename", stats, path, sidecar) ?? baseName(path), titleSource: "filename" };
 }
 
 /**

@@ -124,6 +124,14 @@ export type DiagnosticCode =
   /** Entries in the sidecar whose value was not a usable string. Counted, never coerced. */
   | "INDEX_SIDECAR_ENTRY_SKIPPED"
   /**
+   * The sidecar is larger than the reader will load, or holds more entries than it will map.
+   * The reader had no bound at all until review on 2026-08-27 noted that the same round's
+   * transcript scan windows every read to 128 KiB/1 MiB precisely so a big directory cannot
+   * stall the UI — a discipline the new file had not inherited. `count` is the offending size
+   * or entry count, `detail` the path.
+   */
+  | "INDEX_SIDECAR_TRUNCATED"
+  /**
    * A loaded file's actual harness differs from the one chosen at level 1. On the LOAD path
    * the content wins — the adapter has already read the file and re-reading a Codex rollout as
    * Claude Code would only grow a wrong tree — so this changes nothing and only says so.
