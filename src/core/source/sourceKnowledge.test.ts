@@ -25,7 +25,16 @@ const sources = import.meta.glob("/src/**/*.{ts,tsx}", { query: "?raw", import: 
 
 const SOURCE_LITERAL = /["'`](claude-code|codex)["'`]/;
 
-/** Comments may discuss a source freely — explaining history is not branching on it. */
+/**
+ * Comments may discuss a source freely — explaining history is not branching on it.
+ *
+ * KNOWN LIMIT, demonstrated by the evidence audit 2026-08-27: this is a regex, not a tokenizer,
+ * so a bare `//` inside a string literal truncates the rest of that line. Given
+ * `const p = "a//b"; const bad = x === "codex";` the real violation after it disappears. The
+ * `[^:]` guard only spares `://` in URLs. No file in the repo is written that way today (checked),
+ * and the cost of a real tokenizer here is not worth it — but the gate is not airtight, and
+ * pretending otherwise is worse than the hole itself.
+ */
 const stripComments = (code: string): string =>
   code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
