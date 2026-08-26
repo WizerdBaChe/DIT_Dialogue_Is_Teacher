@@ -542,3 +542,39 @@
 - The remaining 83% of Codex sessions with no purpose need the LLM title-condensation round, which is also the round that would give titles to old Claude Code sessions with no `ai-title` (only 6 records corpus-wide carry one). Not scoped; `product-design-thinking` is the right tool there.
 - R12's branch was cut from `feat/r11.2-uat-repairs`, so it carries F-01/F-02 and cannot merge before R11.2 does. Re-cutting from `main` is still cheap if that coupling is unwanted.
 - Manual acceptance owed for F-01/F-02: the fallback path can only be seen by blocking `session.worker-*.js` in DevTools and re-loading a session — no model-side check covers it.
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 18 – R12 source-first navigation built end to end (M1–M7)
+- Status: in-progress (construction complete and green; author acceptance not yet run)
+- Date: 2026-08-27
+- Detail: docs/rounds/r12-source-first-navigation/PSM_R12_SOURCE_FIRST_NAVIGATION_v0.1.md (a BUILT note under each card records what shipped, how it deviated from the card, and the measurement behind it)
+- Transcript: fd04f079-22fb-4246-bd36-d4c482708943.jsonl — archived: PENDING (daily mirror covers it)
+
+## Goals
+- Close the recurring source-blindness defect at the mechanism, not the symptom: R10-B fixed it in the render layer, it regrew in discovery and cost R11 an acceptance round.
+- Split DISCOVERY per agent system while VIEWING converges on one unchanged `SessionDocument` and one viewer.
+- Give Codex sessions their real purpose as a title (the author's B1 report), and surface the Claude Code metadata already in the files.
+
+## Decisions
+- **Round-id namespace closed at R12** (author ruling). New rounds use `<YYYY-MM>-<slug>`, which cannot be forward-referenced because naming the theme IS allocating the round. R1–R12 keep their ids permanently; closing is not renaming. `docs/rounds/ROUNDS.md` is the registry, `docs/DEFERRED.md` the unhomed-work register, `npm run check:rounds` the gate.
+- **`docs/rounds/**` closed to further annotation.** Three dated correction notes on 2026-08-26 are the last; a misleading frozen document is fixed in the register, not in the document. Exception by status not vintage: `UAT_R11.2_v1.0.md` is the live acceptance card.
+- **DW-02 ruled A** (author): the sync pipeline gets the per-file isolation the worker has had since R9. `parse_failed` already existed everywhere except the path that produced it.
+- **INV-R12-1 restated as a property, not a syntax.** Source knowledge lives in the profile; two exceptions — a module that IS per-source, and an exhaustively guarded dispatch. Enforced per-file by `core/source/sourceKnowledge.test.ts` with a written reason per allow-list entry.
+- **Codex sidecar joins on `payload.id`, never `payload.session_id`.** The latter scores 190 hits against 61 and is wrong 129 times: forked threads wearing their parent's purpose. Rejected the higher number.
+- **`entrypoint` dropped by measurement** (2 distinct values, 99.88% one). **Fork-inherits-parent-description recorded but not built** — needs its own rung and on-screen wording, and is a product ruling.
+
+## Changes
+- `src/core/source/profiles.ts`: discovery half (`rootHint`/`transcripts`/`sidecars`/`subagents`/`titleLadder`/`classify`), `label`, `attribution.kinds`, `SUPPORTED_SOURCES`.
+- `src/core/index/`: `sidecarReader.ts` (new), per-source walk + `expectSource` + sidecar join + Codex session id in `sessionIndexer.ts`, per-source handle keys in `handleRepository.ts`, profile-declared signals + exhaustiveness assertion in `classifySession.ts`.
+- `src/core/adapters/claudeCodeJsonl.ts`: reads the four `attribution*` fields; `types/spanTree.ts` gains `Attribution`, `TitleSource` moves here and gains `sidecar`.
+- `src/core/pipeline.ts`: per-file parse isolation (DW-02). `src/core/normalize/normalizer.ts`: the silent `?? "claude-code"` is now audible.
+- `src/components/`: two-level source-first entry, attribution badges, the symbol guide removed, `sourceAgnostic.test.ts` gate.
+- Docs: three RESEARCH confirmation files, `ROUNDS.md`, `DEFERRED.md`, `scripts/check-round-ids.mjs`.
+
+## Open Questions / TODO
+- **R12 has NOT been accepted.** Construction is green (604/604, typecheck, two-stage build, check:rounds) but nothing here has been seen by the author in a browser. Appearance is unverified throughout: the pane reports `visibilityState: "hidden"`, and the built-in sample is synthetic so it carries neither attribution nor a sidecar.
+- **R11.2 is still not accepted either**, and R12's branch was cut from it, so R12 cannot merge first. Re-cutting from `main` remains cheap.
+- External verification of the complete system was dispatched on 2026-08-27 (correctness, evidence quality, security). Findings not yet folded in.
+- Author ruling wanted: should a forked Codex thread show its parent's description as a named rung (17% → 53% coverage)?
+- `DW-01`, `DW-03..DW-17` remain `unassigned`; DW-02 and DW-18 closed in this round.
