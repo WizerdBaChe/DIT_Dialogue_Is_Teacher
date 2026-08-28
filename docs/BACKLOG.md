@@ -9,22 +9,46 @@
 > 那份含四輪合併的 24 項待驗收 UAT（附操作步驟、通過條件與可填欄位）、待施工分級、待裁定問題，
 > 以及**明確不做**的無法驗證項。本檔仍是長期備忘，但「現在欠什麼」以那一份為準。
 
-## 🚨 2026-08-03 深度審查的三個 blocker（2026-08-14 重新核對，**全部仍然存在**）
+## ✅ 2026-08-03 深度審查的三個 blocker（2026-08-28 重新核對，**三項全部已修**）
 
 > 全文見 [`docs/misc/REVIEW_2026-08-03_DEEP_PROJECT_HEALTH.md`](misc/REVIEW_2026-08-03_DEEP_PROJECT_HEALTH.md)（對 R9.1 分支）
 > 與 [`_MAIN.md`](misc/REVIEW_2026-08-03_DEEP_PROJECT_HEALTH_MAIN.md)（對 main）。兩份的 blocker 是同三個，
 > 編號不同（F-01/02/03 ↔ B-01/02/03）。每一項在 2026-08-14 以現行程式碼逐行核對過，**沒有一項被修掉**。
 
-- [ ] **B1 Indexer 放大檔頭後沒有重新判定 adapter**（F-02／B-02）：`sessionIndexer.ts:189` 在第一個
+> **狀態校正 2026-08-28**（於 `feat/r12-source-first-navigation` HEAD `034fa43` 逐項重讀原始碼）：
+> 上面那句「沒有一項被修掉」自 2026-08-14 起就逐步失效，**三項在 R11／R12 期間都被修掉了，
+> 但沒有人回來改這一段**。原始描述一字不動保留在下方作為歷史；每項後面附 2026-08-28 的修復證據。
+> 三項的修復都不是為了本清單而做的——是各自輪次在別的脈絡下順手修掉的，這正是它們沒被回填的原因。
+> **本段自此不再是 blocker 清單，是已結案紀錄；不得再作為施工依據。**
+
+- [x] **B1 Indexer 放大檔頭後沒有重新判定 adapter**（F-02／B-02）：`sessionIndexer.ts:189` 在第一個
   128 KiB 視窗上算 `isClaudeCode`，`:203-207` 放大到 1 MiB 重讀卻沒有重算，`:297` 依舊用舊判定
   `continue` 把檔案剔除。**合法 session 會從清單消失**——首筆訊息夾帶截圖 base64 就會踩到。
-- [ ] **B2 Snapshot 仍會 fetch `dit.config.json`**（F-03／B-03）：`App.tsx:32` 無條件呼叫
+  - **已修（2026-08-28 核對）** → [`src/core/index/sessionIndexer.ts:300-307`](../src/core/index/sessionIndexer.ts)。
+    放大視窗後第 306 行重跑 `source = detectAdapter(headText)?.id`，程式碼旁的 `P2-1` 註解直接寫明
+    這就是為了這個症狀而存在：「a stale verdict here is what made a legitimate session vanish」。
+    放大條件本身也收斂過（`straddling > OVERSIZED_LINE_BYTES`，只在被切掉的那段 >32 KB 時才重讀）。
+- [x] **B2 Snapshot 仍會 fetch `dit.config.json`**（F-03／B-03）：`App.tsx:32` 無條件呼叫
   `loadPersistedConfig()`，`sessionStore.ts:933` 沒有 snapshot guard，`configFile.ts:44` 實際發出
   `fetch`。違反 R6 `EX-INV-1/3` 與 `USER_GUIDE.md` 對「快照零網路請求」的明文承諾。
-- [ ] **B3 WebKit 目錄後備路徑沒有入口也沒有失敗出口**（F-01／B-01）：`sessionStore.ts:737-739` 的
+  - **已修（2026-08-28 核對）** → [`src/store/sessionStore.ts:1154-1157`](../src/store/sessionStore.ts)。
+    `App.tsx:32` 確實仍無條件呼叫，但守門點移到了被呼叫端：`loadPersistedConfig` 第一行就是
+    `if (get().snapshotMode) return;`，註解標明 EX-INV-1/3 與「the one enforcement point for every
+    caller (M2, R11)」。時序也成立——`snapshot.tsx` 在 `render(<App/>)` **之前**同步呼叫
+    `hydrateSessionExport()`，而它第一件事就是 `set({ snapshotMode: true })`（`sessionStore.ts:794`），
+    所以 App 的 `useEffect` 跑到時旗標已經是 true。**守在呼叫端而非呼叫點，是比原報告建議更強的修法**：
+    日後任何新的呼叫者都自動被擋。
+- [x] **B3 WebKit 目錄後備路徑沒有入口也沒有失敗出口**（F-01／B-01）：`sessionStore.ts:737-739` 的
   `indexFileList` 沒有 catch，`runIndex` 失敗就永遠停在 `indexing`；不支援 FSA 時
   `resumeLastDirectory` 只把 state 設回去就 return。與 R9.1 UAT §F 記錄的 B5「無法驗證」是同一塊
   區域，但**這是靜態可證的程式碼缺陷，不是無法驗證項**。
+  - **已修（2026-08-28 核對）**，兩半都在 R11 M3 被處理，各自留了註解：
+    失敗出口 → [`sessionStore.ts:909-917`](../src/store/sessionStore.ts)，`indexFileList` 現在有
+    try/catch 落到 `index_failed`（註解：「Without this, a throw here pinned the UI at "indexing"
+    forever」）。入口 → [`sessionStore.ts:921-933`](../src/store/sessionStore.ts)，不支援 FSA 時改設
+    `browseState: "picking"` 而非 `"closed"`——因為 `selectSurfaceWants()` 只在 `!== "closed"` 時
+    才掛載對話框，而 `<input webkitdirectory>` 就住在那個對話框裡。R11 M3 的註解記下了原本的
+    盲點：舊註解宣稱「UI 會開 `<input>`」是假的，**當時根本沒有任何入口**。
 
 兩份報告另有 8 + 13 項 should-fix 與 work cards WC-01..WC-12，尚未逐項複核。
 
