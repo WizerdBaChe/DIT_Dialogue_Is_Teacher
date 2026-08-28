@@ -6,7 +6,7 @@
 [![build](https://img.shields.io/badge/build-passing-brightgreen)]()
 [![stack](https://img.shields.io/badge/stack-Vite%20%2B%20React%20%2B%20TypeScript-blue)]()
 [![privacy](https://img.shields.io/badge/privacy-local--first-success)]()
-[![status](https://img.shields.io/badge/status-R7.5-orange)]()
+[![status](https://img.shields.io/badge/status-R12%20pending%20acceptance-yellow)]()
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **Language / 語言：[繁體中文](#繁體中文) ・ [English](#english)**
