@@ -2,6 +2,15 @@
 
 - **建立**：2026-07-27（R9）
 - **維護方式**：本文件是**持續維護**的清單，不是一次性報告。動到任何一台機器就更新對應段落。
+- **⚠ 實際維護狀況（2026-08-28 誠實標註）**：上面那條規則在 R9 之後**沒有被遵守**。本文件的
+  §2 內容基本停留在 2026-07-28，而 R9.1／R10／R11／R11.2／R12 都動過機器。
+  本次只重讀並改寫了 **DSM-4**（見下），其餘各節**未經重讀**，狀態如下：
+  - **DSM-4** — 已對 HEAD `034fa43` 重讀，可信。
+  - **DSM-1／2／3／11／12** — R9 當時為真，其後未複核。DSM-1 至少已知有變（R12 DW-02 給 sync
+    pipeline 補了逐檔隔離、M8 修了 worker 的 byte-total 早退）。
+  - **DSM-5…DSM-10** — §1 表格只有一行狀態字，從來沒有 as-built 段落。**不是「已審查無問題」，
+    是「從未展開」**；DSM-5 端點能力尤其已被 R8 Provider Openness 大幅改寫。
+  - R10–R12 新增的機器（來源側寫探索、session map 縮放層級、來源優先導覽）**尚未編號納入**。
 - **方法**：每一條狀態與轉移都從現行原始碼讀出，各自附 `file:line`。文件推導出來的內容不列入。
 - **同型先例**：`D:\AIWork\Prism\docs\design\PRISM_STATE_MACHINES_2026-07-26.md`。兩個專案的缺陷型態高度重疊，本文件沿用其缺陷分類法與「先確立機器再挑元件」的順序。
 - **上游**：[`docs/rounds/r9-session-browser-and-fsm/PSM_R9_WORKCARDS_v0.1.md`](../rounds/r9-session-browser-and-fsm/PSM_R9_WORKCARDS_v0.1.md)（RC-1…RC-5）
@@ -32,7 +41,7 @@
 | DSM-1 | Session 載入（blob → 文件） | `pipeline` 批次判定 + `session.worker` | ✅ R9 修復 | ✔ |
 | DSM-2 | 解析診斷／提示層級 | `diagnostics: Diagnostic[]` + `error` | ✅ R9 修復 | ✔ |
 | DSM-3 | 阻斷面（彈窗） | `core/surface/blockingSurface` 仲裁 | ✅ R9 修復 | ✔ |
-| DSM-4 | Session 索引／瀏覽 | `browseState` + `indexEntries` | ✅ R9 新增 | ✔ |
+| DSM-4 | Session 索引／瀏覽 | `activeSource` + `browseState` + `indexEntries` + `browseGeneration` | ✅ R9 新增，R9.1／R11／R11.2／R12 改寫（本節 2026-08-28 已重讀） | ✔ |
 | DSM-5 | 端點能力 | `EndpointStatus` | ✅ **房規範本** | — |
 | DSM-6 | 講解批次工作 | `AnnotationJobController` | ✅ sound | — |
 | DSM-7 | 隱私同意閘門 | `pendingPrivacyReviewer`（模組層）+ `privacyReview` | ⚠ resolver 不在 state 內 | 部分（表面已納入 DSM-3） |
@@ -125,19 +134,115 @@ open --> closed   : Escape/backdrop —— 僅限 policy = escapable
 3. `action-only` 的表面被 Escape 或 backdrop 關掉。
 4. 元件自行決定關閉政策——政策是呼叫端的資料。
 
-### DSM-4 · Session 索引／瀏覽 ✅（R9 新增）
+### DSM-4 · Session 索引／瀏覽 ✅（R9 新增；R9.1／R11／R11.2／R12 改寫）
 
-**as-built** — [`core/index/`](../../src/core/index)、[`components/SessionBrowserDialog.tsx`](../../src/components/SessionBrowserDialog.tsx)
+> **重讀 2026-08-28**（`feat/r12-source-first-navigation` HEAD `034fa43`）：本節原本停在 R9 的五行
+> 狀態圖。其後 **R9.1 改掉了一個狀態名**、**R11 補了兩條當時根本不存在的路徑**、**R11.2 加了世代
+> 守衛**、**R12 在前面多接了一整級**——四輪都沒有回填本節。以下取代原圖；原圖的 `no_directory`
+> 已不是這台機器的狀態名，不要再照它施工。
+
+**as-built** — 型別 [`sessionStore.ts:131`](../../src/store/sessionStore.ts)、轉移
+`sessionStore.ts:858-1016`、仲裁 [`surfaceSelectors.ts:17`](../../src/store/surfaceSelectors.ts)、
+掃描 [`core/index/`](../../src/core/index)、UI
+[`SessionBrowserDialog.tsx`](../../src/components/SessionBrowserDialog.tsx)、
+[`SessionLoadActions.tsx`](../../src/components/SessionLoadActions.tsx)
+
+R12 M2 之後這台機器是**兩級**的：先選來源系統，才談目錄。兩級各有自己的狀態，不共用。
+
+**Level 1 — 來源選擇**（`activeSource: SourceId | null`）
 
 ```
-no_directory --pick--> picking --cancel--> no_directory
-                       picking --取得目錄--> indexing --ok--> indexed
-                                             indexing --fail--> index_failed --retry--> picking
+[*] --> activeSource=null
+activeSource=null --chooseSource(s)--> activeSource=s      : sessionStore.ts:858
+activeSource=s --clearSource()------->  activeSource=null   : sessionStore.ts:866-869
+```
+
+`clearSource()` **不只是回上一頁**：它同時 `browseState="closed"`、清空 `indexEntries` 與
+`indexDiagnostics`、遞增 `browseGeneration`。理由寫在程式碼註解裡——那批條目屬於掃描當下被選中的
+那套系統，換了選擇還留在畫面上就是 wrong-target display。但**記住的目錄 handle 不清**：那是位置
+記憶，刻意留著（`sessionStore.ts:860-865`）。
+
+**Level 2 — `BrowseState`**（六個值，`sessionStore.ts:131`）
+
+```
+closed --pickAndIndexDirectory--> picking            : sessionStore.ts:871-877
+picking --取消(DirectoryPickCancelledError)--> indexed  (若 indexEntries 非空)
+picking --取消--------------------------------> closed   (若 indexEntries 為空)  : :884
+picking --非取消的失敗--> index_failed                 : :887
+picking --取得 handle--> indexing --ok--> indexed      : runIndex :483 → :496-501
+picking/indexing --失敗--> index_failed                : :899 / :916 / :964 / :973
+index_failed --使用者按重試--> picking
 indexed --refresh--> indexing
-indexed --choose--> loading --成功或失敗--> indexed
+indexed --choose--> loading --成功或失敗--> indexed     : loadIndexEntry :988-1016
+任何狀態 --closeBrowser()--> closed                    : :977-982
 ```
 
-**最後一條是這台機器存在的理由**：載入失敗必須回到清單，而不是回到空白的 app。
+**最後一條轉移是這台機器存在的理由**：載入失敗必須回到清單，而不是回到空白的 app
+（`sessionStore.ts:1011-1013` 的 `finally`）。
+
+**`closed` 不是 `no_directory`——改名是修一個缺陷，不是換個字。** R9.1 RC-A 的原話留在
+`sessionStore.ts:120-130`：`closed` 是唯一讓瀏覽器整個消失的值（`selectSurfaceWants()` 只在
+`browseState !== "closed"` 時掛載對話框），因此它只能由**使用者的意思**抵達——關閉、初始、或在系統
+選擇器按取消。**任何失敗都不得落在這裡。** 舊名 `no_directory` 讓「還沒選目錄」與「失敗了但還沒有
+任何條目」看起來像同一件事，於是失敗可以無聲退場。這條是本機器的不變式，不是命名品味。
+
+**resume 路徑（R9.1 RC-A + R12 M2，原圖完全沒有）** — `resumeLastDirectory()`，`sessionStore.ts:920-976`
+
+```
+resumeLastDirectory()
+  ├─ 不支援 FSA ─────────────> picking      : :921-932（R11 M3，見下）
+  ├─ 這套來源沒有記住的 handle ─> 退化成 pickAndIndexDirectory()  : :944-946
+  └─ 有 handle → picking → restoreDirectorySource()（在使用者手勢內重新要權限）
+        ├─ DirectoryPermissionError → index_failed + INDEX_PERMISSION_LOST : :955-962
+        │     └─ 副作用：**只**丟掉這套來源的記憶，另一套的位置不動
+        └─ 其他失敗 ────────> index_failed  : :963-965
+      取得 source → runIndex() → indexed（或 index_failed :972-974）
+```
+
+三件事在原圖裡看不出來，但都是刻意的：
+
+1. **handle 在模組載入時就先讀好**（`sessionStore.ts:443-457`）。`showDirectoryPicker()` 與
+   `requestPermission()` 都必須發生在使用者手勢裡，點擊路徑上不能再等 IndexedDB。讀出來的診斷
+   存進 `pendingHandleNotices`，由下一次 `runIndex` 併進 `indexDiagnostics`（`:492-500`）——
+   模組載入時還沒有任何介面可以顯示訊息。
+2. **那次讀取是合併，不是覆寫**（DW-21，`sessionStore.ts:445-456`）。順序即優先權：這個 session
+   裡剛選的一定比啟動時讀到的新，已有值的鍵不被覆蓋。原本的整包取代會在冷啟動時把使用者剛選的
+   資料夾蓋掉，而且**下次重載又會自己好**，所以沒有人會回報它。
+3. **權限沒拿到 vs 授權之後才失敗，是兩件事，不共用一個 catch**（RC-A）。前者丟掉記憶並回報
+   `INDEX_PERMISSION_LOST`；後者只是一次普通的索引失敗。
+
+**R11 M3 補的兩條缺口** — 都不是「改善」，是原本**根本不存在**的路徑：
+
+- **失敗出口**：`indexFileList()`（webkitdirectory 後備）原本沒有 catch，`runIndex` 一丟例外就
+  永遠停在 `indexing`——而且它前面沒有 picker 步驟可以失敗回去。現在有 try/catch 落到
+  `index_failed`（`sessionStore.ts:907-918`）。
+- **入口**：不支援 FSA 時 `resumeLastDirectory` 原本把 `browseState` 設成 `"closed"`，而
+  `selectSurfaceWants()` 只在 `!== "closed"` 時掛載對話框——`<input type="file" webkitdirectory>`
+  就住在那個對話框裡，於是**它從來沒有掛載過**。R11 M3 的註解記下了這個盲點：舊註解宣稱「UI 會開
+  `<input>`」是假的。現在設 `"picking"`，對話框開著並顯示「等你選資料夾」（`sessionStore.ts:921-932`）。
+
+**世代守衛（R11.2 C6）——這台機器唯一的並行機制**，`browseGeneration`，`sessionStore.ts:425`、
+理由註解 `:413-424`
+
+挑選／索引是跨多個 `await` 的流程（`buildSessionIndex` 逐檔掃描，幾百個 session 要一段時間），而
+`closeBrowser()` 只把 `browseState` 寫回 `"closed"`，**從不取消背景中還在跑的那次索引**。索引完成時
+它的續行會毫無防備地把狀態又寫回 `"indexing"`／`"indexed"`——對話框在使用者關掉之後自己重新彈出，
+而且因為索引其實已經跑完，它重新出現時落在 `"indexed"`，看起來像是「沒有經過索引中」。
+
+規則（每一個進入點都遵守）：
+
+| 動作 | 對 `browseGeneration` 做什麼 | 出處 |
+|---|---|---|
+| `pickAndIndexDirectory` / `indexFileList` / `resumeLastDirectory` | `++` 認領一個新世代 | `:875` / `:911` / `:921` |
+| `clearSource` / `closeBrowser` | `++` 使所有飛行中的世代作廢 | `:867` / `:980` |
+| `loadIndexEntry` | **只讀不加**（`const generation = browseGeneration`）——它不開新一輪瀏覽，只想知道自己 await 期間有沒有人關掉 | `:997` |
+| 每個 `await` 之後的 `set()` | 先 `if (browseGeneration !== generation) return;` | `:482,487,491,882,890,898,903,915,953,967,972,1013` |
+
+**不變式**：這台機器裡任何在 `await` 之後才發生的 `set()`，都不得在未比對世代的情況下寫入。
+新增一條非同步路徑而漏了這個比對，就是把 R11.2 C6 那個「對話框自己彈回來」的缺陷放回去。
+
+**與 DSM-3 的關係**：本機器不自己決定要不要顯示。`selectSurfaceWants()` 只讀
+`browseState !== "closed"`（`surfaceSelectors.ts:17`），實際顯示與否由 DSM-3 的優先序仲裁決定。
 
 **量出來的設計值**（不是猜的）：表頭掃描取頭尾各 128 KB。實測 83 個帶標題紀錄的真實檔案，標題行位置的中位數在**距檔尾 7.5 KB**（標題是後來追加的），但也有落在檔頭 60 KB 處的；頭尾各 64 KB 只涵蓋 81/83，各 128 KB 涵蓋 83/83，全目錄總讀取量約 25 MB。
 
