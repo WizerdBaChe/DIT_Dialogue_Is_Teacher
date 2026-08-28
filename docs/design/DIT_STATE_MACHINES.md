@@ -140,6 +140,11 @@ open --> closed   : Escape/backdrop —— 僅限 policy = escapable
 > 狀態圖。其後 **R9.1 改掉了一個狀態名**、**R11 補了兩條當時根本不存在的路徑**、**R11.2 加了世代
 > 守衛**、**R12 在前面多接了一整級**——四輪都沒有回填本節。以下取代原圖；原圖的 `no_directory`
 > 已不是這台機器的狀態名，不要再照它施工。
+>
+> **值得記一筆的對照**：`BrowseState` 型別上方的程式碼註解（`sessionStore.ts:115-130`）**一直是對的**
+> ——它早就寫 `closed` 而不是 `no_directory`，也留著改名的理由。走樣的只有這份設計文件。
+> 註解跟著被改的那一行一起被看見，獨立的設計文件不會。本節因此只當**展開版**（並行語意、
+> resume 分支、缺口修補的來由），簡版契約以那段註解為準；兩者衝突時，相信程式碼旁邊那份。
 
 **as-built** — 型別 [`sessionStore.ts:131`](../../src/store/sessionStore.ts)、轉移
 `sessionStore.ts:858-1016`、仲裁 [`surfaceSelectors.ts:17`](../../src/store/surfaceSelectors.ts)、
@@ -181,7 +186,7 @@ indexed --choose--> loading --成功或失敗--> indexed     : loadIndexEntry :9
 （`sessionStore.ts:1011-1013` 的 `finally`）。
 
 **`closed` 不是 `no_directory`——改名是修一個缺陷，不是換個字。** R9.1 RC-A 的原話留在
-`sessionStore.ts:120-130`：`closed` 是唯一讓瀏覽器整個消失的值（`selectSurfaceWants()` 只在
+`sessionStore.ts:126-129`：`closed` 是唯一讓瀏覽器整個消失的值（`selectSurfaceWants()` 只在
 `browseState !== "closed"` 時掛載對話框），因此它只能由**使用者的意思**抵達——關閉、初始、或在系統
 選擇器按取消。**任何失敗都不得落在這裡。** 舊名 `no_directory` 讓「還沒選目錄」與「失敗了但還沒有
 任何條目」看起來像同一件事，於是失敗可以無聲退場。這條是本機器的不變式，不是命名品味。
@@ -222,7 +227,7 @@ resumeLastDirectory()
   `<input>`」是假的。現在設 `"picking"`，對話框開著並顯示「等你選資料夾」（`sessionStore.ts:921-932`）。
 
 **世代守衛（R11.2 C6）——這台機器唯一的並行機制**，`browseGeneration`，`sessionStore.ts:425`、
-理由註解 `:413-424`
+理由註解 `:414-424`
 
 挑選／索引是跨多個 `await` 的流程（`buildSessionIndex` 逐檔掃描，幾百個 session 要一段時間），而
 `closeBrowser()` 只把 `browseState` 寫回 `"closed"`，**從不取消背景中還在跑的那次索引**。索引完成時
