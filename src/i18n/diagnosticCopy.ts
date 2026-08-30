@@ -30,8 +30,12 @@ const zhTW: CopyTable = {
   MARKERS_EMITTED: { line: (d) => `${at(d)}標示了 ${n(d)} 個系統事件（對話壓縮、API 錯誤等），已插在原本的時間位置。` },
   NO_EVENTS: { line: (d) => `${at(d)}這個檔案沒有可呈現的內容。` },
 
-  CODEX_EXEC_TOOL_NAME_UNRESOLVED: { line: (d) => `${at(d)}有 ${n(d)} 次無法從 exec 參數判斷真正的工具名，已保留為 exec。` },
-  CODEX_EVENT_UNPAIRED: { line: (d) => `${at(d)}${d.detail} ×${n(d)} 找不到對應的原始呼叫，已降級為獨立事件（多半是該呼叫已被歷史壓縮取代）。` },
+  CODEX_EXEC_TOOL_NAME_UNRESOLVED: { line: (d) => `${at(d)}有 ${n(d)} 次無法從 exec 參數判斷真正的工具名（沒有線索，或線索彼此矛盾），卡片標示為「未命名操作」。` },
+  CODEX_EVENT_UNPAIRED: {
+    line: (d) =>
+      `${at(d)}${d.detail} ×${n(d)} 找不到對應的原始呼叫——匯出檔沒有提供可驗證的關聯；`
+      + "可能原因包含歷史壓縮、記錄邊界或未支援的包裝，已降級為獨立事件呈現。",
+  },
   CODEX_COORDINATION_SKIPPED: { line: (d) => `${at(d)}略過 ${n(d)} 筆子代理協調事件（無可呈現內容）。` },
   CODEX_AUTO_REVIEW_CONDENSED: {
     line: (d) => `${at(d)}偵測到 ${n(d)} 筆 Codex 自動核准審查紀錄，已在原位置精簡為標記卡，原始資料未刪除。`,
@@ -77,6 +81,14 @@ const zhTW: CopyTable = {
     title: "載入沒有完成",
     body: (d) => `讀取過程中發生預期外的問題（${d.detail}）。上一份 session 未被更動，可以直接重試或換一個檔案。`,
   },
+  WORKER_BOOT_FAILED: {
+    line: (d) => `背景解析執行緒沒有啟動，主執行緒接手也失敗（${d.detail}）。`,
+    title: "背景解析執行緒沒有啟動",
+    body: (d) => `瀏覽器沒能建立背景解析執行緒，改用主執行緒重試也失敗了（${d.detail}）。這通常不是檔案的問題，而是「怎麼開啟」的問題：請確認是從網站根目錄提供服務（例如 \`npm run preview\`），而不是直接開啟 \`dist/index.html\`；若目前的瀏覽器不支援 module worker，換 Chrome 或 Edge 再試一次。上一份 session 未被更動。`,
+  },
+  WORKER_FALLBACK_SYNC: {
+    line: (d) => `背景解析執行緒沒有啟動，這份 session 改在主執行緒解析（${d.detail}）。大檔案會讓畫面短暫沒有反應。`,
+  },
 
   INDEX_TRUNCATED: { line: (d) => `這個目錄的檔案較多，只掃描了前 ${d.detail} 個，其餘 ${n(d)} 個未列入清單。` },
   INDEX_FILE_UNREADABLE: { line: (d) => `${n(d)} 個檔案無法讀取，未列入清單（${d.detail}）。` },
@@ -85,7 +97,33 @@ const zhTW: CopyTable = {
     title: "需要重新授權資料夾",
     body: () => "瀏覽器已收回對上次選擇之資料夾的存取權限（重開瀏覽器或清除網站資料都會造成這個結果）。請重新選擇一次資料夾。",
   },
-  INDEX_EMPTY: { line: () => "這個目錄裡沒有找到 Claude Code 的 session 檔案。" },
+  // R12：挑了系統就講那個系統的名字。寫死「Claude Code」會對著 Codex 使用者講錯話。
+  INDEX_EMPTY: { line: (d) => (d.detail ? `這個目錄裡沒有找到 ${d.detail} 的 session 檔案。` : "這個目錄裡沒有找到 session 檔案。") },
+  INDEX_EMPTY_WRONG_SOURCE: {
+    line: (d) => `這個目錄裡有 ${n(d)} 個 .jsonl，但沒有一個是 ${d.detail} 的紀錄檔——很可能是選錯了 agent 系統。回上一層換一套再試。`,
+  },
+  INDEX_DIRECTORY_UNREADABLE: {
+    line: (d) => `這個資料夾讀不起來（${d.detail}）。`,
+    title: "資料夾讀取失敗",
+    body: (d) => `已取得資料夾，但讀取內容時失敗（${d.detail}）。上一份 session 未被更動。請重試一次，或改選另一個資料夾。`,
+  },
+  INDEX_TITLE_FROM_FILENAME: { line: (d) => `${n(d)} 筆沒有可用的標題訊號，清單上以檔名顯示。` },
+  INDEX_HANDLE_NOT_PERSISTED: { line: (d) => `這次無法記住所選資料夾，下次要重新選一次（${d.detail}）。` },
+  INDEX_HANDLE_SOURCE_SPLIT: {
+    line: () => "資料夾改為「每套系統各記一個」，之前只記住的那一個因為分不出屬於哪一套，已清除；請重選一次。",
+  },
+  INDEX_SOURCE_MISMATCH: { line: (d) => `這個資料夾裡有 ${n(d)} 筆不屬於你選的那套系統，已略過。` },
+  INDEX_SIDECAR_OUT_OF_REACH: {
+    line: (d) => `Session 清單讀得到，但這套系統把 session 目的存在另一個檔案裡，而它在你所選資料夾的上一層——瀏覽器讀不到上一層。改選 ${d.detail} 就能一併讀到。`,
+  },
+  INDEX_NOT_TRANSCRIPT: { line: (d) => `另有 ${n(d)} 個 .jsonl 的檔名不符合這套系統的紀錄命名，沒有掃描。` },
+  LOAD_SOURCE_MISMATCH: {
+    line: (d) => `這個檔案實際上是 ${d.detail} 的紀錄，跟你選的那套系統不同。內容以檔案本身為準，已照它原本的樣子解讀。`,
+  },
+  INDEX_SIDECAR_UNREADABLE: { line: (d) => `找得到存放 session 目的的檔案，但讀不開（${d.detail}）。清單照常，只是少了那些標題。` },
+  INDEX_SIDECAR_SHAPE_CHANGED: { line: (d) => `存放 session 目的的檔案結構跟預期不同（找不到 ${d.detail}），可能是該工具改版了。清單照常，只是少了那些標題。` },
+  INDEX_SIDECAR_ENTRY_SKIPPED: { line: (d) => `有 ${n(d)} 筆 session 目的的格式不認得，已略過。` },
+  INDEX_SIDECAR_TRUNCATED: { line: (d) => `存放 session 目的的檔案 (${d.detail}) 超過可讀取的上限，未完整讀入；清單照常，只是少了部分標題。` },
 };
 
 const en: CopyTable = {
@@ -96,8 +134,15 @@ const en: CopyTable = {
   MARKERS_EMITTED: { line: (d) => `${at(d)}Marked ${n(d)} system event(s) (compaction, API errors) in place.` },
   NO_EVENTS: { line: (d) => `${at(d)}This file has no renderable content.` },
 
-  CODEX_EXEC_TOOL_NAME_UNRESOLVED: { line: (d) => `${at(d)}${n(d)} exec call(s) had no resolvable tool name; kept as "exec".` },
-  CODEX_EVENT_UNPAIRED: { line: (d) => `${at(d)}${d.detail} ×${n(d)} had no matching call and became standalone events (usually the call was replaced by history compaction).` },
+  CODEX_EXEC_TOOL_NAME_UNRESOLVED: {
+    line: (d) => `${at(d)}${n(d)} exec call(s) had no resolvable tool name (no evidence, or conflicting evidence); shown as an unnamed operation.`,
+  },
+  CODEX_EVENT_UNPAIRED: {
+    line: (d) =>
+      `${at(d)}${d.detail} ×${n(d)} had no matching call — the export does not provide a verifiable link back `
+      + "to the original call; possible reasons include history compaction, record boundaries, or unsupported "
+      + "wrappers. Shown as a standalone event.",
+  },
   CODEX_COORDINATION_SKIPPED: { line: (d) => `${at(d)}Skipped ${n(d)} subagent coordination event(s) with nothing to render.` },
   CODEX_AUTO_REVIEW_CONDENSED: {
     line: (d) => `${at(d)}Found ${n(d)} Codex auto-review record(s); condensed in place, nothing deleted.`,
@@ -141,6 +186,14 @@ const en: CopyTable = {
     title: "The load did not finish",
     body: (d) => `Something unexpected happened while reading (${d.detail}). The previous session is untouched; retry or pick another file.`,
   },
+  WORKER_BOOT_FAILED: {
+    line: (d) => `The background parsing worker never started, and the main-thread retry failed too (${d.detail}).`,
+    title: "The background parser never started",
+    body: (d) => `The browser could not create the background parsing worker, and parsing on the main thread failed as well (${d.detail}). This usually points at how the app is being served rather than at the file: check that it is served from the site root (for example \`npm run preview\`) rather than opened as \`dist/index.html\`, and try Chrome or Edge if this browser has no module-worker support. The previous session is untouched.`,
+  },
+  WORKER_FALLBACK_SYNC: {
+    line: (d) => `The background parsing worker never started, so this session was parsed on the main thread (${d.detail}). Large files will briefly freeze the view.`,
+  },
 
   INDEX_TRUNCATED: { line: (d) => `This directory is large; only the first ${d.detail} files were scanned, ${n(d)} were not listed.` },
   INDEX_FILE_UNREADABLE: { line: (d) => `${n(d)} file(s) could not be read and were not listed (${d.detail}).` },
@@ -149,7 +202,32 @@ const en: CopyTable = {
     title: "The folder needs re-authorizing",
     body: () => "The browser revoked access to the folder you picked last time (restarting the browser or clearing site data does this). Please pick the folder again.",
   },
-  INDEX_EMPTY: { line: () => "No Claude Code session files were found in this directory." },
+  INDEX_EMPTY: { line: (d) => (d.detail ? `No ${d.detail} session files were found in this directory.` : "No session files were found in this directory.") },
+  INDEX_EMPTY_WRONG_SOURCE: {
+    line: (d) => `This directory holds ${n(d)} .jsonl file(s), but none of them is a ${d.detail} record — the wrong agent system was probably chosen. Go back and switch systems.`,
+  },
+  INDEX_DIRECTORY_UNREADABLE: {
+    line: (d) => `This folder could not be read (${d.detail}).`,
+    title: "The folder could not be read",
+    body: (d) => `The folder was granted, but reading its contents failed (${d.detail}). Your previous session is untouched. Try again, or pick a different folder.`,
+  },
+  INDEX_TITLE_FROM_FILENAME: { line: (d) => `${n(d)} session(s) had no usable title signal and are listed by file name.` },
+  INDEX_HANDLE_NOT_PERSISTED: { line: (d) => `This folder could not be remembered; you will have to pick it again next time (${d.detail}).` },
+  INDEX_HANDLE_SOURCE_SPLIT: {
+    line: () => "Folders are now remembered per agent system. The single folder remembered before could not be attributed to one, so it was cleared — please pick it again.",
+  },
+  INDEX_SOURCE_MISMATCH: { line: (d) => `${n(d)} file(s) in this folder do not belong to the agent system you chose and were skipped.` },
+  INDEX_SIDECAR_OUT_OF_REACH: {
+    line: (d) => `The session list is readable, but this system keeps session purposes in a separate file one level above the folder you picked — a browser cannot read the parent of a picked folder. Pick ${d.detail} instead to include it.`,
+  },
+  INDEX_NOT_TRANSCRIPT: { line: (d) => `${n(d)} other .jsonl file(s) are not named the way this system names its records, and were not scanned.` },
+  LOAD_SOURCE_MISMATCH: {
+    line: (d) => `This file is actually a ${d.detail} record, not the system you chose. The file itself is authoritative, so it was read as what it is.`,
+  },
+  INDEX_SIDECAR_UNREADABLE: { line: (d) => `The file holding session purposes was found but could not be read (${d.detail}). The list is unaffected; those titles are just missing.` },
+  INDEX_SIDECAR_SHAPE_CHANGED: { line: (d) => `The file holding session purposes is not shaped as expected (${d.detail} was not found) — the tool may have changed its format. The list is unaffected; those titles are just missing.` },
+  INDEX_SIDECAR_ENTRY_SKIPPED: { line: (d) => `${n(d)} session purpose(s) were in an unrecognised format and were skipped.` },
+  INDEX_SIDECAR_TRUNCATED: { line: (d) => `The file holding session purposes (${d.detail}) is past the size the reader will load, so it was not read in full. The list is unaffected; some titles are missing.` },
 };
 
 const TABLES: Record<Locale, CopyTable> = { "zh-TW": zhTW, en };

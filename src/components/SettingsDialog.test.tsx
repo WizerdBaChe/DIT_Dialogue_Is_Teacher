@@ -27,8 +27,9 @@ describe("SettingsDialog (R7 settings-dialog redesign)", () => {
     const groups = Array.from(document.querySelectorAll(".settings-panel-group"));
     const legends = groups.map((el) => el.querySelector("legend")?.textContent);
     // ExportControls renders its own .settings-panel-group sections (not double-wrapped): the
-    // session archive ("匯出") and the human-readable conversation log ("對話紀錄"), both last.
-    expect(legends).toEqual(["Session", "教學講解", "語言", "導航", "匯出", "對話紀錄"]);
+    // session archive and the human-readable transcript, both last. R11 renamed both legends
+    // because "匯出" / "對話紀錄" did not read as two distinct things (UAT B1).
+    expect(legends).toEqual(["Session", "教學講解", "語言", "導航", "匯出閱讀頁面快照", "匯出純對話紀錄"]);
   });
 
   it("shows the language name only once — as the card legend, not also as a visible label (R7.5 W4/AN-4)", () => {
@@ -58,7 +59,8 @@ describe("SettingsDialog (R7 settings-dialog redesign)", () => {
     render(<SettingsDialog />);
     openDialog();
     const hints = Array.from(document.querySelectorAll(".option-hint")).map((el) => el.textContent);
-    expect(hints).toHaveLength(5);
+    // M7 加了高熵字串規則專屬的 option-hint（獨立於既有的「遮蔽敏感資訊」提示）。
+    expect(hints).toHaveLength(6);
     expect(hints.some((text) => text?.includes("重試失敗"))).toBe(true);
     expect(hints.some((text) => text?.includes("重新呼叫"))).toBe(true);
     expect(hints.some((text) => text?.includes("M"))).toBe(true);
@@ -66,6 +68,8 @@ describe("SettingsDialog (R7 settings-dialog redesign)", () => {
     expect(hints.some((text) => text?.includes("子代理"))).toBe(true);
     // 遮蔽必須講清楚是本機處理、且只是盡力而為。
     expect(hints.some((text) => text?.includes("不會送出任何內容"))).toBe(true);
+    // 高熵規則必須講清楚它會誤擋無害的亂碼（D-006）。
+    expect(hints.some((text) => text?.includes("誤擋"))).toBe(true);
   });
 
   it("shows a plain-text missing count plus a standalone red 全部講解 button (not hidden behind a select)", () => {

@@ -14,10 +14,21 @@ export const INJECTION_TAGS = [
   "command-args",
   "local-command-stdout",
   "system-reminder",
+  /*
+   * 2026-08-27，量測加入：`<scheduled-task name="…" file="…">` 是排程機制注入的包裝，
+   * 出現在 2 份 Codex session 的第一則「真人發言」位置。作者在 R11.2 B1 回報的
+   * 「一些 `<>` 的東西」就是它。它一直沒被剝掉有兩個原因，兩個都在這一版修好。
+   */
+  "scheduled-task",
 ] as const;
 
 const TAG_PATTERN = INJECTION_TAGS.map((tag) => tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-const INJECTION_XML_BLOCK_RE = new RegExp(`^<(${TAG_PATTERN})>[\\s\\S]*?<\\/\\1>`);
+/**
+ * 第二個原因：舊的比對要求開頭標籤**完全等於** `<tag>`，於是任何帶屬性的注入標籤都不匹配。
+ * 白名單的意思是「這個標籤名是已知注入」，不是「這個標籤不准有屬性」——放寬到可選屬性，
+ * 白名單以外的標籤仍然一律當成使用者內容原樣保留，範圍沒有變大。
+ */
+const INJECTION_XML_BLOCK_RE = new RegExp(`^<(${TAG_PATTERN})(?:\\s[^>]*)?>[\\s\\S]*?<\\/\\1>`);
 const HEADER_LINE_RE = /^#[^\n]*\n?/;
 const HEADER_CONTINUATION_RE = /^(?:[ \t]+[^\n]*\n?|[-*][ \t][^\n]*\n?|\d+[.)][ \t][^\n]*\n?|[ \t]*\n)/;
 /** 安全上限，避免病態輸入 (標籤永不閉合等) 造成無限迴圈；真實訊息不會疊這麼多層。 */

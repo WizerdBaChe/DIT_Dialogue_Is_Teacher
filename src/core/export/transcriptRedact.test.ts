@@ -125,6 +125,93 @@ describe("redactTranscript — 不破壞原資料", () => {
   });
 });
 
+describe("redactTranscript — 高熵字串（M7 / D-006）", () => {
+  const HIGH_ENTROPY_TOKEN = "Xk29pQmZ7vRtLh4NcW1sYbEoU8dGjF3q";
+
+  it("預設關閉時：長亂碼不被遮，但揭露筆數如實計入 report", async () => {
+    const transcript = await redactedOf([
+      { kind: "user_text", uuid: "u1", text: `token 是 ${HIGH_ENTROPY_TOKEN}`, raw: {} },
+    ]);
+
+    expect(transcript.turns[0].user?.text).toContain(HIGH_ENTROPY_TOKEN);
+    expect(transcript.redaction?.summary.high_entropy).toBeUndefined();
+    expect(transcript.redaction?.highEntropyNotRedacted).toBe(1);
+  });
+
+  it("開啟後：長亂碼被換成佔位符，同一個值全文同編號，揭露筆數歸零", async () => {
+    const doc = normalize({
+      meta: { id: "s1", title: "T" },
+      events: [
+        { kind: "user_text", uuid: "u1", text: `第一次 ${HIGH_ENTROPY_TOKEN}`, raw: {} },
+        { kind: "assistant_text", uuid: "a1", text: `又提到 ${HIGH_ENTROPY_TOKEN} 一次`, raw: {} },
+      ],
+      diagnostics: [],
+    });
+    const transcript = buildTranscript(doc, { ...BUILD, options: DEFAULT_TRANSCRIPT_OPTIONS });
+    const redacted = await redactTranscript(transcript, { redactHighEntropy: true });
+
+    expect(redacted.turns[0].user?.text).not.toContain(HIGH_ENTROPY_TOKEN);
+    expect(redacted.turns[0].user?.text).toContain("<HIGH_ENTROPY_1>");
+    expect(redacted.turns[0].messages[0].text).toContain("<HIGH_ENTROPY_1>");
+    expect(redacted.redaction?.summary.high_entropy).toBe(2);
+    expect(redacted.redaction?.highEntropyNotRedacted).toBe(0);
+  });
+
+  it("一段文字已被密鑰規則遮掉時，不會在高熵揭露裡重複計數", async () => {
+    const transcript = await redactedOf([
+      { kind: "user_text", uuid: "u1", text: "用這把 key：sk-abcdefghijklmnopqrstuvwxyz123456", raw: {} },
+    ]);
+
+    // 密鑰規則已經把整段換成 <SECRET_1>；同一段字串的高熵子規則命中同一個範圍，
+    // 不該因為「沒被算進 high_entropy 遮蔽」就又被算進「揭露但未遮」。
+    expect(transcript.redaction?.summary.secret).toBe(1);
+    expect(transcript.redaction?.highEntropyNotRedacted).toBe(0);
+  });
+
+  /**
+   * 上一則測的是「完全重合」。資安複核 (SECREVIEW_R11_M7) 指出真正危險的是**部分重疊**：
+   * 別的規則只遮掉高熵字串的一段，剩下那段原封不動留在輸出裡，計數卻因為「有重疊」而
+   * 整筆消失——摘要於是宣稱「沒有未遮的高熵字串」，而檔案裡其實還躺著一段。
+   */
+  it("高熵字串只被別的規則遮掉一半時，剩下那半仍要計進揭露筆數", async () => {
+    const transcript = await redactedOf([
+      { kind: "user_text", uuid: "u1", text: "Token: 0912345678QXZKMBNVCF", raw: {} },
+    ]);
+
+    // 先釘住「重疊確實發生」——否則沒有重疊，這個測試會無意義地通過。
+    expect(transcript.redaction?.summary.phone).toBe(1);
+    // 電話規則吃掉前 10 碼，後 10 碼還在輸出裡。
+    const text = transcript.turns[0].user?.text ?? "";
+    expect(text).toContain("QXZKMBNVCF");
+    expect(transcript.redaction?.highEntropyNotRedacted).toBe(1);
+  });
+
+  it("Markdown 標頭在關閉狀態下仍寫出揭露句（不是靜默）", async () => {
+    const md = renderTranscriptMarkdown(
+      await redactedOf([{ kind: "user_text", uuid: "u1", text: HIGH_ENTROPY_TOKEN, raw: {} }]),
+      zh,
+    );
+    expect(md).toContain("另偵測到 1 筆疑似高熵字串（未遮）");
+  });
+
+  it("HTML 資訊欄在關閉狀態下仍寫出揭露句", async () => {
+    const html = renderTranscriptHtml(
+      await redactedOf([{ kind: "user_text", uuid: "u1", text: HIGH_ENTROPY_TOKEN, raw: {} }]),
+      zh,
+      { lang: "zh-TW" },
+    );
+    expect(html).toContain("另偵測到 1 筆疑似高熵字串（未遮）");
+  });
+
+  it("沒有高熵字串時不顯示揭露句", async () => {
+    const md = renderTranscriptMarkdown(
+      await redactedOf([{ kind: "user_text", uuid: "u1", text: "就是個普通問題", raw: {} }]),
+      zh,
+    );
+    expect(md).not.toContain("另偵測到");
+  });
+});
+
 describe("遮蔽後的輸出必須自我標示", () => {
   const SENSITIVE: RawEvent[] = [
     { kind: "user_text", uuid: "u1", text: "寄到 alice@example.com", raw: {} },

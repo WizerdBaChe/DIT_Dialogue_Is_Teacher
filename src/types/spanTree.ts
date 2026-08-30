@@ -10,8 +10,59 @@
 
 export const SCHEMA_VERSION = "0.1" as const;
 
-/** 來源識別碼，新增來源時擴充此聯集。 */
-export type SourceId = "claude-code" | "codex" | "paste";
+/**
+ * 來源識別碼，新增來源時擴充此聯集。
+ * R11 M4 WC-4.4(3) / D-008：`"paste"` 已移除——宣告了，但沒有 adapter 或 UI 路徑產生過它，
+ * 兩個既有 adapter 都各自寫死自己的 `"claude-code"`／`"codex"`。跟 R9.1 移除 `milestone`
+ * 是同一個模式：型別裡宣告、從未產生、圖例/清單卻照樣列出。要恢復需要一個真正的 paste
+ * 入口點，屆時再加回來，而不是先宣告一個沒人要求的能力。
+ */
+export type SourceId = "claude-code" | "codex";
+
+/**
+ * 一個 session 的標題是從哪一階來的。**每一階都是具名降級 (named degradation)**：清單上有
+ * 自己的 class 與 tooltip，使用者看得見，所以不走 `reportFallback` 那條「無聲替代」通道。
+ *
+ * R12 M1 起，這個聯集從 `core/index/contracts.ts` 移到這裡（原處改為 re-export，呼叫端全部
+ * 不動）。理由是層級：階梯的**順序**現在由 `core/source/profiles.ts` 的探索側寫宣告、由
+ * `core/index/` 執行，兩者是同層的兄弟切片，不該互相 import；共用的詞彙要住在下層。
+ *
+ * `"sidecar"` 在 R12 M5 加入——**和產生它的程式碼同一張卡**，遵守這個檔案上面那段
+ * `"paste"`／`milestone` 的教訓：型別裡宣告了、從來沒有路徑產出、清單卻照樣列出。
+ * M1 當時刻意不先加，就是為了不重演第三次。
+ */
+/**
+ * `sidecar-parent` (2026-08-27, author ruling): a FORKED thread wearing the description of the
+ * thread it was forked from. It is a rung of its own rather than folded into `sidecar` because
+ * a fork can have travelled a long way from its parent's stated purpose — so the borrowing must
+ * be visible on screen, which is what a named `TitleSource` buys. Measured: 135 of 358 local
+ * Codex rollouts are forks, 129 of them have a described parent and **0 have a description of
+ * their own**, taking sidecar coverage from 17.0% to 53.1%.
+ */
+export type TitleSource = "custom" | "ai" | "derived" | "sidecar" | "sidecar-parent" | "filename";
+
+/**
+ * 「這一步是誰／哪個機制做的」(R12 M4)。
+ *
+ * 概念層刻意做成**來源無關**：`RawEvent` 的檔頭自述「Normalizer 只認 RawEvent[]，不認得任何
+ * 特定來源格式」，把 `attributionSkill` 這種欄位名帶下去會違反它。而「來歷」本身也不是
+ * Claude 專屬——Codex 有 `sub_agent_activity`，也有 MCP 呼叫。抽象放在概念，欄位名留在
+ * 各自的 adapter。
+ *
+ * 量測 (`RESEARCH_R12_CLAUDE_METADATA_2026-08-26.md`，525 檔 / 208,527 筆)：
+ * 73.1% 的 session 至少帶一種來歷，skill 27 種、subagent 9 種、MCP server 12 種。
+ */
+export interface Attribution {
+  kind: "skill" | "subagent" | "mcp-tool";
+  /** 來源紀錄的原字串。不改寫、不美化、不翻譯——它是那邊的識別名。 */
+  name: string;
+  /**
+   * 只有 `mcp-tool` 有：工具所屬的 server。
+   * 實測 server 與 tool **永遠成對**（both 8,629、serverOnly 0、toolOnly 0），所以缺一半時
+   * 不補、不猜——那代表遇到了量測沒看過的形狀，寧可少講也不要編。
+   */
+  server?: string;
+}
 
 /** Span 的語意型別。 */
 export type SpanType =
@@ -21,13 +72,26 @@ export type SpanType =
   | "tool_use"
   | "tool_result"
   | "subagent"
-  | "group";
+  | "group"
+  /**
+   * 結構性事件，不是誰說的話 (R9.1 RC-D)：對話被壓縮、API 出錯、模型拒答。
+   * 原本這些被映射成 assistant_msg，標記的身分在 normalize 這一步就消失了，
+   * 於是蒸餾層只能靠位置猜——一個結尾的壓縮標記因此被加冕為整段對話的「結果」。
+   */
+  | "marker";
 
 /** 由降噪/規則產生的標籤，用於標示學習價值高的節點。 */
 export type SpanTag = "retry" | "error" | "decision" | "milestone";
 
-/** 降噪分組的種類。 */
-export type GroupKind = "edit-loop" | "retry" | "subagent" | "verbose";
+/**
+ * 降噪分組的種類。R11.2 M6 (B15)：`GroupKind` 本身即為單一權威來源——`GroupKind`
+ * 型別由 `GROUP_KINDS` 陣列衍生，而非兩邊各自宣告後靠人工對齊。任何消費端 (群組卡片
+ * 標籤、側欄圖例) 只要以 `Record<GroupKind, …>` 或走訪 `GROUP_KINDS` 取資料，新增/
+ * 刪除一種分組時，遺漏的一邊會在編譯期或 `GROUP_KINDS.length` 走訪處直接現形，
+ * 不必仰賴人工記得同步兩張表。
+ */
+export const GROUP_KINDS = ["edit-loop", "retry", "subagent", "verbose"] as const;
+export type GroupKind = (typeof GROUP_KINDS)[number];
 
 /** 教學講解層的來源 Provider。 */
 /**
@@ -64,6 +128,13 @@ export interface ToolInfo {
 /** 工具結果的結構化資訊 (僅 type === "tool_result")。 */
 export interface ResultInfo {
   isError: boolean;
+  /**
+   * R10-B：來源根本沒有記錄這次呼叫的成敗時為 true。`isError: false` 有兩種來源——「來源說成功」
+   * 與「來源沒說」——把後者顯示成前者就是無中生有的保證。Codex 的 `patch_apply_end.success` 與
+   * `mcp_tool_call_end.result.Err` 有記錄；一般 exec（實測 9,342 筆）完全沒有任何狀態欄位。
+   * 選用欄位，缺席即代表「有記錄」，因此舊的匯出檔仍可讀，`SCHEMA_VERSION` 不動。
+   */
+  outcomeUnknown?: boolean;
   /** 結果文字 (可能很長，渲染端可摺疊)。 */
   text: string;
 }
@@ -93,6 +164,16 @@ export interface Span {
    * 可選欄位，不影響既有 SCHEMA_VERSION 的相容性。
    */
   synthetic?: boolean;
+  /**
+   * 這一步的來歷，來源有標才有 (R12 M4)。
+   *
+   * 是**陣列**而不是單值，因為實測會共現：skill 跑在 subagent 裡有 646 筆，
+   * agent+MCP 369 筆，四種齊全 1 筆。單值型別會逼實作在真實資料上做取捨。
+   *
+   * 缺席即「來源沒標」，不得解讀成「沒有來歷」——兩者的差別由側寫的
+   * `attribution.kinds` 回答（空陣列 = 這套系統不記錄這件事）。
+   */
+  attribution?: readonly Attribution[];
   tags: SpanTag[];
   annotation?: Annotation;
   /** 原始事件，保底可回溯 (資料流可追蹤)。 */
@@ -133,7 +214,14 @@ export interface SessionMeta {
  * 與視圖無關 (view-agnostic)：高密度模式可忽略，認知/魚骨模式直接渲染此結構。
  * 格式為預設第一版，後續可再調整 (見 docs/BACKLOG.md)。
  */
-export type SkeletonNodeKind = "objective" | "decision" | "milestone" | "outcome";
+/**
+ * R9.1 RC-D：`milestone` 已移除。它在型別裡宣告了但蒸餾器從未產生過，圖例卻照樣列出它，
+ * 等於對使用者說謊；`sessionMap` 的章節邊界判斷也因此有一條永遠走不到的分支。
+ * 不補產生規則是刻意的——現成的 `milestone` **標籤**掛在每一則使用者訊息上，拿它當主線
+ * 站的判準會把整條主線變成使用者訊息清單，等於改寫已驗收的地圖行為。要恢復它需要一條
+ * 自己的判準，已登 BACKLOG。`SpanTag` 的 milestone 不受影響，仍在卡片徽章上使用。
+ */
+export type SkeletonNodeKind = "objective" | "decision" | "outcome";
 export type SkeletonRibKind = "investigation" | "error" | "retry" | "edit-loop";
 
 /** 主線節點：一次任務的關鍵轉折。 */

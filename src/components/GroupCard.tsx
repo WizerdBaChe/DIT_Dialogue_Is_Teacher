@@ -53,7 +53,7 @@ export function GroupCard({
       <div className="group-head" onClick={() => setCollapsed((c) => !c)}>
         <span className="g-icon" aria-hidden="true">{GROUP_DOT}</span>
         <span className="layer-title" style={{ margin: 0, padding: 0, border: 0 }}>
-          <span className="kind">{t.card.kindTag}</span>
+          <span className="kind">{t.card.groupKindTag[group.kind] ?? t.card.kindTag}</span>
           <span className="title-text">
             {group.label}
             {t.card.groupFolded(nodes.length, collapsed)}

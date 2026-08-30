@@ -2,7 +2,8 @@
  * Session 狀態 (Zustand)。UI 只與此 store 互動，不直接碰 pipeline / provider，維持低耦合。
  */
 import { create } from "zustand";
-import type { Annotation, ProviderId, SessionDocument, Span } from "@/types/spanTree";
+import type { Annotation, ProviderId, SessionDocument, SourceId, Span } from "@/types/spanTree";
+import { SUPPORTED_SOURCES } from "@/core/source/profiles";
 import type { PrimaryView, SessionOrigin } from "@/core/view/workspace";
 import type { MapZoomLevel } from "@/core/view/sessionMap";
 import {
@@ -70,7 +71,7 @@ import {
   DirectoryPickCancelledError,
   isDirectoryPickerSupported,
   pickDirectory,
-  readDirectoryHandle,
+  readDirectoryHandles,
   restoreDirectorySource,
   saveDirectoryHandle,
   type DirectorySource,
@@ -114,15 +115,20 @@ const GENERIC_PRESET_IDS: GenericChatPresetId[] = ["lmstudio", "jan", "openroute
 /**
  * DSM-4：Session 瀏覽器的狀態。
  *
- *   no_directory --pick--> picking --cancel--> no_directory
- *                          picking --got handle--> indexing --ok--> indexed
- *                                                  indexing --fail--> index_failed --retry--> picking
+ *   closed --pick--> picking --cancel--> closed
+ *                    picking --got handle--> indexing --ok--> indexed
+ *                                            indexing --fail--> index_failed --retry--> picking
  *   indexed --refresh--> indexing
  *   indexed --choose--> loading --done|fail--> indexed
  *
  * 最後那一條是這台機器存在的理由：**載入失敗必須回到清單，而不是回到空白的 app**。
+ *
+ * R9.1 RC-A：`closed` 是唯一讓瀏覽器整個消失的值（見 surfaceSelectors），因此它只能由
+ * **使用者的意思**抵達——關閉、初始、或在系統選擇器按取消。任何失敗都不得落在這裡；
+ * 舊名 `no_directory` 讓「還沒選目錄」與「失敗了但還沒有任何條目」看起來像同一件事，
+ * 於是失敗可以無聲退場。改名是為了讓「誰有資格讓瀏覽器消失」變成讀得出來的事。
  */
-export type BrowseState = "no_directory" | "picking" | "indexing" | "indexed" | "index_failed" | "loading";
+export type BrowseState = "closed" | "picking" | "indexing" | "indexed" | "index_failed" | "loading";
 
 const DEFAULT_GENERIC_PRESET_CONFIGS: Record<GenericChatPresetId, GenericPresetConfigState> = {
   lmstudio: { baseUrl: getPreset("lmstudio").baseUrl, model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
@@ -172,6 +178,19 @@ const REPLAY_INTERVAL_MS = 1600;
 let replayTimer: ReturnType<typeof setInterval> | null = null;
 /** 「講解全部」取消旗標 (模組層級，不入 state 以免每次勾選觸發 re-render)。 */
 let pendingPrivacyReviewer: ((consent: PrivacyConsent | null) => void) | null = null;
+/**
+ * 目前這則待核准的複核，當初是用哪個 scope 字串發起的。
+ *
+ * R11 (S-03)：核准端原本自己重組一份 scope，而重組的格式和 `privacyReviewer(scope)`
+ * 那三處產生的格式不一樣（少了 provider 前綴，且不管哪個 provider 都讀 `cloudConfig`）。
+ * 兩份字串永遠不相等，於是「同一個 scope 只需同意一次」從來沒有生效過——每一則講解都
+ * 重新彈出複核；更糟的是非 cloud 供應商的同意紀錄裡存的是 cloud 的 endpoint 與 model，
+ * 也就是同意書上寫錯了對象。
+ *
+ * 修法不是把兩份格式對齊——那正是它們當初能分岔的原因。改成把發起時的那一份原樣留著，
+ * 核准時直接沿用，格式只有一個產生點。
+ */
+let pendingPrivacyScope: string | null = null;
 let dataOutConsent: { scope: string; consentId: string } | null = null;
 let cacheLoadGeneration = 0;
 let activeSessionLoad: SessionLoadTask | null = null;
@@ -274,6 +293,7 @@ async function refreshCurrentCacheMatches(): Promise<void> {
 function cancelPendingPrivacyReview(): void {
   pendingPrivacyReviewer?.(null);
   pendingPrivacyReviewer = null;
+  pendingPrivacyScope = null;
 }
 
 /**
@@ -311,6 +331,24 @@ const SESSION_SCOPED_INITIAL_STATE = {
 
 /** 測試用：斷言「所有 session 範圍欄位都在同一份清單裡」。 */
 export const __sessionScopedKeys = Object.keys(SESSION_SCOPED_INITIAL_STATE);
+
+/**
+ * R12 M3：把一級選單的選擇帶進**載入**路徑——但只當作驗證，不當作覆寫。
+ *
+ * 索引那一側（M2 的 `expectSource`）是「去哪裡找」，選擇具有決定權。載入這一側不同：檔案已經
+ * 在手上了，adapter 也已經按內容認出它是什麼。這時若選擇與內容不合，**內容才是事實**——照著
+ * 選擇去重新解讀一份 Codex 檔案只會長出一棵錯的樹。所以這裡不改任何解析結果，只多說一句。
+ *
+ * 也就是 INV-R12-3 的落地：不合就具名講出來，絕不無聲改判。
+ */
+function verifyAgainstChosenSource(result: PipelineResult, chosen: SourceId | null): PipelineResult {
+  const actual = result.doc.session.source;
+  if (!chosen || actual === chosen) return result;
+  return {
+    doc: result.doc,
+    diagnostics: [...result.diagnostics, { tier: "warn", code: "LOAD_SOURCE_MISMATCH", detail: actual }],
+  };
+}
 
 function publishPipelineResult({ doc, diagnostics }: PipelineResult, sessionOrigin: SessionOrigin): void {
   const current = useSessionStore.getState();
@@ -373,23 +411,93 @@ function publishPipelineResult({ doc, diagnostics }: PipelineResult, sessionOrig
  */
 let activeDirectorySource: DirectorySource | null = null;
 
+/**
+ * DSM-4 · R11.2 C6：挑選/索引是跨多個 await 的非同步流程（`buildSessionIndex` 逐檔掃描，
+ * 幾百個 session 掃完要一段時間），而 `closeBrowser()` 只把 `browseState` 寫回 `"closed"`，
+ * 從未取消背景中還在跑的那次索引。索引完成時它的 `.then`/`await` 續行毫無防備地把
+ * `browseState` 又寫回 `"indexing"`/`"indexed"`——`selectSurfaceWants()` 只認
+ * `browseState !== "closed"`，於是對話框在使用者關掉之後自己重新彈出，且因為索引其實已在
+ * 背景跑完，它重新出現時落在 `"indexed"`，看起來像是「沒有經過索引中的狀態」。
+ *
+ * 這個世代計數器讓每一次「使用者要求打開瀏覽器」的動作認領一個世代；`closeBrowser()` 遞增
+ * 它，使任何仍在飛行中的舊世代在恢復時發現自己已經過期，直接放棄寫入而不是覆蓋 `"closed"`。
+ */
+let browseGeneration = 0;
+
+/**
+ * 上次挑選的目錄 handle，在模組載入時就先讀好 (R9.1 RC-A step 4)。
+ *
+ * `showDirectoryPicker()` 與 `requestPermission()` 都必須發生在使用者手勢裡。原本點擊路徑
+ * 的第一個 await 是 IndexedDB 開啟——而快取清空後的第一次還要跑一次 schema 升級，那是一趟
+ * 貨真價實的往返。把它移到啟動時，點擊路徑的第一個 await 就是選擇器本身。
+ *
+ * 還沒讀完就被點到時值是 null，行為退化成「開選擇器」——比毀掉手勢安全。
+ */
+let cachedDirectoryHandles: Partial<Record<SourceId, unknown>> = {};
+
+/**
+ * R12 M2：handle 讀取發生在模組載入時，那時還沒有任何介面可以顯示訊息。讀出來的診斷先存在
+ * 這裡，由下一次 `runIndex` 併進 `indexDiagnostics`——這是 `INDEX_HANDLE_NOT_PERSISTED` 已經
+ * 在走的同一條路（存的時候拿到診斷、索引完成後才顯示），不是新發明的通道。
+ */
+let pendingHandleNotices: Diagnostic[] = [];
+void readDirectoryHandles(SUPPORTED_SOURCES).then(({ handles, notices }) => {
+  /*
+   * DW-21：合併，不是覆寫。原本是 `cachedDirectoryHandles = handles`——整包取代。使用者若在
+   * 這個 promise 落地之前就選好資料夾（冷啟動的第一次互動，而 IndexedDB 的第一次開啟還要跑
+   * schema 升級，那是一趟真的往返），剛選的 handle 會被上一輪存下的舊值蓋掉，該來源在這個
+   * session 剩下的時間都會「回到上一次的位置」或退化成開選擇器。下次重載又會自己好
+   * （選擇當下已經寫進 IndexedDB 了），所以沒有人會把它當成 bug 回報。
+   *
+   * 順序即優先權：這個 session 裡剛選的一定比啟動時讀到的新，所以已經有值的鍵不被覆蓋；
+   * 沒被選過的來源仍然照常採用存起來的位置。
+   */
+  cachedDirectoryHandles = { ...handles, ...cachedDirectoryHandles };
+  pendingHandleNotices = notices;
+});
+
+/**
+ * 整個目錄讀不起來（不是單一檔案讀不到）。R9.1 RC-A：這裡原本回報 `INDEX_FILE_UNREADABLE`
+ * 的 warn，語意與分級都比實際情況輕——使用者面對的是「一個條目都沒有」，那是 fatal。
+ */
 function toIndexDiagnostic(error: unknown): Diagnostic {
-  return { tier: "warn", code: "INDEX_FILE_UNREADABLE", count: 1, detail: error instanceof Error ? error.message : String(error) };
+  return { tier: "fatal", code: "INDEX_DIRECTORY_UNREADABLE", detail: error instanceof Error ? error.message : String(error) };
 }
 
 type SetState = (partial: Partial<SessionState>) => void;
 
-async function runIndex(set: SetState, source: DirectorySource): Promise<void> {
+/**
+ * `generation` must be the value `browseGeneration` held when the caller started this browse
+ * operation. Every `set()` that follows an `await` re-checks it against the live counter first —
+ * if the user closed the dialog (or started a fresh pick) while this indexing run was still in
+ * flight, `browseGeneration` has since moved on and this stale run must not write over `"closed"`.
+ */
+async function runIndex(
+  set: SetState,
+  source: DirectorySource,
+  generation: number,
+  expectSource?: SourceId,
+): Promise<void> {
   activeDirectorySource = source;
+  if (browseGeneration !== generation) return;
   set({ browseState: "indexing", browseDirectoryName: source.name, browseProgress: [0, 0], indexDiagnostics: [] });
   const index = await buildSessionIndex(source, {
-    onProgress: (done, total) => set({ browseProgress: [done, total] }),
+    expectSource,
+    onProgress: (done, total) => {
+      if (browseGeneration !== generation) return;
+      set({ browseProgress: [done, total] });
+    },
   });
+  if (browseGeneration !== generation) return;
+  // R12 M2: anything the module-load handle read wanted to say gets its first surface here,
+  // then is dropped so it is reported once rather than on every browse.
+  const carried = pendingHandleNotices;
+  pendingHandleNotices = [];
   set({
     browseState: "indexed",
     browseProgress: null,
     indexEntries: index.entries,
-    indexDiagnostics: index.diagnostics,
+    indexDiagnostics: [...carried, ...index.diagnostics],
   });
 }
 
@@ -421,6 +529,14 @@ export interface SessionState {
    */
   error: Diagnostic | null;
   sessionLoadProgress: SessionLoadProgress | null;
+
+  /**
+   * R12 M2：一級選單挑的 agent 系統，`null` = 還沒挑。
+   *
+   * 這是**探索階段**的狀態，不是檢視階段的。載入完成後檢視走的仍是同一套 `SessionDocument`
+   * 與同一個 viewer，跟這個值無關（INV-R12-4）——它只決定「去哪裡找、用誰的規則找」。
+   */
+  activeSource: SourceId | null;
 
   // ---- DSM-4：Session 瀏覽器 (R9) ----
   browseState: BrowseState;
@@ -506,6 +622,14 @@ export interface SessionState {
   loadFromBlobs: (files: SessionBlobInput[], origin?: SessionOrigin) => Promise<void>;
 
   // ---- DSM-4 actions ----
+  /**
+   * R12 M2：挑一級選單。**只設定狀態，不開任何選擇器**——瀏覽器要求 `showDirectoryPicker()`
+   * 發生在使用者手勢裡，把兩件事綁在一起會讓「挑系統」這個動作也被算進手勢預算，而使用者
+   * 這時可能只是想看看有哪些選項。二級的資料夾／單檔按鈕才是真正發動的地方。
+   */
+  chooseSource: (source: SourceId) => void;
+  /** 回到一級選單。清掉索引結果：那份清單屬於前一套系統，留著會被誤讀成新選擇的內容。 */
+  clearSource: () => void;
   /** 開啟系統目錄選擇器並索引 (FSA 路徑)。 */
   pickAndIndexDirectory: () => Promise<void>;
   /** webkitdirectory 後備路徑：<input> 已經交出檔案了，直接索引。 */
@@ -601,7 +725,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   error: null,
   sessionLoadProgress: null,
 
-  browseState: "no_directory",
+  activeSource: null,
+  browseState: "closed",
   browseDirectoryName: null,
   browseProgress: null,
   indexEntries: [],
@@ -695,7 +820,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       activeSessionLoad = task;
       const result = await task.promise;
       if (activeSessionLoad !== task) return;
-      publishPipelineResult(result, origin);
+      publishPipelineResult(verifyAgainstChosenSource(result, get().activeSource), origin);
       set({
         sessionLoadProgress: {
           phase: "ready",
@@ -719,51 +844,142 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
+  /*
+   * R9.1 RC-A：挑選與索引是**兩個階段**，錯誤分類必須跟著分開。
+   *
+   * 原本兩段共用一個 try，而「取消」的判準是 AbortError——但 `pickDirectory` 內部已經把
+   * 任何 AbortError 轉成 DirectoryPickCancelledError，而索引階段的 `getFile()` 在剛授權的
+   * handle 上是會丟 AbortError 的。結果：索引階段的失敗被讀成「使用者按了取消」，落到當時
+   * 的 `no_directory` 讓整個瀏覽器消失，第二次因為 handle 已熱身就正常了——正是作者回報的
+   * 「第一次靜默失敗、第二次才成功」。
+   *
+   * 因此：**只有第一段可以產生取消**；拿到 handle 之後的任何失敗一律是 index_failed。
+   */
+  chooseSource: (source) => set({ activeSource: source }),
+
+  /*
+   * R12 M2: going back to level 1 drops the index. The entries belong to the system that was
+   * chosen when they were scanned, and leaving them on screen under a different choice is a
+   * wrong-target display — the same class of defect as the folder memory being shared. The
+   * remembered handles are NOT cleared: that is the position memory, and it survives on purpose.
+   */
+  clearSource: () => {
+    browseGeneration += 1;
+    set({ activeSource: null, browseState: "closed", indexEntries: [], indexDiagnostics: [], browseDirectoryName: null, browseProgress: null });
+  },
+
   pickAndIndexDirectory: async () => {
+    // Claims a fresh generation for this browse attempt (R11.2 C6). Every `set()` beyond the
+    // first `await` below re-checks it, so a `closeBrowser()` (or a second pick) that lands
+    // while `pickDirectory()`/`runIndex()` is still pending stops this run from writing over it.
+    const generation = ++browseGeneration;
+    const chosen = get().activeSource;
     set({ browseState: "picking" });
+    let picked: Awaited<ReturnType<typeof pickDirectory>>;
     try {
-      const { source, handle } = await pickDirectory();
-      void saveDirectoryHandle(handle);
-      await runIndex(set, source);
+      picked = await pickDirectory();
     } catch (error) {
+      if (browseGeneration !== generation) return;
       if (error instanceof DirectoryPickCancelledError) {
-        set({ browseState: get().indexEntries.length > 0 ? "indexed" : "no_directory" });
+        set({ browseState: get().indexEntries.length > 0 ? "indexed" : "closed" });
         return;
       }
+      set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+      return;
+    }
+    if (browseGeneration !== generation) return;
+    // R12 M2: remembered per source, so the two systems never overwrite each other's position.
+    if (chosen) cachedDirectoryHandles = { ...cachedDirectoryHandles, [chosen]: picked.handle };
+    // 記不住目錄不該擋住索引，但也不該無人知曉：診斷在索引完成後併進清單 (RC-A step 5)。
+    const persisted = chosen ? saveDirectoryHandle(chosen, picked.handle) : Promise.resolve(null);
+    try {
+      await runIndex(set, picked.source, generation, chosen ?? undefined);
+    } catch (error) {
+      if (browseGeneration !== generation) return;
+      set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+      return;
+    }
+    const storeNotice = await persisted;
+    if (browseGeneration !== generation) return;
+    if (storeNotice) set({ indexDiagnostics: [...get().indexDiagnostics, storeNotice] });
+  },
+
+  indexFileList: async (files, name) => {
+    // WebKit fallback (no File System Access API): symmetric with pickAndIndexDirectory's
+    // try/catch above `runIndex`. Without this, a throw here pinned the UI at "indexing"
+    // forever — there is no picker step before this call to fail out of instead (R11 M3).
+    const generation = ++browseGeneration;
+    try {
+      await runIndex(set, directorySourceFromFileList(files, name), generation, get().activeSource ?? undefined);
+    } catch (error) {
+      if (browseGeneration !== generation) return;
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
     }
   },
 
-  indexFileList: async (files, name) => {
-    await runIndex(set, directorySourceFromFileList(files, name));
-  },
-
   resumeLastDirectory: async () => {
+    const generation = ++browseGeneration;
     if (!isDirectoryPickerSupported()) {
-      // 後備路徑沒有持久化能力，只能請使用者重選；UI 會直接開 <input>。
-      set({ browseState: "no_directory" });
+      // 後備路徑沒有持久化能力，只能請使用者重選。
+      // R11 M3 finding: this used to set browseState "closed", but selectSurfaceWants()
+      // only opens the session-browser surface when browseState !== "closed" — so the
+      // dialog (and the <input type="file" webkitdirectory> fallback that lives inside it,
+      // see SessionBrowserDialog.tsx) never mounted. The old comment's claim that "the UI
+      // opens the <input>" was false; there was no entry point at all. "picking" opens the
+      // dialog and shows "waiting for you to choose a folder" — the user then clicks the
+      // "Choose folder" header button, whose choose() falls back to fileInputRef.click()
+      // when isDirectoryPickerSupported() is false.
+      set({ browseState: "picking" });
       return;
     }
-    const stored = await readDirectoryHandle();
+    /*
+     * 同步讀模組層快取，不在點擊路徑上碰 IndexedDB——見 cachedDirectoryHandles。
+     *
+     * R12 M2：讀的是**這一套系統**上次的位置。沒挑系統時（理論上到不了，二級按鈕在一級選完
+     * 之前不存在）退化成開選擇器，而不是拿另一套的位置頂替——那正是分開存要避免的事。
+     */
+    const chosen = get().activeSource;
+    const stored = chosen ? cachedDirectoryHandles[chosen] : null;
     if (!stored) {
       await get().pickAndIndexDirectory();
       return;
     }
     set({ browseState: "picking" });
+    let source: DirectorySource;
     try {
-      const source = await restoreDirectorySource(stored as Parameters<typeof restoreDirectorySource>[0]);
-      await runIndex(set, source);
+      // 權限可能已被撤回，這裡會在使用者手勢內重新要一次。
+      source = await restoreDirectorySource(stored as Parameters<typeof restoreDirectorySource>[0]);
     } catch (error) {
+      if (browseGeneration !== generation) return;
       if (error instanceof DirectoryPermissionError) {
-        void clearDirectoryHandle();
+        // Only this source's memory is dropped; the other system's position is untouched.
+        if (chosen) {
+          const { [chosen]: _dropped, ...rest } = cachedDirectoryHandles;
+          cachedDirectoryHandles = rest;
+          void clearDirectoryHandle(chosen);
+        }
         set({ browseState: "index_failed", indexDiagnostics: [{ tier: "fatal", code: "INDEX_PERMISSION_LOST" }] });
         return;
       }
       set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
+      return;
+    }
+    if (browseGeneration !== generation) return;
+    // 授權之後的失敗與「權限沒拿到」是兩件事，不共用一個 catch (RC-A)。
+    try {
+      await runIndex(set, source, generation, chosen ?? undefined);
+    } catch (error) {
+      if (browseGeneration !== generation) return;
+      set({ browseState: "index_failed", indexDiagnostics: [toIndexDiagnostic(error)] });
     }
   },
 
-  closeBrowser: () => set({ browseState: "no_directory", browseProgress: null }),
+  closeBrowser: () => {
+    // R11.2 C6: invalidate any in-flight browse generation so its eventual `set()` calls
+    // (see `runIndex`) recognize they're stale and stop short of reopening the dialog.
+    browseGeneration++;
+    set({ browseState: "closed", browseProgress: null });
+  },
 
   toggleBrowseFilter: (kind) => set((state) => ({
     browseFilter: { ...state.browseFilter, [kind]: !state.browseFilter[kind] },
@@ -775,6 +991,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const source = activeDirectorySource;
     if (!entry || !source) return;
 
+    // Same class as runIndex (R11.2 C6): the close button stays reachable while this is in
+    // flight ("loading" doesn't hide the dialog header). Capture the live generation so the
+    // `finally` below can tell whether `closeBrowser()` ran while we were awaiting.
+    const generation = browseGeneration;
     set({ browseState: "loading" });
     try {
       const files = await source.list();
@@ -789,7 +1009,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set({ error: toFatalDiagnostic(error), parseNoticeAcknowledged: false });
     } finally {
       // 不論成敗都回到清單 (DSM-4)：失敗把使用者丟回空白畫面才是真正的死路。
-      set({ browseState: "indexed" });
+      // 但若使用者已經關閉瀏覽器，這件事的優先序反過來——不得覆寫 "closed"。
+      if (browseGeneration === generation) set({ browseState: "indexed" });
     }
   },
 
@@ -931,6 +1152,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   loadPersistedConfig: async () => {
+    // EX-INV-1/3: a snapshot must issue zero network requests. `loadConfigFile()` fetches
+    // `./dit.config.json`, so this is the one enforcement point for every caller (M2, R11).
+    if (get().snapshotMode) return;
     const fileConfig = await loadConfigFile();
     if (!fileConfig) return;
     set((s) => {
@@ -968,12 +1192,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const review = get().privacyReview;
     if (!reviewer || !review) return;
     const consentId = `consent_${crypto.randomUUID()}`;
-    const { doc, cloudConfig, privacyPolicyId } = get();
-    dataOutConsent = {
-      scope: `${doc?.session.id ?? "none"}\0${cloudConfig.baseUrl}\0${cloudConfig.providerID}\0${cloudConfig.modelID}\0${privacyPolicyId}`,
-      consentId,
-    };
+    // 沿用發起這則複核時的 scope，不重組（見 pendingPrivacyScope）。
+    dataOutConsent = pendingPrivacyScope === null ? null : { scope: pendingPrivacyScope, consentId };
     pendingPrivacyReviewer = null;
+    pendingPrivacyScope = null;
     set({ privacyReview: null });
     reviewer({ consentId });
   },
@@ -1174,6 +1396,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         }
         return new Promise<PrivacyConsent | null>((resolve) => {
           pendingPrivacyReviewer = resolve;
+          pendingPrivacyScope = scope;
           set({ privacyReview: { inspection, itemId: id }, structureDrawerOpen: false, mapOpen: false, settingsOpen: false, mapError: null });
         });
       };

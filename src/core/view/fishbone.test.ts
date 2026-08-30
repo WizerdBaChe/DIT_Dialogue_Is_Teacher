@@ -22,7 +22,7 @@ function span(id: string, order: number, type: Span["type"], parentId: string | 
 function docWithHiddenSpans(): SessionDocument {
   return {
     schemaVersion: SCHEMA_VERSION,
-    session: { id: "s", source: "paste", tool: "test", title: "t", projectPath: null, startedAt: null, model: null },
+    session: { id: "s", source: "claude-code", tool: "test", title: "t", projectPath: null, startedAt: null, model: null },
     spans: [
       span("user-1", 0, "user_msg"),
       span("edit-a", 1, "tool_use"),
@@ -61,7 +61,7 @@ describe("fishbone view item resolution", () => {
 
   it("drops a skeleton node whose span is absent instead of pointing it at the first item", () => {
     const doc = docWithHiddenSpans();
-    doc.skeleton!.nodes.push({ spanId: "ghost", kind: "milestone", label: "不存在", order: 9 });
+    doc.skeleton!.nodes.push({ spanId: "ghost", kind: "decision", label: "不存在", order: 9 });
     const viewItems = buildViewModel(doc);
     const stations = buildFishbone(doc, viewItems);
 

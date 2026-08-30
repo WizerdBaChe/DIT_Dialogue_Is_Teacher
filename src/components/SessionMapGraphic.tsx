@@ -20,7 +20,6 @@ interface SessionMapGraphicProps {
 function targetShape(target: SessionMapTarget): ReactNode {
   if (target.type === "cluster") return <rect className="map-shape" x="-48" y="-24" width="96" height="48" rx="3" />;
   if (target.kind === "decision") return <path className="map-shape" d="M 0 -30 L 48 0 L 0 30 L -48 0 Z" />;
-  if (target.kind === "milestone") return <path className="map-shape" d="M -38 -26 H 38 L 52 0 L 38 26 H -38 L -52 0 Z" />;
   if (target.kind === "outcome") return <rect className="map-shape" x="-52" y="-26" width="104" height="52" rx="26" />;
   if (target.kind === "subagent") return <path className="map-shape" d="M -48 -24 H 32 L 48 -8 V 24 H -32 L -48 8 Z" />;
   return <rect className="map-shape" x="-52" y="-26" width="104" height="52" rx="3" />;

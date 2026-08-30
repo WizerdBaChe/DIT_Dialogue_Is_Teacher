@@ -7,7 +7,19 @@
  * - 所有面向使用者的中文都住在這裡；元件內不得再出現硬編中文 (見 PSM R7 驗收)。
  * - 純視覺、與語言無關的常數 (節點記號、CSS class、Provider 排序) 留在 components/labels.ts。
  */
-import type { ProviderId, SkeletonNodeKind, SkeletonRibKind, SpanTag, SpanType } from "@/types/spanTree";
+import type { GroupKind, ProviderId, SkeletonNodeKind, SkeletonRibKind, SpanTag, SpanType } from "@/types/spanTree";
+import type { CategoryDefinitionTable } from "@/core/view/categoryDefinitions";
+
+/**
+ * `spanKindDefinition` 的形狀：多數符號是靜態一句話，`group` 例外——它的定義文字要
+ * 列出所有降噪分組種類，而分組種類的文字來自 `card.groupKindTag`（單一權威表），
+ * 所以 `group` 改成函式，由呼叫端把已排序、已在地化的分組標籤傳進來組句。
+ */
+export type SpanKindDefinitionTable = {
+  [K in Exclude<SpanType, "group">]: string;
+} & {
+  group: (groupKindLabels: string[]) => string;
+};
 
 export type Locale = "zh-TW" | "en";
 
@@ -24,10 +36,10 @@ const zhTW = {
     brand: "DIT — Dialogue Is Teacher",
     tagline: "把 agent 執行軌跡轉成「可學習」的節點",
     modeGroupLabel: "檢視模式",
-    loadFile: "載入 .jsonl",
-    loadFileTitle: "Claude Code 通常在 ~/.claude/projects/<專案>/*.jsonl；Codex CLI 通常在 ~/.codex/sessions/rollout-*.jsonl",
-    loadFolder: "載入 Session 資料夾",
-    loadFolderTitle: "同時讀取主檔與 subagents/*.jsonl",
+    loadFile: "選擇一則對話",
+    loadFileTitle: "已經知道是哪個檔時用這個。Claude Code 通常在 ~/.claude/projects/<專案>/*.jsonl；Codex CLI 通常在 ~/.codex/sessions/rollout-*.jsonl。不確定要載哪一個，請改用左邊的「從對話集選擇」。",
+    loadFolder: "從對話集選擇",
+    loadFolderTitle: "選一個資料夾，用可讀的標題挑，不必先知道檔名；Claude Code 的子代理紀錄會一併帶入。要選哪個資料夾，看上面那一行路徑提示。瀏覽器每次重新載入頁面都會再問一次是否允許讀取該資料夾，那是瀏覽器的安全設計，不是 DIT 記不住。",
     reset: "重置",
     resetTitle: "回到內建範例與預設設定",
     showAnnotations: "顯示教學講解",
@@ -51,6 +63,39 @@ const zhTW = {
     languageLabel: "語言",
     readFileFailed: (name: string) => `讀取檔案失敗：${name}`,
     loadFailed: (msg: string) => `載入失敗：${msg}`,
+  },
+
+  /*
+   * R12 M2 一級選單。刻意不做成「自動偵測」：偵測仍然存在，但它從此是**驗證**而不是主要機制
+   * ——使用者說了要讀哪一套，DIT 就去那一套的位置、用那一套的規則找；檔案內容如果不同意，
+   * 具名報出來 (INDEX_SOURCE_MISMATCH)，而不是安靜地改讀成另一套。
+   *
+   * 系統名稱 (Claude Code / Codex CLI) 是產品名，兩個語系相同，所以不在這裡逐語系重寫；
+   * 路徑提示也不放——它來自 `SourceProfile.discovery.rootHint`，那裡是它唯一的定義處。
+   */
+  /*
+   * R12 M4 來歷徽章。前綴用符號而不是文字：一張卡片上可能同時出現 skill 與 subagent
+   * （實測 646 筆共現），兩個中文詞會把徽章列撐開，讀者要找的是名字本身。
+   * 名字不翻譯——它是那套系統裡的識別名，翻了就對不回去。
+   */
+  attribution: {
+    prefix: { skill: "⚡", subagent: "◈", "mcp-tool": "⧉" } as Record<string, string>,
+    kindName: { skill: "技能 (skill)", subagent: "子代理 (subagent)", "mcp-tool": "MCP 工具" } as Record<string, string>,
+    title: (kind: string, name: string, server?: string): string => {
+      const kinds: Record<string, string> = { skill: "技能 (skill)", subagent: "子代理 (subagent)", "mcp-tool": "MCP 工具" };
+      const what = kinds[kind] ?? kind;
+      return server ? `這一步由 ${server} 的 ${what}「${name}」產生` : `這一步由${what}「${name}」產生`;
+    },
+    /** 來源根本不記錄這件事時說的話——跟「這一步沒有來歷」不是同一句。 */
+    unsupported: "這套 agent 系統不會記錄每一步是哪個技能或子代理做的，所以這裡沒有來歷可顯示。",
+  },
+
+  sourcePicker: {
+    label: "先選你要讀哪一套 agent 系統",
+    hint: "目前只支援這兩套。選好之後才會出現「從對話集選擇」與「選擇一則對話」。",
+    change: "換一套",
+    changeTitle: "回到系統選單。會清掉目前的清單——那份清單屬於剛剛那一套系統。",
+    rootHintLabel: "通常在",
   },
 
   settings: {
@@ -99,12 +144,25 @@ const zhTW = {
     startReading: "開始閱讀",
     continueReading: "繼續閱讀",
     startBrowsing: "開始逐步瀏覽",
-    loadFile: "載入 .jsonl",
-    loadFolder: "載入 Session 資料夾",
-    legend: {
-      label: "符號說明",
-      spanHeading: "Span 層 · transcript 發生了什麼",
-      skeletonHeading: "Skeleton 層 · 學習魚骨的節點／支線種類",
+    loadFile: "選擇一則對話",
+    loadFileTitle: "已經知道是哪個檔時用這個；不確定就用「從對話集選擇」。",
+    loadFolder: "從對話集選擇",
+    loadFolderTitle: "選一個資料夾，用可讀的標題挑一份 session，不必先知道檔名。",
+    /*
+     * R12 M2（作者裁決 2026-08-26）：總覽的「符號說明」整塊移除，這三個 key 跟著退役。
+     * 作者的理由是那份圖例是一次失敗實作的產物，先前回報過但沒有被修好——留著一個沒修好的
+     * 說明比沒有說明更糟，因為它會被當成可信的解釋。
+     *
+     * 定義表本身沒有被孤立：`core/view/categoryDefinitions` 仍是唯一來源，`SessionMapDialog`
+     * 仍在消費它（含 tooltip 的完整三段式內容），所以 R9.1 RC-G 想解決的「使用者無從判斷
+     * 該不該相信這個標記」在 Session 地圖裡仍有出口。
+     */
+    // R11.2 R3：info 分級診斷（例如 Codex 事件配不上對應呼叫）沒有可歸屬的介面，於是
+    // M4 把它們降級之後就從畫面上徹底消失了。這裡是它們唯一的呈現位置——平時收起、
+    // 讀者可自行展開，絕不打斷閱讀，也絕不當作錯誤處理。
+    infoSummary: {
+      toggleShow: (count: number) => `顯示 ${count} 則系統限制說明`,
+      toggleHide: "收合系統限制說明",
     },
   },
 
@@ -136,7 +194,8 @@ const zhTW = {
     indexing: (done: number, total: number) => `讀取中… ${done}/${total}`,
     indexFailedTitle: "讀不到這個資料夾",
     retry: "重新選擇",
-    empty: "這個資料夾裡沒有找到 Claude Code 的 session。",
+    // R11 WC-1.2：這個資料夾現在也會列出讀得懂的 Codex session，不再只有 Claude Code。
+    empty: "這個資料夾裡沒有找到看得懂的 session（Claude Code 或 Codex）。",
     emptyFiltered: "目前的篩選條件下沒有 session；把上面的分類打開就會出現。",
     loading: "載入中…",
     filterLabel: "分類篩選",
@@ -161,12 +220,20 @@ const zhTW = {
       "synthetic-prompts-only": "所有訊息都是機器代打的固定句（這條是推測，可能誤判）",
       "has-human-prompt": "有真人輸入的訊息",
       "insufficient-signal": "訊號不足以判定",
-      "not-claude-code": "不是 Claude Code 格式",
+      "not-claude-code": "不是任何已知格式",
+      // R11.2 R1：Codex 已經有自己的分類訊號了，這一格現在只在「掃描視窗內完全沒看到任何
+      // 對話紀錄」時才會出現（例如整段都是工具呼叫），是少數例外，不是每一份 Codex 都會這樣。
+      "codex-unclassified": "認得出來源，但這段掃描到的內容沒有可用的分類訊號",
     },
     titleSources: {
       custom: "你自己設定的標題",
       ai: "AI 產生的標題",
       derived: "取自第一則你說的話",
+      // R12 M5：Codex 把 session 目的存在 transcript 之外的檔案裡，這是從那裡接回來的。
+      sidecar: "這套系統另外記錄的 session 目的",
+      // 2026-08-27：分叉對話沿用母對話的目的。措辭必須說出「這不是它自己的」——分叉可能
+      // 早就走到別的地方去了，無標記地借用等於替它宣稱一個它沒說過的目的。
+      "sidecar-parent": "承自母對話的目的（這串是從另一段對話分叉出來的）",
       filename: "沒有標題可用，顯示檔名",
     },
     counts: (human: number, assistant: number, exact: boolean) =>
@@ -227,6 +294,9 @@ const zhTW = {
     returnReader: "回到閱讀",
     invalidTarget: (id: string) => `地圖目標已失效：${id}`,
     minimapLabel: "開啟 Session 地圖；微縮圖顯示目前位置與 Reader 可見範圍",
+    /* R9.1 RC-G：長條是密度不是節點，而且每份 session 各自正規化——這兩件事必須說出口。 */
+    minimapDensityCaption: "地標密度",
+    minimapDensityLabel: "開啟 Session 地圖。微縮圖上的長條是每一段的地標密度（不是單一節點），高度以這份 session 自己的最密處為滿格，所以不同 session 之間不能互相比較；紅點是目前位置，淡色底塊是 Reader 可見範圍。",
     viewport: "Reader 可見範圍",
     clusterKind: "聚合區段",
   },
@@ -237,7 +307,6 @@ const zhTW = {
     empty: "尚未載入 session。",
     skeleton: (nodes: number, ribs: number) => `蒸餾骨架：主線 ${nodes} · 支線 ${ribs}`,
     legendLabel: "屬性符號圖例",
-    legendSummary: "符號說明",
     legendNote: "重要節點另以文字標籤標示（目標／決策／里程碑／結果），詳見 Session 地圖。",
   },
 
@@ -268,7 +337,14 @@ const zhTW = {
   },
 
   card: {
+    /** 群組卡的分類標籤。R11：原本寫死「群組」，子代理群組因此從未按屬性顯示 (UAT C3/D3)。 */
     kindTag: "群組",
+    groupKindTag: {
+      "edit-loop": "反覆修改",
+      retry: "重試",
+      subagent: "子代理",
+      verbose: "聚合區段",
+    } satisfies Record<GroupKind, string>,
     paramsTitle: "參數",
     resultTitle: "結果",
     resultErrorTitle: "結果 · 錯誤",
@@ -431,7 +507,7 @@ const zhTW = {
   },
 
   export: {
-    group: "匯出",
+    group: "匯出閱讀頁面快照",
     json: "匯出 JSON",
     html: "匯出 HTML 快照",
     privacyNote: "匯出檔包含完整逐字內容，可能含密鑰，分享前請自行確認。",
@@ -444,12 +520,12 @@ const zhTW = {
 
   /** 對話紀錄匯出：前半是匯出 UI 的文案，後半是寫進匯出檔本身的文案 (TranscriptLabels)。 */
   transcript: {
-    group: "對話紀錄",
+    group: "匯出純對話紀錄",
     hint: "只收使用者提問、AI 思考與每輪回覆文字；工具輸出全文不收。",
     markdown: "匯出 Markdown",
     json: "匯出 JSON",
     html: "匯出 HTML 檢視頁",
-    copy: "複製 Markdown",
+    copy: "以 MD 形式複製到剪貼簿",
     copied: "已複製到剪貼簿",
     copyFailed: "無法存取剪貼簿，請改用匯出檔案",
     optionThinking: "包含 AI 思考",
@@ -458,6 +534,8 @@ const zhTW = {
     optionSubagentsHint: "子代理是旁鏈的內部發言，預設不計入主線對話。",
     optionRedact: "遮蔽敏感資訊",
     optionRedactHint: "在本機把密鑰、信箱、電話、使用者路徑、IP 換成佔位符；不會送出任何內容。遮蔽是盡力而為，分享前仍請自己看過。",
+    optionRedactHighEntropy: "同時遮蔽高熵字串（實驗性）",
+    optionRedactHighEntropyHint: "額外把長得像亂數的字串（例如未加註記的 token、UUID、git commit hash）也換成佔位符。這條規則沒有已知字首可辨識，必然會連帶誤擋一些無害的亂碼；預設關閉，關閉時摘要仍會誠實列出找到但沒遮的筆數。",
     redacting: "遮蔽中…",
 
     documentKind: "對話紀錄",
@@ -486,6 +564,7 @@ const zhTW = {
     redactionResidual: (blocks: number) =>
       `遮蔽後仍有 ${blocks} 段疑似含密鑰，自動處理沒能完全清乾淨——分享前請務必自己看過這份檔案。`,
     redactionNothingFound: "未偵測到敏感資訊",
+    redactionHighEntropyNote: (count: number) => `另偵測到 ${count} 筆疑似高熵字串（未遮）`,
     sensitiveKind: {
       secret: "密鑰",
       email: "信箱",
@@ -496,6 +575,7 @@ const zhTW = {
       hostname: "主機名稱",
       project_term: "自訂敏感詞",
       content_sensitive: "敏感內容",
+      high_entropy: "高熵字串",
     },
     outlineHeading: "目錄",
     emptyTranscript: "這個 session 沒有可輸出的對話內容。",
@@ -532,7 +612,31 @@ const zhTW = {
     tool_result: "結果",
     subagent: "子代理",
     group: "群組",
+    marker: "系統事件",
   } as Record<SpanType, string>,
+
+  /**
+   * 符號說明的 tooltip 內容。R11 M6：符號旁邊那行字只是名字，說不出「這在讀什麼」；
+   * 骨架分類有 core/view/categoryDefinitions 那張三段式定義表，但 Span 層符號不在裡面，
+   * 所以定義文字在這裡補齊。一句話講完，這是 tooltip 不是說明書。
+   *
+   * R11.2 M6 (B15)：`group` 的定義文字曾用自由文寫死「例如反覆修改或重試」，只提到
+   * 四種降噪分組裡的兩種，而且是另一份與 `card.groupKindTag` 無關的文字——圖例與卡片
+   * 標籤各自維護，才會在 R11 走岔。改成函式：呼叫端 (StructureLegend) 把
+   * `card.groupKindTag` 依 `GROUP_KINDS` 順序組出的清單傳進來，句子本身仍是這個語系
+   * 自己的用字，但列出的種類名稱一律讀自單一權威表，不能再各自為政。
+   */
+  spanKindDefinition: {
+    user_msg: "你對 AI 提出的要求；一段對話從這裡開始。",
+    assistant_msg: "AI 說給你聽的話，不含它私下的推理與實際操作。",
+    thinking: "AI 動手前的盤算。這不是說給你聽的，而是它自己的推理過程。",
+    tool_use: "AI 實際做的動作——讀檔、搜尋、執行指令。",
+    tool_result: "上一個操作回傳的東西。來源沒記錄成功與否時，會標成未知而不是成功。",
+    subagent: "主線分派出去的另一個工作階段，有自己完整的對話。",
+    group: (groupKindLabels: string[]) =>
+      `連續而且同性質的段落被收成一張卡，依情況標成：${groupKindLabels.join("、")}。`,
+    marker: "不是對話內容的事件——脈絡壓縮、API 錯誤、拒答。",
+  } satisfies SpanKindDefinitionTable,
 
   tag: {
     milestone: "里程碑",
@@ -570,7 +674,6 @@ const zhTW = {
   skeletonNode: {
     objective: "目標",
     decision: "決策",
-    milestone: "里程碑",
     outcome: "結果",
   } as Record<SkeletonNodeKind, string>,
 
@@ -580,6 +683,48 @@ const zhTW = {
     retry: "重試",
     "edit-loop": "反覆修改",
   } as Record<SkeletonRibKind, string>,
+
+  /**
+   * 分類的**唯一定義來源** (R9.1 RC-G)。圖例、Session Map 說明與使用者指南都讀這一份。
+   * 每一則三段式：是什麼／DIT 怎麼判／長什麼樣。判準要照實寫，包括它的侷限。
+   */
+  categoryDefinition: {
+    objective: {
+      what: "這段對話想達成什麼。",
+      rule: "取整份 transcript 的第一則使用者訊息，不做語意判斷。",
+      example: "「幫我修好登入頁面重新整理後就登出的問題」。",
+    },
+    decision: {
+      what: "走向被改變的那一刻——選了某條路，於是後面的事都不一樣了。",
+      rule: "只看 AI 的思考層節點，且該節點被降噪規則標為 decision（出現權衡、選擇、改變方向的語句）。一般回覆與工具操作不算，所以一段對話可能一個決策點都沒有。",
+      example: "「與其逐頁修，不如把 session 檢查移到中介層一次處理」。",
+    },
+    outcome: {
+      what: "這段對話最後停在哪裡。",
+      rule: "取最後一個有內容的節點。壓縮標記、API 錯誤這類系統事件不算內容，不會被當成結果。",
+      example: "「三個測試都過了，登出問題不再重現」。",
+    },
+    investigation: {
+      what: "為了搞清楚狀況而去看、去查的動作。",
+      rule: "工具名稱屬於取證類（Read / Grep / Glob / WebFetch / WebSearch / NotebookRead）。",
+      example: "讀 `src/auth/session.ts`、搜尋 `refreshToken` 的所有出現位置。",
+    },
+    error: {
+      what: "出錯了，而且錯誤被記錄下來。",
+      rule: "工具回傳結果帶有錯誤旗標；標籤會同時掛到發動它的那個操作上，所以卡片上看得到。",
+      example: "測試指令以非零狀態結束、檔案不存在。",
+    },
+    retry: {
+      what: "同一件事再試一次。",
+      rule: "在一次錯誤之後，**同一個工具**再度被呼叫。換了工具就不算重試。",
+      example: "`npm test` 失敗後改了程式再跑一次 `npm test`。",
+    },
+    "edit-loop": {
+      what: "對同一個目標來回修改的一段過程。",
+      rule: "連續針對同一個檔案的編輯操作會被收成一個群組；中間夾雜思考或工具結果不會打斷，換檔案或使用者再次發言才打斷。",
+      example: "同一個元件被連續改了四次才通過測試。",
+    },
+  } as CategoryDefinitionTable,
 };
 
 /** 字典型別以 zh-TW 為準；EN 必須提供相同形狀。 */
@@ -590,10 +735,10 @@ const en: Messages = {
     brand: "DIT — Dialogue Is Teacher",
     tagline: "Turn an agent's execution trace into learnable nodes",
     modeGroupLabel: "View mode",
-    loadFile: "Load .jsonl",
-    loadFileTitle: "Claude Code: usually ~/.claude/projects/<project>/*.jsonl; Codex CLI: usually ~/.codex/sessions/rollout-*.jsonl",
-    loadFolder: "Load session folder",
-    loadFolderTitle: "Read the main transcript and subagents/*.jsonl together",
+    loadFile: "Open one conversation",
+    loadFileTitle: "Use this when you already know which file you want. Claude Code: usually ~/.claude/projects/<project>/*.jsonl; Codex CLI: usually ~/.codex/sessions/rollout-*.jsonl. If you are not sure, use “Choose from your conversations” instead.",
+    loadFolder: "Choose from your conversations",
+    loadFolderTitle: "Pick a folder and choose by readable title — no file names needed; for Claude Code, subagent records come along. The path hint above tells you which folder. The browser asks for folder access again on every fresh page load; that is the browser’s security design, not DIT forgetting.",
     reset: "Reset",
     resetTitle: "Return to the built-in sample and defaults",
     showAnnotations: "Show teaching notes",
@@ -617,6 +762,25 @@ const en: Messages = {
     languageLabel: "Language",
     readFileFailed: (name: string) => `Failed to read file: ${name}`,
     loadFailed: (msg: string) => `Load failed: ${msg}`,
+  },
+
+  attribution: {
+    prefix: { skill: "⚡", subagent: "◈", "mcp-tool": "⧉" } as Record<string, string>,
+    kindName: { skill: "skill", subagent: "subagent", "mcp-tool": "MCP tool" } as Record<string, string>,
+    title: (kind: string, name: string, server?: string): string => {
+      const kinds: Record<string, string> = { skill: "skill", subagent: "subagent", "mcp-tool": "MCP tool" };
+      const what = kinds[kind] ?? kind;
+      return server ? `Produced by the ${what} “${name}” on ${server}` : `Produced by the ${what} “${name}”`;
+    },
+    unsupported: "This agent system does not record which skill or subagent produced each step, so there is nothing to show here.",
+  },
+
+  sourcePicker: {
+    label: "Which agent system do you want to read?",
+    hint: "These two are the only ones supported. Choosing one reveals the folder and single-file entries.",
+    change: "Switch system",
+    changeTitle: "Back to the system menu. This clears the current list — that list belongs to the system you had chosen.",
+    rootHintLabel: "usually at",
   },
 
   settings: {
@@ -665,12 +829,16 @@ const en: Messages = {
     startReading: "Start reading",
     continueReading: "Continue reading",
     startBrowsing: "Start step-through browsing",
-    loadFile: "Load .jsonl",
-    loadFolder: "Load session folder",
-    legend: {
-      label: "Symbol guide",
-      spanHeading: "Span layer · what happened in the transcript",
-      skeletonHeading: "Skeleton layer · fishbone node/rib kinds",
+    loadFile: "Open one conversation",
+    loadFileTitle: "Use this when you already know which file you want; otherwise use “Choose from your conversations”.",
+    loadFolder: "Choose from your conversations",
+    loadFolderTitle: "Pick a folder and choose a session by its readable title — no file names needed.",
+    // R11.2 R3: info-tier diagnostics (e.g. a Codex event with no matching call) had no home
+    // once M4 demoted them, so they vanished from the screen entirely. This is their only
+    // surface — collapsed by default, opened on demand, never treated as an error.
+    infoSummary: {
+      toggleShow: (count: number) => `Show ${count} capability note${count === 1 ? "" : "s"}`,
+      toggleHide: "Hide capability notes",
     },
   },
 
@@ -701,7 +869,8 @@ const en: Messages = {
     indexing: (done: number, total: number) => `Reading… ${done}/${total}`,
     indexFailedTitle: "Could not read that folder",
     retry: "Choose again",
-    empty: "No Claude Code sessions were found in this folder.",
+    // R11 WC-1.2: this folder now also lists readable Codex sessions, not only Claude Code.
+    empty: "No recognizable sessions (Claude Code or Codex) were found in this folder.",
     emptyFiltered: "No sessions match the current filter; turn the categories above back on.",
     loading: "Loading…",
     filterLabel: "Filter by kind",
@@ -726,12 +895,18 @@ const en: Messages = {
       "synthetic-prompts-only": "Every prompt is a machine-issued fixed phrase (a guess — this one can be wrong)",
       "has-human-prompt": "Contains messages a person typed",
       "insufficient-signal": "Not enough signal to decide",
-      "not-claude-code": "Not a Claude Code transcript",
+      "not-claude-code": "Not a recognized transcript format",
+      // R11.2 R1: Codex now has its own classification signals. This code only surfaces when the
+      // scanned window contained no usable conversational record at all (e.g. tool calls only) —
+      // a rare exception, not the default outcome for a Codex file anymore.
+      "codex-unclassified": "Source recognized, but nothing in the scanned window gave a usable classification signal",
     },
     titleSources: {
       custom: "Title you set yourself",
       ai: "AI-generated title",
       derived: "Taken from your first message",
+      sidecar: "The session purpose this system records outside the transcript",
+      "sidecar-parent": "Inherited from the parent thread (this one was forked from another conversation)",
       filename: "No title available; showing the filename",
     },
     counts: (human: number, assistant: number, exact: boolean) =>
@@ -791,6 +966,8 @@ const en: Messages = {
     returnReader: "Return to Reader",
     invalidTarget: (id: string) => `The map target is no longer available: ${id}`,
     minimapLabel: "Open the session map; the minimap shows the current position and visible Reader range",
+    minimapDensityCaption: "Landmark density",
+    minimapDensityLabel: "Open the session map. The bars show how many landmarks fall in each stretch — they are not individual nodes. Height is scaled to this session’s own densest stretch, so bar heights are not comparable across sessions. The dot is your current position; the tinted block is the visible Reader range.",
     viewport: "Visible Reader range",
     clusterKind: "Cluster",
   },
@@ -801,8 +978,7 @@ const en: Messages = {
     empty: "No session loaded yet.",
     skeleton: (nodes: number, ribs: number) => `Distilled skeleton: ${nodes} spine · ${ribs} ribs`,
     legendLabel: "Node symbol legend",
-    legendSummary: "Legend",
-    legendNote: "Important nodes are also marked with text labels (objective / decision / milestone / outcome) — see the Session Map.",
+    legendNote: "Important nodes are also marked with text labels (objective / decision / outcome) — see the Session Map.",
   },
 
   main: {
@@ -832,6 +1008,12 @@ const en: Messages = {
 
   card: {
     kindTag: "Group",
+    groupKindTag: {
+      "edit-loop": "Edit loop",
+      retry: "Retry",
+      subagent: "Subagent",
+      verbose: "Aggregated section",
+    },
     paramsTitle: "Params",
     resultTitle: "Result",
     resultErrorTitle: "Result · Error",
@@ -994,7 +1176,7 @@ const en: Messages = {
   },
 
   export: {
-    group: "Export",
+    group: "Export reading-page snapshot",
     json: "Export JSON",
     html: "Export HTML snapshot",
     privacyNote: "The exported file contains the full verbatim content and may include secrets — check before sharing.",
@@ -1006,12 +1188,12 @@ const en: Messages = {
   },
 
   transcript: {
-    group: "Conversation log",
+    group: "Export plain transcript",
     hint: "Keeps your prompts, the AI's thinking, and each turn's reply text; full tool output is left out.",
     markdown: "Export Markdown",
     json: "Export JSON",
     html: "Export HTML page",
-    copy: "Copy Markdown",
+    copy: "Copy as Markdown to clipboard",
     copied: "Copied to clipboard",
     copyFailed: "Clipboard unavailable — export a file instead",
     optionThinking: "Include AI thinking",
@@ -1020,6 +1202,8 @@ const en: Messages = {
     optionSubagentsHint: "Subagent branches are internal side-chain output, left out of the main thread by default.",
     optionRedact: "Redact sensitive information",
     optionRedactHint: "Replaces secrets, emails, phone numbers, user paths and IPs with placeholders locally; nothing is sent anywhere. Redaction is best-effort — still read the file before sharing it.",
+    optionRedactHighEntropy: "Also redact high-entropy strings (experimental)",
+    optionRedactHighEntropyHint: "Additionally replaces strings that look random — unlabeled tokens, UUIDs, git commit hashes — with placeholders. This rule has no known prefix to key off, so it will inevitably catch some harmless-looking gibberish too; off by default. While off, the summary still honestly lists how many it found but did not redact.",
     redacting: "Redacting…",
 
     documentKind: "Conversation log",
@@ -1048,6 +1232,7 @@ const en: Messages = {
     redactionResidual: (blocks: number) =>
       `${blocks} block(s) still look like they contain a secret after redaction — the automatic pass could not fully clean this file. Read it yourself before sharing.`,
     redactionNothingFound: "nothing detected",
+    redactionHighEntropyNote: (count: number) => `${count} additional string(s) look high-entropy but were not redacted`,
     sensitiveKind: {
       secret: "secrets",
       email: "emails",
@@ -1058,6 +1243,7 @@ const en: Messages = {
       hostname: "hostnames",
       project_term: "custom terms",
       content_sensitive: "sensitive content",
+      high_entropy: "high-entropy strings",
     },
     outlineHeading: "Contents",
     emptyTranscript: "This session has no conversation content to export.",
@@ -1094,6 +1280,19 @@ const en: Messages = {
     tool_result: "Result",
     subagent: "Subagent",
     group: "Group",
+    marker: "System event",
+  },
+
+  spanKindDefinition: {
+    user_msg: "What you asked the AI to do; where a stretch of conversation starts.",
+    assistant_msg: "What the AI said to you — not its private reasoning or its actual actions.",
+    thinking: "The AI working things out before acting. Not addressed to you; this is it thinking.",
+    tool_use: "Something the AI actually did — read a file, searched, ran a command.",
+    tool_result: "What that action returned. If the source recorded no outcome, this says unknown rather than success.",
+    subagent: "A separate work session the main thread handed off to, with a full conversation of its own.",
+    group: (groupKindLabels: string[]) =>
+      `Consecutive steps of the same kind folded into one card, labeled as one of: ${groupKindLabels.join(", ")}.`,
+    marker: "An event that is not conversation — context compaction, an API error, a refusal.",
   },
 
   tag: {
@@ -1132,7 +1331,6 @@ const en: Messages = {
   skeletonNode: {
     objective: "Objective",
     decision: "Decision",
-    milestone: "Milestone",
     outcome: "Outcome",
   },
 
@@ -1141,6 +1339,44 @@ const en: Messages = {
     error: "Error",
     retry: "Retry",
     "edit-loop": "Edit loop",
+  },
+
+  categoryDefinition: {
+    objective: {
+      what: "What this conversation set out to do.",
+      rule: "The first user message in the transcript, taken as-is — no semantic judgement.",
+      example: "“Fix the login page logging me out after a refresh.”",
+    },
+    decision: {
+      what: "The moment the direction changed — a path was chosen and everything after it differs.",
+      rule: "Only AI thinking-layer nodes, and only those the denoiser tagged as a decision (weighing options, choosing, changing course). Replies and tool calls never qualify, so a conversation may legitimately have none.",
+      example: "“Rather than patching each page, move the session check into the middleware once.”",
+    },
+    outcome: {
+      what: "Where the conversation ended up.",
+      rule: "The last node that carries content. System events such as compaction markers and API errors are not content and can never be crowned the outcome.",
+      example: "“All three tests pass; the logout no longer reproduces.”",
+    },
+    investigation: {
+      what: "Looking things up to understand the situation.",
+      rule: "The tool is an evidence-gathering one (Read / Grep / Glob / WebFetch / WebSearch / NotebookRead).",
+      example: "Reading `src/auth/session.ts`; searching for every use of `refreshToken`.",
+    },
+    error: {
+      what: "Something failed, and the failure was recorded.",
+      rule: "A tool result carried an error flag. The tag is also raised onto the action that triggered it, so it is visible on the card.",
+      example: "A test command exited non-zero; a file did not exist.",
+    },
+    retry: {
+      what: "The same thing attempted again.",
+      rule: "After an error, the **same tool** is called again. Switching tools does not count as a retry.",
+      example: "`npm test` fails, the code is edited, `npm test` runs again.",
+    },
+    "edit-loop": {
+      what: "A stretch of back-and-forth edits against one target.",
+      rule: "Consecutive edits to the same file are collected into one group. Interleaved thinking or tool results do not break the run; a different file or a new user message does.",
+      example: "The same component edited four times before the tests passed.",
+    },
   },
 };
 

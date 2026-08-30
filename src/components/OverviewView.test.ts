@@ -1,15 +1,26 @@
 import { describe, expect, it } from "vitest";
 import source from "./OverviewView.tsx?raw";
 
+/*
+ * R12 M2 (author ruling 2026-08-26): the symbol guide is GONE from the Overview, and the load
+ * entries take the slot it held. SA-02's order is otherwise unchanged, so this test keeps
+ * guarding it rather than being deleted along with the legend.
+ *
+ * Why the guide went rather than being fixed: the author reports it as the output of a failed
+ * implementation, raised before and never repaired. A wrong explanation is worse than none —
+ * it gets believed. The definitions themselves are not orphaned: `core/view/categoryDefinitions`
+ * is still the single source and `SessionMapDialog` still renders it, so R9.1 RC-G's concern
+ * ("the user cannot tell whether to trust this marker") still has a surface.
+ */
 describe("SA-02 overview information order", () => {
-  it("keeps badge → title → purpose → three steps → CTA → collapsed symbol guide, in that order", () => {
+  it("keeps badge → title → purpose → three steps → CTA → load entries, in that order", () => {
     const markers = [
       "overview-badge",
       'id="overview-title"',
       "overview-purpose",
       "overview-steps",
       "overview-actions",
-      "overview-legend",
+      "overview-load",
     ];
     const indices = markers.map((marker) => {
       const index = source.indexOf(marker);
@@ -21,8 +32,17 @@ describe("SA-02 overview information order", () => {
     }
   });
 
-  it("collapses the symbol guide by default (no `open` attribute on <details>)", () => {
-    expect(source).toMatch(/<details className="overview-legend">/);
-    expect(source).not.toMatch(/<details className="overview-legend"[^>]*\bopen\b/);
+  it("no longer carries the symbol guide, in any form", () => {
+    // Not just the <details>: the whole thing, including the copy keys, so a later edit cannot
+    // half-restore it and leave a guide the author already rejected.
+    expect(source).not.toMatch(/overview-legend/);
+    expect(source).not.toMatch(/t\.overview\.legend/);
+  });
+
+  it("gives the load entries their own row instead of the CTA's flex line", () => {
+    // The reason the guide's slot was worth taking: a level-1 source picker is a paragraph plus
+    // two buttons, and inside .overview-actions its heading sat beside the buttons.
+    expect(source).toMatch(/<div className="overview-load">/);
+    expect(source.indexOf("overview-load")).toBeGreaterThan(source.indexOf("overview-primary-action"));
   });
 });

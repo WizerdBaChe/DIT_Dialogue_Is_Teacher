@@ -14,13 +14,15 @@ import type { TranscriptExport, TranscriptTurn } from "./contracts";
 export interface RedactTranscriptOptions {
   /** 使用者自訂的專案敏感詞（公司名、內部代號…）。 */
   customTerms?: string[];
+  /** 高熵字串規則要不要真的套用遮蔽（M7 / D-006，預設 `false`，獨立於這個函式本身要不要跑）。 */
+  redactHighEntropy?: boolean;
 }
 
 export async function redactTranscript(
   transcript: TranscriptExport,
   options: RedactTranscriptOptions = {},
 ): Promise<TranscriptExport> {
-  const redactor = new TextRedactor({ customTerms: options.customTerms });
+  const redactor = new TextRedactor({ customTerms: options.customTerms, redactHighEntropy: options.redactHighEntropy });
 
   const session = {
     ...transcript.session,
@@ -47,6 +49,7 @@ export async function redactTranscript(
       policyId: exportRedactionPolicy.id,
       summary: report.summary,
       residualSecretBlocks: report.residualSecretBlocks,
+      highEntropyNotRedacted: report.highEntropyNotRedacted,
     },
   };
 }

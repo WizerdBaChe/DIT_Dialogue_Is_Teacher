@@ -21,6 +21,7 @@ export {
   highestTier,
   hasFatal,
   noticeable,
+  informational,
   PipelineFatalError,
   type Diagnostic,
   type DiagnosticCode,

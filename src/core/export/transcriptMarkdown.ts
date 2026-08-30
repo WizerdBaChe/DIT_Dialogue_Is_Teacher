@@ -56,6 +56,9 @@ function renderHeader(transcript: TranscriptExport, labels: TranscriptLabels): s
   if (transcript.redaction) {
     const summary = redactionSummaryText(transcript.redaction.summary, labels.sensitiveKind);
     lines.push(`- ${labels.redactionNote(summary || labels.redactionNothingFound)}`);
+    if (transcript.redaction.highEntropyNotRedacted > 0) {
+      lines.push(`- ${labels.redactionHighEntropyNote(transcript.redaction.highEntropyNotRedacted)}`);
+    }
     if (transcript.redaction.residualSecretBlocks > 0) {
       lines.push("", `> ⚠️ ${labels.redactionResidual(transcript.redaction.residualSecretBlocks)}`);
     }

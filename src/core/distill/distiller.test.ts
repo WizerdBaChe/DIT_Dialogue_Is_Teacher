@@ -185,3 +185,42 @@ describe("distill — rib: edit-loop", () => {
     expect(out.skeleton!.ribs.find((r) => r.spanId === "s1")).toBeUndefined();
   });
 });
+
+/**
+ * R9.1 RC-D：`outcome` 是語意欄位，不是陣列的最後一格。
+ * 作者實測回報：帶壓縮標記的 session 裡，標記卡被地圖標成「結束」。
+ */
+describe("markers never occupy the spine (R9.1 RC-D)", () => {
+  it("puts outcome on the last content span when the document ends with a marker", () => {
+    const result = distill(doc([
+      span({ id: "u1", type: "user_msg", order: 0, summary: "請幫我看這段" }),
+      span({ id: "a1", type: "assistant_msg", order: 1, summary: "看完了，結論如下" }),
+      span({ id: "m1", type: "marker", order: 2, summary: "對話歷史在此處被手動壓縮" }),
+    ]));
+
+    const outcome = result.skeleton!.nodes.find((node) => node.kind === "outcome");
+    expect(outcome?.spanId).toBe("a1");
+  });
+
+  it("keeps a marker out of both the spine and the ribs", () => {
+    const result = distill(doc([
+      span({ id: "u1", type: "user_msg", order: 0, summary: "開始" }),
+      span({ id: "m1", type: "marker", order: 1, summary: "API 錯誤" }),
+      span({ id: "a1", type: "assistant_msg", order: 2, summary: "收尾" }),
+    ]));
+
+    expect(result.skeleton!.nodes.some((node) => node.spanId === "m1")).toBe(false);
+    expect(result.skeleton!.ribs.some((rib) => rib.spanId === "m1")).toBe(false);
+  });
+
+  it("still produces an outcome when a marker is the only trailing span after a single message", () => {
+    const result = distill(doc([
+      span({ id: "u1", type: "user_msg", order: 0, summary: "只有一句" }),
+      span({ id: "m1", type: "marker", order: 1, summary: "壓縮" }),
+    ]));
+
+    // 唯一的內容 span 已經是 objective，就不該再被加冕一次成為 outcome。
+    expect(result.skeleton!.nodes.filter((node) => node.spanId === "u1")).toHaveLength(1);
+    expect(result.skeleton!.nodes.some((node) => node.spanId === "m1")).toBe(false);
+  });
+});
