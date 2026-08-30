@@ -1,3 +1,10 @@
+---
+xi: 1
+what: DIT 施工合約 PSM v1.0——接手實作 AI 的單一施工入口，契約定稿與剩餘工程藍圖 (the PSM v1.0 build contract, the sole hand-off entry point for an implementing AI, finalizing contracts and the remaining engineering roadmap)
+tags: [dit, psm, contract]
+aliases: [施工合約, 施工卡, 施工入口, PSM, build contract]
+date: 2026-07-04
+---
 # DIT — PSM v1.0｜平台特定設計定稿 + 剩餘工程藍圖
 
 > 日期：2026-07-04

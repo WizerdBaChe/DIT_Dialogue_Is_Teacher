@@ -1,3 +1,9 @@
+---
+xi: 1
+what: docs/ 目錄索引——導向核心活文件與各輪次 rounds 子資料夾，本身不重複內容 (the docs/ directory index, routing to core live documents and per-round subfolders without duplicating their content)
+tags: [dit, docs, index]
+aliases: [文件目錄索引, docs入口, 目錄索引, docs index]
+---
 # docs/ 索引
 
 這份索引不是新的文件內容，只是幫忙找路——實際決策紀錄仍在下面列的各檔案裡，這裡不重複、不摘要。

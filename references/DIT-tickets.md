@@ -1,3 +1,9 @@
+---
+xi: 1
+what: Task Ledger 任務帳本——T-NNN 編號的任務狀態、驗收條件與證據 (the task ledger, T-NNN numbered tasks with status, acceptance criteria and evidence)
+tags: [dit, tickets]
+aliases: [任務帳本, 工單清單, task ledger, T-ticket]
+---
 # DIT — Task Ledger
 
 ## Not yet specified

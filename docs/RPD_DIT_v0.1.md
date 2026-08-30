@@ -1,3 +1,10 @@
+---
+xi: 1
+what: DIT 需求與開發文件 RPD v0.2——D-1~D-5 決策鎖定與工程準則，專案第一份文件資產 (the RPD v0.2 requirements doc, decisions D-1 through D-5 locked in, the project's first document asset)
+tags: [dit, rpd, contract]
+aliases: [需求文件, 決策鎖定, RPD, requirements doc]
+date: 2026-06-25
+---
 # DIT — Dialogue Is Teacher｜需求與開發文件 (RPD) v0.1
 
 > *Idea → Requirement → Feasibility → MVP → 技術規格*

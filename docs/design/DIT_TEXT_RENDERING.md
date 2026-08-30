@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 文字渲染設計引導 (Markdown/LaTeX)——尚未施工，先寫下安全與範圍邊界供下一輪參考 (design guidance for Markdown/LaTeX text rendering, not yet built; records the security and scope boundaries for the next round)
+tags: [dit, design]
+aliases: [文字渲染設計, Markdown渲染, text rendering, LaTeX support]
+date: 2026-07-29
+---
 # DIT 文字渲染設計引導（Markdown / LaTeX）
 
 > 狀態：**設計引導，尚未施工**。作者 2026-07-29 裁決 F3——R9.1 不實作，但要先把上下文寫下來，

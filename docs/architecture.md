@@ -1,3 +1,10 @@
+---
+xi: 1
+what: DIT 架構與資料流權威文件 v0.4——對 HEAD 034fa43 的漂移校正，Adapter→Normalizer→Denoiser→Distiller 管線 (the authoritative architecture/data-flow document v0.4, a drift-correction pass documenting the Adapter→Normalizer→Denoiser→Distiller pipeline)
+tags: [dit, architecture, contract]
+aliases: [架構文件, 資料流管線, 架構圖, architecture, pipeline]
+date: 2026-08-28
+---
 # DIT 架構文件 (Architecture) v0.4
 
 > 對應 RPD：[RPD_DIT_v0.1.md](RPD_DIT_v0.1.md)。本文件描述**已落地**的程式結構與資料流。

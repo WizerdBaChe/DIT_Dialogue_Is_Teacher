@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 狀態機盤點——as-built 與目標設計，本該持續維護但多數段落已停滯於 2026-07-28 未複核 (a state-machine inventory, as-built vs target design, meant to be continuously maintained but most sections have stalled since 2026-07-28)
+tags: [dit, design, fsm]
+aliases: [狀態機盤點, 狀態機清單, state machines, FSM inventory]
+date: 2026-07-27
+---
 # DIT 狀態機盤點 — as-built 與目標設計
 
 - **建立**：2026-07-27（R9）

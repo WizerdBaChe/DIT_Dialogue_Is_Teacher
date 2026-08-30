@@ -1,3 +1,9 @@
+---
+xi: 1
+what: Codex 讀取的專案指令指標檔——精簡版，CLAUDE.md 才是權威來源 (the pointer file Codex reads for project instructions — deliberately thin; CLAUDE.md remains authoritative)
+tags: [dit, conventions, pointer]
+aliases: [Codex指令, 指標檔, AGENTS.md, codex pointer]
+---
 # DIT — project instructions (Codex)
 
 **`CLAUDE.md` in this same directory is the single source of truth. Read it now, and treat it

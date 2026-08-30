@@ -1,3 +1,9 @@
+---
+xi: 1
+what: DIT 領域詞彙表 (Domain Glossary)——每個術語一則定義，即時更新從不批次處理 (the DIT domain glossary, one definition per term, updated live and never batched)
+tags: [dit, glossary]
+aliases: [領域詞彙表, 名詞定義, domain glossary, terminology]
+---
 # DIT — Domain Glossary
 <!-- One definition per term. Updated live, never batched. English only. -->
 

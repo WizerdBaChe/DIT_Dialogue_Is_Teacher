@@ -1,3 +1,9 @@
+---
+xi: 1
+what: 使用者導向的產品入口 README——把 AI coding agent 的 .jsonl 執行紀錄轉成可學習的結構化節點視圖 (the user-facing product README turning an AI coding agent's .jsonl transcript into a learnable structured node view)
+tags: [dit, entry, readme]
+aliases: [專案入口, 使用者說明, 對話即教師, README, project overview]
+---
 # 🎓 DIT — Dialogue Is Teacher（對話即教師）
 
 > 把 AI coding agent（如 Claude Code、Codex）的執行軌跡，轉成**可學習**的結構化節點視圖——

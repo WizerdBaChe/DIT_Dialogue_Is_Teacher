@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 2026-08-14 封版的未結項總表——R9/R9.1/R9.2/R10 四輪合併驗收快照，之後不再更新 (a sealed 2026-08-14 snapshot merging outstanding UAT items across R9/R9.1/R9.2/R10, never updated afterward)
+tags: [dit, uat, snapshot]
+aliases: [未結項總表, 封版快照, outstanding items, snapshot]
+date: 2026-08-14
+---
 # DIT — 未結項總表（2026-08-14 封版）
 
 > 這份文件的存在理由：R9、R9.1、R9.2、R10 四輪的未結項散在四個地方，其中兩輪的驗收從來沒跑過，
