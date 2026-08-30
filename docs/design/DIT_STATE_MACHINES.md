@@ -143,7 +143,8 @@ open --> closed   : Escape/backdrop —— 僅限 policy = escapable
 
 ### DSM-4 · Session 索引／瀏覽 ✅（R9 新增；R9.1／R11／R11.2／R12 改寫）
 
-> **重讀 2026-08-28**（`feat/r12-source-first-navigation` HEAD `034fa43`）：本節原本停在 R9 的五行
+> **重讀 2026-08-28**（`034fa43`；當時在 `feat/r12-source-first-navigation` 上，該分支已於
+> 2026-08-30 併入 `main` 並刪除，sha 仍可從 `main` 取得）：本節原本停在 R9 的五行
 > 狀態圖。其後 **R9.1 改掉了一個狀態名**、**R11 補了兩條當時根本不存在的路徑**、**R11.2 加了世代
 > 守衛**、**R12 在前面多接了一整級**——四輪都沒有回填本節。以下取代原圖；原圖的 `no_directory`
 > 已不是這台機器的狀態名，不要再照它施工。
