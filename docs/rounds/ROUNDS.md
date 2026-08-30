@@ -1,3 +1,9 @@
+---
+xi: 1
+what: 輪次 id 配置登記表——round id 的唯一真相來源，R1–R12 為封閉的舊命名空間 (the round-id allocation registry, the single source of truth for round ids; R1–R12 is a closed legacy namespace)
+tags: [dit, rounds, registry]
+aliases: [輪次登記表, 配置登記表, round id registry, ROUNDS]
+---
 # DIT — 輪次 id 配置登記表 (Round ID Allocation Registry)
 
 > **這張表是輪次 id 的唯一真相來源 (single source of truth)，不是 `docs/rounds/` 的目錄清單。**

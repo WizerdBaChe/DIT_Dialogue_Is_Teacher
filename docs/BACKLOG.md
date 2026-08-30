@@ -1,4 +1,11 @@
-﻿# DIT 待辦備忘 (Backlog / Memo)
+---
+xi: 1
+what: 待辦備忘——已決定但尚未實作的長期項目；現在真正欠什麼以 OUTSTANDING/DEFERRED 為準 (a long-standing memo of decided-but-not-yet-built items; what is currently actually owed is tracked in OUTSTANDING/DEFERRED instead)
+tags: [dit, backlog]
+aliases: [待辦備忘, 長期備忘, backlog, todo list]
+date: 2026-06-25
+---
+# DIT 待辦備忘 (Backlog / Memo)
 
 > 已決定但尚未實作的項目。最高優先在上。對應討論：2026-06-25。
 >

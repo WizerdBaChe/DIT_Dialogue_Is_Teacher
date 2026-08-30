@@ -1,3 +1,9 @@
+---
+xi: 1
+what: DIT 專案指令——round id 與 phase number 兩種計數器規則、docs/rounds 凍結條款、關鍵不變量 (DIT's project instructions: the two counters — round id vs phase number — the docs/rounds freeze clause, and key invariants)
+tags: [dit, conventions, rules]
+aliases: [專案慣例, 輪次命名規則, 不變量, CLAUDE.md, project instructions]
+---
 # DIT — project instructions
 
 ops-relaxation: L1

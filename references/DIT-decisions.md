@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 決策與流程日誌——現況 (Now) 段落＋逐條 D-NNN 決策紀錄，含裁決理由與 revisit 條件 (the decision & process journal — a live "Now" status section plus numbered D-NNN decision entries with rationale and revisit triggers)
+tags: [dit, decisions]
+aliases: [決策日誌, 決策紀錄, decision journal, D-register]
+date: 2026-08-27
+---
 # DIT — Decision & Process Journal
 
 ## Now (updated 2026-08-27, R12 built M1–M8 and green · R11.2 and R12 both awaiting acceptance)

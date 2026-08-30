@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 待歸屬工作登記表——已決定要做但還沒輪次收留的工作，DW-NN 編號＋home 欄 (the deferred-work register: decided-but-unhomed items filed as DW-NN entries carrying a home column)
+tags: [dit, backlog, register]
+aliases: [待歸屬工作, 登記表, DW編號, DEFERRED, deferred work register]
+date: 2026-08-26
+---
 # DIT — 待歸屬工作登記表 (Deferred Work Register)
 
 > **這份表回答一個問題：已經決定要做、但還沒有輪次收留的工作，現在歸誰？**

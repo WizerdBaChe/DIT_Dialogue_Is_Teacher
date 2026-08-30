@@ -1,4 +1,11 @@
-﻿# Phase Checkpoint
+---
+xi: 1
+what: Phase Checkpoint 紀錄——每個里程碑一筆，Phase 1 至最新 Phase 19（R12 M8） (the phase checkpoint log, one entry per milestone, from Phase 1 through the latest Phase 19 covering R12 M8)
+tags: [dit, phase-log]
+aliases: [phase紀錄, 階段檢查點, phase log, checkpoint record]
+date: 2026-08-27
+---
+# Phase Checkpoint
 - Project: DIT (Dialogue Is Teacher)
 - Phase: Phase 1 – 構想評估與需求定稿
 - Status: completed
