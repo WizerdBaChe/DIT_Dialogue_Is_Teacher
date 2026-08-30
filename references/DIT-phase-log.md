@@ -1,9 +1,9 @@
 ---
 xi: 1
-what: Phase Checkpoint 紀錄——每個里程碑一筆，Phase 1 至最新 Phase 19（R12 M8） (the phase checkpoint log, one entry per milestone, from Phase 1 through the latest Phase 19 covering R12 M8)
+what: Phase Checkpoint 紀錄——每個里程碑一筆，Phase 1 至最新 Phase 20（R12 併入 main 並收束） (the phase checkpoint log, one entry per milestone, from Phase 1 through the latest Phase 20 covering the R12 merge and close-out)
 tags: [dit, phase-log]
 aliases: [phase紀錄, 階段檢查點, phase log, checkpoint record]
-date: 2026-08-27
+date: 2026-08-30
 ---
 # Phase Checkpoint
 - Project: DIT (Dialogue Is Teacher)
@@ -626,3 +626,33 @@ date: 2026-08-27
 - P-007 recorded: a coverage measurement needs a positive control too — the first grep reported `core/privacy/gateway.ts` as untested because its test imports through a barrel. And "looks covered" is the more dangerous state than "untested": `browseFailure.test.ts` loads `directorySource` through the barrel while mocking exactly the functions that hold its logic.
 - `DW-01`, `DW-03..DW-17` and `DW-22` remain `unassigned`.
 - Author ruling still wanted: should a forked Codex thread show its parent's description as a named rung (17% → 53% coverage)?
+
+---
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 20 – R12 merged into `main` and closed on the author's order; the cross-index card batch made permanent
+- Status: completed
+- Date: 2026-08-30
+- Transcript: session 69dde280 — archived: pending
+
+## Goals
+- Settle whether the 25 cross-index cards committed as `fa872a5` were permanent, and act on the answer.
+- Close R12 the way the author ruled: merge and push without waiting for the UAT card to be filled in.
+
+## Decisions
+- **The author waived the WAIT for R12's acceptance, not the acceptance itself.** 「不要等我的UAT，已經檢驗跟修正很多次了」 removes the gate that was holding the merge; it marks no `UAT_R12_v1.0.md` item as passed. `ROUNDS.md` records the round as merged with that distinction spelled out, and R11.2's items — which R12's card carries — stay unjudged.
+- **Merged with `--no-ff` rather than fast-forwarded.** The branch was 81 ahead / 0 behind, so a fast-forward was available; the merge commit was kept because this repo already records round boundaries that way (`bfc0aee`, `28fafa2`), and a round boundary is worth being able to find later.
+- **The frozen round subtree was left untouched.** The R12 PSM and UAT cards still name `feat/r12-source-first-navigation` as the round's branch. That was true when written; per CLAUDE.md the frozen subtree is closed to annotation, so the register was corrected instead.
+
+## Changes
+- `aa74fd9` merge (81 commits) pushed to `origin/main`; GitHub head confirms `aa74fd9`, and `fa872a5` is now an ancestor of `origin/main`. `feat/r12-source-first-navigation` deleted after `git branch -d` verified it was merged; it had never been pushed, so no remote copy existed and the cards had been living on a single local branch until this merge.
+- Gates run on the branch tip before pushing, on a tree byte-identical to the merged `main`: vitest **679/679 across 69 files**, tsc clean, `check:rounds` OK (20 ids, 18 directories), two-stage build OK.
+- `docs/rounds/ROUNDS.md`: R12 status 「已規格化，未施工」 → merged, carrying the acceptance distinction above.
+- `docs/BACKLOG.md` and `docs/design/DIT_STATE_MACHINES.md`: the two 2026-08-28 provenance notes cited a branch that no longer exists; they now cite `034fa43` directly and record where it went.
+- Cross-index: `xi.py emit` after the merge reports DIT `files=78 cards=25 rejected=0 determinism=PASS`. The permanence ticket is closed in `~/.claude/references/cross-index-phase-log.md` (`d1c8c25`).
+
+## Open Questions / TODO
+- **R12 acceptance was never run, and merging did not run it.** `UAT_R12_v1.0.md` — which also carries R11.2's unfinished items — is still unfilled, and appearance remains unverified across the whole round. This is the one thing a reader of `ROUNDS.md` must not misread as `shipped`.
+- `DW-01`, `DW-03..DW-17` and `DW-22` remain `unassigned`.
+- Author ruling still wanted, carried over from Phase 19: should a forked Codex thread show its parent's description as a named rung (17% → 53% coverage)?
