@@ -14,7 +14,7 @@ export function selectSurfaceWants(state: SessionState): SurfaceWants {
     "fatal-notice": !state.parseNoticeAcknowledged && (state.error !== null || hasFatal(state.diagnostics)),
     "privacy-review": state.privacyReview !== null,
     welcome: state.welcomeOpen && !state.snapshotMode,
-    "session-browser": state.browseState !== "no_directory",
+    "session-browser": state.browseState !== "closed",
     settings: state.settingsOpen,
     "session-map": state.mapOpen,
     "structure-drawer": state.structureDrawerOpen,

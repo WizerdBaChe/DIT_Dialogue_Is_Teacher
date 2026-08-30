@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 全專案深度審查 (對 main 分支)——3 個 blocker + 13 個 should-fix，與同日 branch 報告各自獨立取證 (a whole-project deep health review against main — 3 blockers plus 13 should-fix, independently evidenced from the same-day branch report)
+tags: [dit, review, health]
+aliases: [深度審查, main健檢, deep project health, main branch review]
+date: 2026-08-03
+---
 # DIT main 主分支完整專案深度審查
 
 日期：2026-08-03  

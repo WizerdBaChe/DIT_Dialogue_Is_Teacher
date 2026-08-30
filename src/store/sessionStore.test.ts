@@ -330,6 +330,30 @@ describe("snapshot hydration (EX-03)", () => {
   });
 });
 
+describe("loadPersistedConfig snapshot guard (R11 M2, EX-INV-1/3)", () => {
+  it("issues no fetch when snapshotMode is true", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    useSessionStore.setState({ snapshotMode: true });
+
+    await useSessionStore.getState().loadPersistedConfig();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("still fetches dit.config.json when snapshotMode is false", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 404 }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    useSessionStore.setState({ snapshotMode: false });
+
+    await useSessionStore.getState().loadPersistedConfig();
+
+    expect(fetchSpy).toHaveBeenCalledWith("./dit.config.json", expect.any(Object));
+  });
+});
+
 describe("restore notice lifecycle (LS-INV-6)", () => {
   it("sets restoreNotice.count and cachedAnnotationCount when the cache hits on load", async () => {
     await seedCachedAnnotationForFirstItem(r4MainSession);
@@ -380,6 +404,10 @@ describe("session-scoped state reset discipline (R9 RC-5)", () => {
   /** 生命週期不屬於單一 session 的欄位——設定、能力狀態、UI 偏好、載入進度。 */
   const NOT_SESSION_SCOPED = new Set([
     "doc", "viewItems", "sessionOrigin", "primaryView", "sessionLoadProgress",
+    // R12 M2: `activeSource` is a DISCOVERY choice, not session state. It outlives every load
+    // for the same reason `browseState` and `indexEntries` do — clearing it on each load would
+    // throw the user back to the level-1 menu after every session they open.
+    "activeSource",
     "browseState", "browseDirectoryName", "browseProgress", "indexEntries", "indexDiagnostics", "browseFilter",
     "providerId", "showAnnotations", "structureCollapsed", "welcomeOpen", "minimapEnabled",
     "mapShortcutEnabled", "locale", "ollamaConfig", "ollamaStatus", "cloudConfig", "openCodeStatus",

@@ -1,14 +1,7 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import { useDiagnosticCopy, useT } from "@/i18n";
-import { noticeable } from "@/core/diagnostics/contracts";
-import {
-  SKELETON_NODE_KIND_ORDER,
-  SKELETON_NODE_SYMBOL,
-  SKELETON_RIB_KIND_ORDER,
-  SKELETON_RIB_SYMBOL,
-} from "@/core/view/sessionMap";
-import { SPAN_DOT, SPAN_LEGEND_ORDER } from "./labels";
+import { informational, noticeable } from "@/core/diagnostics/contracts";
 import { SessionLoadActions } from "./SessionLoadActions";
 import { NoticeBanner } from "./NoticeBanner";
 
@@ -25,6 +18,7 @@ export function OverviewView(): ReactNode {
   const startReading = useSessionStore((state) => state.startReading);
   const dismissError = useSessionStore((state) => state.dismissError);
   const copy = useDiagnosticCopy();
+  const [infoOpen, setInfoOpen] = useState(false);
 
   if (!doc) {
     return (
@@ -46,6 +40,7 @@ export function OverviewView(): ReactNode {
     );
   }
 
+  const infoDiagnostics = informational(diagnostics);
   const currentId = playingId ?? activeId;
   const isFirstItem = currentId === (viewItems[0]?.id ?? null);
   // LS-10：快照模式沒有載入入口，CTA 不引用「載入」語意，避免死文案 (SA-INV-3)。
@@ -72,6 +67,26 @@ export function OverviewView(): ReactNode {
             <div>
               <h3>{t.overview.steps.confirmTitle}</h3>
               <p>{t.overview.sessionSummary(doc.session.title, doc.session.source, viewItems.length, noticeable(diagnostics).length)}</p>
+              {infoDiagnostics.length > 0 && (
+                <div className="overview-info-summary">
+                  <button
+                    type="button"
+                    className="btn overview-info-summary-toggle"
+                    aria-expanded={infoOpen}
+                    aria-controls="overview-info-summary-list"
+                    onClick={() => setInfoOpen((current) => !current)}
+                  >
+                    {infoOpen ? t.overview.infoSummary.toggleHide : t.overview.infoSummary.toggleShow(infoDiagnostics.length)}
+                  </button>
+                  {infoOpen && (
+                    <ul id="overview-info-summary-list" className="overview-info-summary-list">
+                      {infoDiagnostics.map((diagnostic, index) => (
+                        <li key={index}>{copy.line(diagnostic)}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           </li>
           <li>
@@ -91,42 +106,20 @@ export function OverviewView(): ReactNode {
         </ol>
 
         <div className="overview-actions">
+          {/* R9.1 RC-E：尺寸由 .overview-actions 這一排統一給，元素本身不再帶尺寸 class。 */}
           <button type="button" className="btn primary overview-primary-action" onClick={startReading}>
             {cta}
           </button>
-          <SessionLoadActions labels="overview" />
         </div>
 
-        <details className="overview-legend">
-          <summary>{t.overview.legend.label}</summary>
-          <div className="overview-legend-body">
-            <section aria-labelledby="overview-legend-span-heading">
-              <h4 id="overview-legend-span-heading">{t.overview.legend.spanHeading}</h4>
-              <ul className="overview-legend-list">
-                {SPAN_LEGEND_ORDER.map((type) => (
-                  <li key={type}>
-                    <span aria-hidden="true">{SPAN_DOT[type]}</span> {t.spanKind[type]}
-                  </li>
-                ))}
-              </ul>
-            </section>
-            <section aria-labelledby="overview-legend-skeleton-heading">
-              <h4 id="overview-legend-skeleton-heading">{t.overview.legend.skeletonHeading}</h4>
-              <ul className="overview-legend-list">
-                {SKELETON_NODE_KIND_ORDER.map((kind) => (
-                  <li key={kind}>
-                    <span aria-hidden="true">{SKELETON_NODE_SYMBOL[kind]}</span> {t.skeletonNode[kind]}
-                  </li>
-                ))}
-                {SKELETON_RIB_KIND_ORDER.map((kind) => (
-                  <li key={kind}>
-                    <span aria-hidden="true">{SKELETON_RIB_SYMBOL[kind]}</span> {t.skeletonRib[kind]}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
-        </details>
+        {/*
+          R12 M2 修正（作者裁決 2026-08-26）：載入入口不再跟 CTA 擠同一排。
+          一級選單是「一段說明 + 兩顆按鈕」的區塊，塞進一排 flex 之後標題會跟按鈕並排，
+          看起來是交錯的。給它自己一整列，說明在上、按鈕在下。
+        */}
+        <div className="overview-load">
+          <SessionLoadActions labels="overview" />
+        </div>
       </section>
     </main>
   );

@@ -5,11 +5,13 @@
  * 索引層的工作是「不載入就先看得懂」——用一次表頭掃描算出標題、規模與分類，讓「載入」
  * 從盲選變成瀏覽後挑選。
  *
- * 本輪只索引 Claude Code (作者裁決 2026-07-27：Codex 的異常狀態太多，暫不納入)。
- * 認不出是 Claude Code 的檔案索引為 `unknown` 並排除於清單之外，**不猜測**。
+ * 原本 (作者裁決 2026-07-27) 只索引 Claude Code——Codex 的異常狀態太多，暫不納入。R11 WC-1.2
+ * 撤銷這條裁決 (作者 UAT C1 回報：資料夾瀏覽器把 Codex session 硬排除是缺陷，不是設計)：
+ * 認得出來源 (Claude Code 或 Codex) 就留著；一行完整的都讀不到就標「無法判定」留著；只有
+ * 「讀得到完整的行、卻沒有任何 adapter 認領」才排除。三者不可互相取代，**不猜測**任何一邊。
  */
 import type { Diagnostic } from "@/core/diagnostics/contracts";
-import type { SourceId } from "@/types/spanTree";
+import type { SourceId, TitleSource } from "@/types/spanTree";
 
 /**
  * 一份 transcript 是什麼。分類是**徽章，不是預設篩選**——只有第 3 條是啟發式，
@@ -26,9 +28,19 @@ export type SessionKindReason =
   | "synthetic-prompts-only"
   | "has-human-prompt"
   | "insufficient-signal"
-  | "not-claude-code";
+  | "not-claude-code"
+  /**
+   * R11 WC-1.2：認得出是 Codex（或任何非 Claude Code 的來源），但 `hasAgentId` /
+   * `allSidechain` / `humanTurnCount` 這些訊號讀的是 Claude Code 的欄位名，對這份檔案
+   * 必定讀不到東西。誠實回答「無法判定」，不要把「讀不到」拿去套 machine/dialogue 的規則。
+   */
+  | "codex-unclassified";
 
-export type TitleSource = "custom" | "ai" | "derived" | "filename";
+/**
+ * R12 M1：定義移到 `@/types/spanTree`，這裡只 re-export。探索側寫 (`core/source/profiles.ts`)
+ * 宣告階梯順序、索引層執行它，兩個同層切片不該互相 import，共用詞彙住在下層。
+ */
+export type { TitleSource };
 
 export interface SessionIndexEntry {
   /** transcript 自報的 sessionId；缺漏時退回檔名 (見 titleSource 的同一原則：不假裝知道)。 */
@@ -41,7 +53,12 @@ export interface SessionIndexEntry {
   projectPath: string | null;
   title: string;
   titleSource: TitleSource;
-  source: SourceId;
+  /**
+   * R11 WC-1.2: the resolved harness, or `null` when the head scan could not read a complete
+   * line at all (`headScanUsable: false`) — no adapter ever saw enough of the file to render a
+   * verdict, so this must stay honestly unresolved rather than defaulting to `"claude-code"`.
+   */
+  source: SourceId | null;
   startedAt: string | null;
   endedAt: string | null;
   sizeBytes: number;

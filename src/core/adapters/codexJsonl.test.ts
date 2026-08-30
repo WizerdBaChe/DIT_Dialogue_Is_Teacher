@@ -41,15 +41,55 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     ]);
   });
 
-  it("maps response_item/reasoning to thinking only when summary has text, skips when empty", () => {
+  it("never emits a span for response_item/reasoning — encrypted_content is unreadable and summary is dropped either way", () => {
+    // R11 M4 WC-4.4(2) / P-001: `response_item/reasoning` used to become a "thinking" span
+    // whenever `summary` was non-empty. Measured on 358 local rollouts: 5,885/5,889 non-empty
+    // summaries are byte-identical to the concatenation of the preceding `event_msg/agent_reasoning`
+    // fragments, and zero are "summary has content but no agent_reasoning backs it" — so emitting
+    // a span here duplicated a card that `agent_reasoning` (see below) already produced.
     const raw = [
       line("response_item", { type: "reasoning", summary: [], encrypted_content: "gAAA..." }),
       line("response_item", { type: "reasoning", summary: [{ type: "summary_text", text: "planning next step" }] }),
     ].join("\n");
 
     const result = codexJsonlAdapter.parse(raw);
-    expect(result.events).toHaveLength(1);
-    expect(result.events[0]).toMatchObject({ kind: "thinking", text: "planning next step" });
+    expect(result.events).toHaveLength(0);
+  });
+
+  it("does not duplicate a reasoning step: agent_reasoning produces the thinking span, the matching response_item/reasoning produces nothing (P-001 real-sample shape)", () => {
+    // Mirrors the real rollout evidence: event_msg/agent_reasoning (plaintext) immediately
+    // followed by response_item/reasoning carrying the same text as `summary` plus opaque
+    // encrypted_content. Before the fix this produced two byte-identical "thinking" cards.
+    const raw = [
+      line("event_msg", { type: "agent_reasoning", text: "**Inspecting scan report output**" }),
+      line("response_item", {
+        type: "reasoning",
+        summary: [{ type: "summary_text", text: "**Inspecting scan report output**" }],
+        encrypted_content: "gAAA...",
+      }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    const thinkingEvents = result.events.filter((e) => e.kind === "thinking");
+    expect(thinkingEvents).toHaveLength(1);
+    expect(thinkingEvents[0].text).toBe("**Inspecting scan report output**");
+  });
+
+  it("does not duplicate the many-to-one case: one response_item/reasoning summarizing several preceding agent_reasoning fragments still yields exactly those agent_reasoning spans", () => {
+    const raw = [
+      line("event_msg", { type: "agent_reasoning", text: "step one" }),
+      line("response_item", { type: "message", role: "user", content: [{ type: "input_text", text: "continue" }] }),
+      line("event_msg", { type: "agent_reasoning", text: "step two" }),
+      line("response_item", {
+        type: "reasoning",
+        summary: [{ type: "summary_text", text: "step one\nstep two" }],
+        encrypted_content: "gAAA...",
+      }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    const thinkingEvents = result.events.filter((e) => e.kind === "thinking");
+    expect(thinkingEvents.map((e) => e.text)).toEqual(["step one", "step two"]);
   });
 
   it("pairs custom_tool_call/custom_tool_call_output into tool_use/tool_result via call_id", () => {
@@ -61,7 +101,9 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toMatchObject({ kind: "tool_use", toolName: "shell_command", toolUseId: "call_1" });
-    expect(result.events[1]).toMatchObject({ kind: "tool_result", toolUseId: "call_1", text: "ok", isError: false });
+    // R10-B: a plain exec output carries no status field in any of the 9,342 measured occurrences,
+    // so the outcome is undefined (unknown), not false (succeeded).
+    expect(result.events[1]).toMatchObject({ kind: "tool_result", toolUseId: "call_1", text: "ok", isError: undefined });
   });
 
   it("parses function_call arguments as JSON, falling back to a raw wrapper when invalid", () => {
@@ -122,7 +164,7 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     expect(result.diagnostics).toEqual([{ tier: "warn", code: "NO_EVENTS" }]);
   });
 
-  it("extracts the real exec tool name from the wrapped JS call, falling back to 'exec' with a warning", () => {
+  it("extracts the real exec tool name from the wrapped JS call, leaving toolName unset (not a raw sentinel) when it can't", () => {
     const raw = [
       line("response_item", { type: "custom_tool_call", call_id: "call_1", name: "exec", input: "tools.update_plan({plan:[]}); text(r)" }),
       line("response_item", { type: "custom_tool_call", call_id: "call_2", name: "exec", input: "not a tools.* call at all" }),
@@ -130,8 +172,57 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
 
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events[0]).toMatchObject({ toolName: "update_plan" });
-    expect(result.events[1]).toMatchObject({ toolName: "exec" });
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED" }));
+    // R11.2 R2: previously fell back to the literal "exec" sentinel, which leaked into the card
+    // title/badge as if it were a real resolved name. Left undefined instead — the normalizer
+    // renders the honest "unnamed operation" placeholder for a missing toolName.
+    expect(result.events[1].toolName).toBeUndefined();
+    // R11 M4 WC-4.1 / P-001: a named capability limit ("the export doesn't let us tell"), not a
+    // parse failure — downgraded from "warn" to "info" so it stops reading as "this session went
+    // wrong" (RCA_R10.1: 93.9% of these have no recoverable candidate in the export at all).
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({ tier: "info", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: 1 }),
+    );
+  });
+
+  it("does not guess between two different tool names found in the same input (R11.2 R2, real-sample finding)", () => {
+    // Real record shape (2026-08-15 local rollout): a `mcp__node_repl__js` call whose JS `input`
+    // built up a large string (writing a doc file) that itself quoted `tools.foo(` as a negative
+    // example — the OLD non-global regex grabbed that first, unrelated occurrence as if it were
+    // the real call, instead of the genuine `tools.apply_patch(...)` invocation at the tail.
+    // Reproduced structurally here without the real document content (privacy).
+    const raw = [
+      line("response_item", {
+        type: "custom_tool_call",
+        call_id: "call_1",
+        name: "exec",
+        input: "const doc = 'never treat the substring tools.foo( as a real call'; const r = await tools.apply_patch(doc);",
+      }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    // Two distinct names appear in the same input — neither is safe to assert as fact, so the
+    // card must say so honestly rather than pick either one.
+    expect(result.events[0].toolName).toBeUndefined();
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({ tier: "info", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: 1 }),
+    );
+  });
+
+  it("still resolves when the same tool name repeats in one input (no false ambiguity)", () => {
+    const raw = [
+      line("response_item", {
+        type: "custom_tool_call",
+        call_id: "call_1",
+        name: "exec",
+        input: "const a = await tools.shell_command({command:'a'}); const b = await tools.shell_command({command:'b'});",
+      }),
+    ].join("\n");
+
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events[0]).toMatchObject({ toolName: "shell_command" });
+    expect(result.diagnostics).not.toContainEqual(
+      expect.objectContaining({ code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED" }),
+    );
   });
 
   it("pairs patch_apply_end back into the originating apply_patch exec call (§B4.4)", () => {
@@ -172,7 +263,12 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toHaveLength(1);
     expect(result.events[0].kind).toBe("unknown");
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "CODEX_EVENT_UNPAIRED", detail: "patch_apply_end" }));
+    // R11 M4 WC-4.1 / P-001: same downgrade as CODEX_EXEC_TOOL_NAME_UNRESOLVED — a named
+    // capability limit, "info" not "warn". The data itself is unaffected: still one standalone
+    // "unknown" event, nothing dropped.
+    expect(result.diagnostics).toContainEqual(
+      expect.objectContaining({ tier: "info", code: "CODEX_EVENT_UNPAIRED", detail: "patch_apply_end" }),
+    );
   });
 
   it("emits self-explanatory lifecycle marker events for turn_aborted/thread_rolled_back/context_compacted", () => {
@@ -202,6 +298,54 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     expect(result.diagnostics.some((d) => d.code === "UNKNOWN_RECORD_TYPE")).toBe(false);
   });
 
+  it("keeps agent_message content instead of dropping it, on the sub-agent side chain (R10-M1/F-2)", () => {
+    // R7.5 recorded agent_message as zero-content noise. Measured on 356 local rollouts: all 544
+    // occurrences carry non-empty input_text. Dropping them is data loss, not denoising.
+    const raw = [
+      line("response_item", {
+        type: "agent_message",
+        author: "/root",
+        recipient: "/root/m32_core_impl",
+        content: [{ type: "input_text", text: "實作 manifest 的載入路徑" }],
+      }),
+      line("response_item", {
+        type: "agent_message",
+        author: "/root/m32_core_impl",
+        recipient: "/root",
+        content: [
+          { type: "input_text", text: "已完成，兩個測試新增" },
+          { type: "encrypted_content", encrypted_content: "AAAA" },
+        ],
+      }),
+    ].join("\n");
+    const result = codexJsonlAdapter.parse(raw);
+
+    expect(result.events).toHaveLength(2);
+    // Parent -> child is the prompt handed to a sub-agent; child -> parent is the report back.
+    expect(result.events[0]).toMatchObject({ kind: "user_text", isSidechain: true });
+    expect(result.events[0].text).toBe("實作 manifest 的載入路徑");
+    expect(result.events[1]).toMatchObject({ kind: "assistant_text", isSidechain: true });
+    // encrypted_content cannot be read back, so it must not leak into the text.
+    expect(result.events[1].text).toBe("已完成，兩個測試新增");
+    expect(result.diagnostics.some((d) => d.code === "CODEX_COORDINATION_SKIPPED")).toBe(false);
+  });
+
+  it("falls back to assistant_text when the agent_message addressing is unusable (R10-M1)", () => {
+    const raw = [
+      line("response_item", { type: "agent_message", content: [{ type: "input_text", text: "無定址" }] }),
+      line("response_item", {
+        type: "agent_message",
+        author: "/root/a",
+        recipient: "/root/b",
+        content: [{ type: "input_text", text: "手足之間" }],
+      }),
+    ].join("\n");
+    const result = codexJsonlAdapter.parse(raw);
+
+    expect(result.events.map((e) => e.kind)).toEqual(["assistant_text", "assistant_text"]);
+    expect(result.events.every((e) => e.isSidechain)).toBe(true);
+  });
+
   it("other unknown types are unaffected by the known-noise drop and still aggregate per-type (R7-INV-7 v2 part (a))", () => {
     const lines = Array.from({ length: 3 }, () => line("some_brand_new_type", {}));
     const result = codexJsonlAdapter.parse(lines.join("\n"));
@@ -218,6 +362,49 @@ describe("codexJsonlAdapter — type whitelist dispatch (B4.2)", () => {
     });
     const result = codexJsonlAdapter.parse(raw);
     expect(result.events).toEqual([expect.objectContaining({ kind: "user_text", text: "Please fix the flaky login test" })]);
+  });
+
+  it("strips external_agent_tool_result/call wrapper markers without touching the content between them (R11 M4 WC-4.4(1))", () => {
+    // Real shape from a local rollout: the whole assistant message IS a wrapped tool-result
+    // dump. Before the fix, `[external_agent_tool_result]` became the card's summary/title
+    // (normalizer takes the first ~90 chars of `text`), eating the real content that follows it.
+    const raw = line("response_item", {
+      type: "message",
+      role: "assistant",
+      content: [{ type: "output_text", text: "[external_agent_tool_result]\n1\t# OPS notes\n2\t\nreal content here\n[/external_agent_tool_result]" }],
+    });
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].text).not.toContain("[external_agent_tool_result]");
+    expect(result.events[0].text).not.toContain("[/external_agent_tool_result]");
+    expect(result.events[0].text).toContain("# OPS notes");
+    expect(result.events[0].text).toContain("real content here");
+  });
+
+  it("strips the tool-call variant (with its `: <ToolName>` suffix and the error-result variant), and handles narration text preceding the wrapper", () => {
+    const raw = line("response_item", {
+      type: "message",
+      role: "assistant",
+      content: [
+        {
+          type: "output_text",
+          text: "Starting with the integration layer:\n\n[external_agent_tool_call: Write]\nfile: core_utils.py\n[/external_agent_tool_call]",
+        },
+      ],
+    });
+    const result = codexJsonlAdapter.parse(raw);
+    expect(result.events[0].text).not.toContain("external_agent_tool_call");
+    expect(result.events[0].text).toContain("Starting with the integration layer");
+    expect(result.events[0].text).toContain("file: core_utils.py");
+
+    const errorRaw = line("response_item", {
+      type: "message",
+      role: "assistant",
+      content: [{ type: "output_text", text: "[external_agent_tool_result: error]\nFile does not exist.\n[/external_agent_tool_result]" }],
+    });
+    const errorResult = codexJsonlAdapter.parse(errorRaw);
+    expect(errorResult.events[0].text).not.toContain("external_agent_tool_result");
+    expect(errorResult.events[0].text).toContain("File does not exist.");
   });
 
   it("drops a user message that is entirely injected preamble — no user_text card at all (R7.5 W1/RC-1)", () => {

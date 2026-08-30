@@ -150,7 +150,8 @@ body {
 @container dit-app (min-width: 1280px) {
   .header { --chrome-scale: 1.5; }
 }
-.settings-toggle-btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+/* display/align/white-space 現由 .btn 契約提供 (R9.1 RC-E)；這裡只留這顆按鈕真正特有的間距。 */
+.settings-toggle-btn { gap: 5px; }
 .settings-toggle-btn.active { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 
 /* 設定對話框 (2026-07-23 設計改版，見 docs/rounds/r7-multi-source-and-layout/DESIGN_R7_SETTINGS_DIALOG_v0.1.md)。
@@ -215,6 +216,19 @@ body {
   padding-left: 0; padding-right: 0; border-bottom: 0; background: transparent;
 }
 .session-load-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+/* R12 M2 一級選單。二級在選完之前不 render，所以這裡沒有 disabled 狀態要畫。 */
+.source-picker { flex-direction: column; align-items: flex-start; gap: 6px; }
+.source-picker-choices { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.source-picker-label { font-size: calc(13px * var(--ui-scale)); opacity: 0.85; margin-right: 2px; }
+.source-picker-hint { font-size: calc(12px * var(--ui-scale)); opacity: 0.7; margin: 0; }
+.source-choice { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.25; }
+.source-choice-root, .source-picker-root { font-size: calc(11px * var(--ui-scale)); opacity: 0.75; }
+.source-choice-root code, .source-picker-root code { font-size: inherit; }
+.source-back { display: inline-flex; align-items: baseline; gap: 6px; }
+.source-back::before { content: "‹"; opacity: 0.7; }
+.source-back-name { font-weight: 600; }
+.source-back-action { font-size: calc(11px * var(--ui-scale)); opacity: 0.7; }
 .settings-actions > label:not(.btn):not(.toggle) { color: var(--text-dark); font-size: var(--fs-xs); font-weight: 600; }
 /* 選項說明：常駐顯示一行小字，只掛在非自明的控制項下面 (批次講解模式／快取清除／M 快捷鍵)。 */
 .option-hint { margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-xs); line-height: 1.5; }
@@ -295,6 +309,9 @@ body {
 .session-browser-row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 只有檔名可用時視覺上要看得出來是降級——那正是使用者原本在抱怨的狀態。 */
 .session-browser-row-title.title-filename { font-family: var(--font-mono, monospace); font-weight: 400; color: var(--text-dark); }
+/* R12 M5：sidecar 是 Codex 階梯的**最上**階，不是降級——它是那個 session 真正的目的敘述。
+   所以刻意不做成 `title-filename` 那種「這不是標題」的樣子；差異靠 tooltip 說明即可。 */
+.session-browser-row-title.title-sidecar { font-style: normal; }
 .session-browser-row-meta { font-size: var(--fs-xs); color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-browser-row-facts {
   flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
@@ -341,11 +358,24 @@ select {
 }
 select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 
+/* R9.1 RC-E：`.btn` 過去只是一組外觀宣告（背景、框線、padding、字級），沒有說任何一句
+   關於「一顆按鈕多大」的話。它同時貼在 <button>（inline-block）與 <label>（inline）上，
+   再加上呼叫端各自補的 min-height，於是同一排三顆按鈕有三種高度——那是這個設計的必然結果，
+   不是哪裡漏寫。這裡把它補成一份**尺寸契約**：
+     · display/align：不論底層是什麼元素，盒模型一致；
+     · min-height 走 --btn-min-h 變數：需要更大或更小的呼叫端改變數，不再各自寫 padding；
+     · line-height/box-sizing：讓 min-height 是可預測的。 */
 .btn {
+  --btn-min-h: 30px;
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  min-height: var(--btn-min-h); line-height: 1; white-space: nowrap;
   background: transparent; color: var(--text-main);
   border: 1px solid var(--rule-strong); border-radius: 2px;
   padding: 5px 12px; font-size: calc(12.5px * var(--ui-scale)); cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
+/* 尺寸變體 = 覆寫變數，不是再寫一組 padding。新的尺寸需求應該加在這裡，不要加在呼叫端。 */
+.btn.lg { --btn-min-h: 40px; padding-inline: 20px; }
+.btn.sm { --btn-min-h: 22px; padding: 3px 12px; font-size: calc(11px * var(--ui-scale)); }
 .btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .btn.primary { border-color: var(--accent-primary); color: var(--accent-primary); background: var(--accent-tint); }
 .btn.primary:hover { background: var(--accent-primary); color: #fff; }
@@ -472,7 +502,8 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .ap-label { font-weight: 600; color: var(--text-dark); white-space: nowrap; text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(11.5px * var(--ui-scale)); }
 .ap-label.done { color: var(--success); }
 .ap-count { color: var(--text-muted); white-space: nowrap; font-family: var(--font-mono); }
-.ap-stop, .ap-close { margin-left: auto; font-size: calc(11px * var(--ui-scale)); padding: 3px 12px; }
+/* 進度條裡的緊湊按鈕：改用 .btn 的 sm 變體語彙，只留這裡真正特有的靠右對齊。 */
+.ap-stop, .ap-close { --btn-min-h: 22px; margin-left: auto; font-size: calc(11px * var(--ui-scale)); padding: 3px 12px; }
 .ap-bar { height: 3px; background: var(--rule); overflow: hidden; }
 .ap-fill { height: 100%; background: var(--accent-secondary); transition: width 0.3s ease; }
 .ap-fill.done { background: var(--success); }
@@ -489,12 +520,27 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 }
 .structure-rail:hover { background: var(--accent-tint); }
 .structure-rail:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
-.structure-drawer-trigger { display: none; min-width: 0; align-items: center; gap: 6px; }
+/* display:none 是可見性規則，不是尺寸規則，必須留著；窄版斷點會改回 inline-flex。 */
+.structure-drawer-trigger { display: none; min-width: 0; gap: 6px; }
 .structure-drawer {
   width: min(88vw, 320px); max-width: none; height: 100dvh; max-height: none; margin: 0 auto 0 0; padding: 0;
   border: 0; border-right: 1px solid var(--rule-strong); background: var(--bg-main); color: var(--text-main);
 }
 .structure-drawer[open] { display: flex; }
+/*
+ * DW-25：`<dialog>` 的 UA 預設是 `overflow: auto`，於是抽屜成為一個裁切容器，圖例 tooltip
+ * 的泡泡在最右欄被切掉約 95px（實測 560×560，泡泡右緣 402 對上抽屜右緣約 307）。
+ *
+ * R11.2 R5 修過同一個症狀，但它把上限訂成 `calc(100vw - 40px)`——**參照物選錯了**。在靜態
+ * 側欄裡視窗確實是裁切邊界（泡泡本來就可以蓋到閱讀區上，那是 R5 刻意允許的），但在抽屜模式
+ * 裡裁切邊界是抽屜自己的 `min(88vw, 320px)`，比視窗窄得多。R5 的算式因此以為還有 520px 可用，
+ * 實際只有約 320px。
+ *
+ * 這個抽屜**自己從來不捲動**（實測 `scrollHeight === clientHeight`，捲動由內層
+ * `.tree-scroll` 負責），所以 UA 那個 `auto` 沒有在做任何有用的事，只是在裁切。改成 `visible`
+ * 之後裁切邊界回到視窗，R5 的 `100vw` 算式也就重新成立——一行同時修好兩半。
+ */
+.structure-drawer { overflow: visible; }
 .structure-drawer::backdrop { background: rgb(28 26 23 / 0.42); }
 .structure-drawer .workspace-structure { display: flex; width: 100%; height: 100%; border-right: 0; }
 .structure-drawer[data-modal-fallback="true"] { position: fixed; inset: 0 auto 0 0; z-index: 100; }
@@ -515,6 +561,13 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   position: absolute; left: 7px; bottom: 5px; padding: 2px 5px; background: var(--accent-primary); color: #fff;
   font-family: var(--font-sans); font-size: calc(9px * var(--ui-scale));
 }
+/* R9.1 RC-G：長條是密度不是節點。把編碼寫在圖上，否則它跟 Session Map 的節點長得一樣。 */
+.reader-minimap::before {
+  content: attr(data-caption);
+  position: absolute; right: 7px; top: 4px;
+  font-family: var(--font-sans); font-size: calc(9px * var(--ui-scale)); color: var(--text-muted);
+  letter-spacing: 0.04em; pointer-events: none;
+}
 .session-map-dialog {
   width: min(88vw, 1440px); max-width: none; height: min(84dvh, 900px); max-height: none; padding: 0;
   inset: 0; margin: auto; border: 1px solid var(--rule-strong); background: var(--bg-map); color: var(--text-main);
@@ -524,7 +577,11 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .session-map-dialog[data-modal-fallback="true"] { position: fixed; inset: 8dvh 6vw; z-index: 100; }
 .session-map-shell {
   width: 100%; min-width: 0; height: 100%; display: grid;
-  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden;
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+  /* R11.2 R5: 同 .sidebar 那顆 — overflow:hidden 會把 .map-legend 的 tooltip 泡泡在
+     shell 邊界截斷（同一種 clipping ancestor 機制，不是 stacking 問題）。圖區 / 名單列
+     各自有自己的 overflow:auto，shell 這層不需要再裁一次。 */
+  overflow: visible;
 }
 .session-map-header {
   width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(160px, 1fr) auto auto; align-items: center; gap: 18px;
@@ -550,6 +607,14 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   grid-column: 1 / -1; min-width: 0; margin: -5px 0 0; color: var(--text-muted); font-family: var(--font-sans);
   line-height: 1.5; overflow-wrap: break-word;
 }
+.map-legend-label { margin-right: 4px; }
+/* R11 M6: 逐一符號的 hover/focus tooltip 容器；display:inline-block 給 tooltip 一個穩定的定位基準。 */
+.map-legend-entry { position: relative; display: inline-block; }
+.map-legend-item {
+  display: inline-flex; align-items: baseline; gap: 3px; background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; cursor: help;
+}
+.map-legend-item:hover, .map-legend-item:focus-visible { color: var(--text-main); }
 .session-map-content { width: 100%; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 28%); }
 .map-graphic-scroll { position: relative; min-width: 0; overflow: auto; padding: 24px; border-right: 1px solid var(--rule); background: var(--bg-map); }
 .map-graphic-stage {
@@ -639,20 +704,37 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .overview-step-number { color: var(--accent-secondary); font-family: var(--font-mono); font-size: calc(14px * var(--ui-scale)); padding-top: 2px; }
 .overview-steps h3 { margin: 0 0 5px; font-size: calc(17px * var(--ui-scale)); font-weight: 600; }
 .overview-steps p { margin: 0; color: var(--text-muted); font-size: calc(13px * var(--ui-scale)); line-height: 1.65; overflow-wrap: break-word; }
+/* R9.1 RC-E：**一排動作共用一個尺寸**，層級靠顏色與粗細表達，不靠高度。
+   尺寸掛在「排」上而不是掛在每一顆按鈕上——這排裡有主要 CTA、有主按鈕、也有 <label>，
+   逐顆指定就是回到那個造成 40/30/30 的老路。同一個 .btn 在 header 與對話框仍是 30px。 */
 .overview-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; }
-.overview-primary-action { min-height: 40px; padding-inline: 20px; }
+.overview-actions .btn { --btn-min-h: 40px; padding-inline: 20px; }
 .overview-empty { gap: 18px; }
-.overview-legend { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--text-muted); }
-.overview-legend summary { cursor: pointer; font-size: calc(13px * var(--ui-scale)); font-weight: 600; color: var(--text-dark); }
-.overview-legend-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-top: 14px; }
-.overview-legend-body h4 { margin: 0 0 8px; font-size: calc(12px * var(--ui-scale)); font-weight: 700; color: var(--text-dark); }
-.overview-legend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: calc(12px * var(--ui-scale)); }
-.overview-legend-list li { display: flex; align-items: baseline; gap: 8px; overflow-wrap: break-word; }
-.overview-legend-list span { font-family: var(--font-mono); font-size: calc(15px * var(--ui-scale)); color: var(--text-muted); min-width: 1.2em; }
+/* R12 M2（作者裁決 2026-08-26）：載入入口自己一整列，不跟 CTA 擠 .overview-actions 那排。
+   一級選單是「說明 + 兩顆按鈕」的區塊，塞進單排 flex 會讓標題跟按鈕並排成交錯的一列。 */
+.overview-load { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule); }
+
+/* R11.2 R3：info 分級診斷的唯一介面——預設收起、不打斷閱讀，讀者按了才展開。 */
+.overview-info-summary { margin-top: 6px; }
+.overview-info-summary-toggle { --btn-min-h: 30px; padding-inline: 12px; font-size: var(--fs-xs); color: var(--text-muted); }
+.overview-info-summary-list {
+  margin: 8px 0 0; padding: 10px 12px; max-height: 160px; overflow-y: auto;
+  background: var(--bg-card); border: 1px solid var(--rule); border-radius: 4px;
+  font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.6;
+  display: flex; flex-direction: column; gap: 4px;
+}
 
 /* ---- Session file loading ---- */
 .session-load-status {
-  flex-shrink: 0; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(120px, 320px) auto;
+  /* R9.1 RC-F：這條列有兩個宿主（header 與設定對話框），但欄寬假設原本只綁在第一個上：
+     文案 minmax(220px,1fr)、進度條 minmax(120px,320px) 都帶硬下限，只有按鈕欄是 auto、
+     沒有任何保護，於是在對話框那個窄宿主裡最先被擠爆，文字換行。
+
+     修法不是加斷點，是**改讓誰讓步**：真正可以壓縮的是進度條（少 40px 仍看得出在動），
+     文案其次，按鈕永不壓縮——按鈕文字斷行等於讀不懂。三欄都改成內在可壓縮之後，
+     這條列不再需要知道自己被放在多寬的宿主裡，viewport 斷點只剩極窄版的換列處理。
+     （`.btn` 的 white-space:nowrap 是這件事的另一半保障，見尺寸契約。） */
+  flex-shrink: 0; display: grid; grid-template-columns: minmax(0, 2fr) minmax(40px, 1fr) auto;
   align-items: center; gap: 16px; padding: 9px 28px; border-bottom: 1px solid var(--rule);
   background: var(--bg-card); font-family: var(--font-sans); font-size: calc(12px * var(--ui-scale));
 }
@@ -673,7 +755,11 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 /* ---- Sidebar ---- */
 .sidebar {
   width: clamp(220px, 20cqw, 320px); min-height: 0; flex-shrink: 0; background: var(--bg-structure);
-  border-right: 1px solid var(--rule); padding: 22px 20px; overflow: hidden;
+  border-right: 1px solid var(--rule); padding: 22px 20px;
+  /* R11.2 R5: 原本這裡是 overflow:hidden，會把圖例 tooltip 泡泡在自己的右邊界截斷——
+     泡泡是 sidebar 的後代，z-index 再高也贏不了 clipping ancestor。垂直捲動已經交給
+     子層 .tree-scroll 自己的 overflow-y:auto 處理，本層不需要再夾一層裁切。 */
+  overflow: visible;
   display: flex; flex-direction: column;
 }
 .sidebar-static { flex-shrink: 0; }
@@ -704,15 +790,108 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   display: block; margin: 10px 0 14px; padding: 0 0 12px; border-bottom: 1px solid var(--rule);
   color: var(--text-muted); font-family: var(--font-sans); font-size: calc(11px * var(--ui-scale)); line-height: 1.35;
 }
-.tree-legend summary { cursor: pointer; font-weight: 700; letter-spacing: 0.04em; list-style: revert; }
 .tree-legend-title { display: block; margin-top: 10px; margin-bottom: 7px; color: var(--text-muted); font-weight: 700; letter-spacing: 0.04em; }
 .tree-legend-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px 5px; margin-top: 10px; }
 .tree-legend-item {
   min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
   color: var(--text-muted); text-align: center; overflow-wrap: break-word;
+  position: relative; background: none; border: 0; padding: 0; margin: 0; font: inherit; cursor: help;
 }
+.tree-legend-item:hover, .tree-legend-item:focus-visible { color: var(--text-dark); }
 .tree-legend-symbol { color: var(--text-muted); font-family: var(--font-mono); font-size: calc(20px * var(--ui-scale)); line-height: 1; }
 .tree-legend-note { margin: 8px 0 0; font-size: calc(10.5px * var(--ui-scale)); line-height: 1.4; color: var(--text-muted); }
+
+/*
+ * R11 M6: 共用 tooltip 泡泡，供 tree-legend（Sidebar 結構圖例）與 map-legend（Session 地圖圖例）
+ * 兩處使用。用 opacity + pointer-events 切換可見度，不用 display:none / visibility:hidden——
+ * 後兩者會把內容從 accessibility tree 移除，aria-describedby 就讀不到；opacity:0 不會，
+ * 螢幕報讀器在觸發元素拿到 focus 時仍讀得到說明，不必等滑鼠真的懸停。
+ */
+.legend-tooltip-bubble {
+  position: absolute; z-index: 30; left: 50%; top: calc(100% + 6px);
+  transform: translate(-50%, -4px);
+  /* R11.2 R5: 窄視窗 / drawer 裡 260px 可能比可視寬度還寬，改用 viewport 相對上限，
+     兩側各留 20px 邊界，讓泡泡在極窄裝置上仍完整落在畫面內，而不是被視窗邊緣切掉。 */
+  width: max-content; max-width: min(260px, calc(100vw - 40px));
+  padding: 8px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: calc(11px * var(--ui-scale));
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(28, 26, 23, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+/* 泡泡內的每一行。用 span + display:block 而非 <p>：觸發元素是 <button>（只吃 phrasing
+ * content），地圖那顆泡泡又整個住在 <p class="map-legend"> 裡，兩處放 <p> 都是無效巢狀。 */
+.legend-tooltip-line { display: block; margin: 0 0 4px; }
+.legend-tooltip-line:last-child { margin-bottom: 0; }
+/* tree-legend 的泡泡是按鈕的「後代」，map-legend 的是按鈕的「兄弟」(泡泡不能放進 <button>
+ * 又要待在同一個定位基準裡)，所以兩組結構各需自己的組合器，不能共用一條後代選擇器。 */
+.tree-legend-item:hover .legend-tooltip-bubble,
+.tree-legend-item:focus .legend-tooltip-bubble,
+.tree-legend-item:focus-visible .legend-tooltip-bubble,
+.map-legend-item:hover + .legend-tooltip-bubble,
+.map-legend-item:focus + .legend-tooltip-bubble,
+.map-legend-item:focus-visible + .legend-tooltip-bubble,
+.map-legend-entry:hover .legend-tooltip-bubble {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .legend-tooltip-bubble { transition: none; }
+}
+
+/*
+ * DW-25，靜態側欄：泡泡改為靠左對齊，不再對準符號置中。
+ *
+ * **這是量測推翻自己前一次判斷的結果。** 2026-08-27 第一次驗 B5 時我只測了最右邊的符號——
+ * 因為 R11.2 卡片寫的已知風險是「最右緣與最下緣」——於是回報「通過」。把八顆全部量過之後，
+ * 真正壞掉的是**左邊**：900 寬時第 1、2 欄的泡泡 x 座標是 -78 / -43 / -89 / -43，被
+ * `workspace-layout` 與 `app-shell` 從左側裁掉。1280 也一樣（第 1 欄中心距左緣約 45px，
+ * 泡泡半寬 130px）。**卡片的風險假設指向右邊，真正的缺陷一直在左邊**，所以 R5 沒修到它，
+ * 我第一次也沒測到它。
+ *
+ * 靠左對齊之後泡泡往右延伸到閱讀區上——那是 R5 已經允許的行為，右邊有的是空間；左邊沒有，
+ * 側欄本來就貼著視窗左緣。置中會同時要求兩邊都有半個泡泡的餘裕，而左邊永遠不會有。
+ */
+.tree-legend-item .legend-tooltip-bubble { left: 0; transform: translateY(-4px); }
+.tree-legend-item:hover .legend-tooltip-bubble,
+.tree-legend-item:focus .legend-tooltip-bubble,
+.tree-legend-item:focus-visible .legend-tooltip-bubble { transform: translateY(0); }
+
+/*
+ * DW-25，第二半：抽屜模式下泡泡改成貼齊整個圖例格線，不再對準單一符號置中。
+ *
+ * 這不是偏好，是幾何上的必然。抽屜寬 `min(88vw, 320px)`，格線是 4 欄；一個可讀的泡泡實測
+ * 260px 寬，超過兩欄。對第 1 欄置中時，泡泡中心距左緣只有約 35px，要不溢出就得把寬度壓到
+ * 70px 以下——那已經不是說明文字了。**只靠邊欄翻轉方向也救不了中間兩欄**：360×640 實測
+ * 八顆泡泡有五顆跑出視窗（含第 2、3 欄）。所以在這個寬度區間，「對準符號置中」本身無解。
+ *
+ * 只改抽屜，不動靜態側欄：側欄那邊置中是好的，而且泡泡可以蓋到閱讀區上（R5 刻意允許），
+ * 1280 與 900 兩個寬度都量過完整可見。抽屜沒有那個餘裕，它就是最外層的可用寬度。
+ *
+ * 關聯性由 hover 高亮維持（`.tree-legend-item:hover` 會改字色），泡泡本身也緊貼格線下方。
+ */
+.structure-drawer .tree-legend-grid { position: relative; }
+.structure-drawer .tree-legend-item { position: static; }
+.structure-drawer .legend-tooltip-bubble {
+  left: 0; right: 0; top: calc(100% + 6px);
+  width: auto; max-width: none;
+  transform: translateY(-4px);
+}
+.structure-drawer .tree-legend-item:hover .legend-tooltip-bubble,
+.structure-drawer .tree-legend-item:focus .legend-tooltip-bubble,
+.structure-drawer .tree-legend-item:focus-visible .legend-tooltip-bubble {
+  transform: translateY(0);
+}
 .tree-item {
   font-family: var(--font-mono); font-size: calc(12px * var(--ui-scale)); padding: 5px 8px; cursor: pointer;
   display: flex; align-items: center; gap: 8px; color: var(--text-muted); transition: color 0.15s, background 0.15s;
@@ -832,6 +1011,11 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
   white-space: nowrap; text-transform: uppercase; letter-spacing: 0.07em;
 }
 .badge.tool { border-color: var(--rule-strong); color: var(--text-main); font-family: var(--font-mono); text-transform: none; letter-spacing: 0; }
+/* R12 M4 來歷徽章。刻意比工具徽章暗一階：它回答「誰做的」，工具名回答「做了什麼」，
+   後者才是讀者掃視卡片時要找的東西，來歷是補充而不是主角。三種來歷共用同一個視覺，
+   靠前綴符號區分——一種來歷一個顏色會讓徽章列變成需要圖例才能讀的東西 (SA-01)。 */
+.badge.attribution { border-color: var(--rule); color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+.badge.attribution::before { content: ""; }
 .badge.milestone { border-color: var(--accent-primary); color: var(--accent-primary); }
 .badge.decision { border-color: var(--decision); color: var(--decision); }
 .badge.retry, .badge.error { border-color: var(--danger); color: var(--danger); }

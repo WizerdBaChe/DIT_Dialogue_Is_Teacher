@@ -1,4 +1,11 @@
-﻿# Phase Checkpoint
+---
+xi: 1
+what: Phase Checkpoint 紀錄——每個里程碑一筆，Phase 1 至最新 Phase 19（R12 M8） (the phase checkpoint log, one entry per milestone, from Phase 1 through the latest Phase 19 covering R12 M8)
+tags: [dit, phase-log]
+aliases: [phase紀錄, 階段檢查點, phase log, checkpoint record]
+date: 2026-08-27
+---
+# Phase Checkpoint
 - Project: DIT (Dialogue Is Teacher)
 - Phase: Phase 1 – 構想評估與需求定稿
 - Status: completed
@@ -318,3 +325,304 @@
 - Confirm whether `response_item/agent_message` is genuinely always empty in real samples.
 - Confirm whether `function_call_output.output` carries a `success` field usable to restore `isError`, which is one direct cause of the missing error tags on Codex sources.
 - R10-C needs three UX rulings before any code: search scope layers, behavior when a hit lands inside collapsed content, and whether LLM annotations are searchable given they are generated asynchronously.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 12 - R10 Source Awareness implementation (M1 agent_message, R10-B source profiles)
+- Status: built and green on every automated gate; ZERO manual acceptance run - the round is delivered, not accepted
+- Date: 2026-08-14
+- Detail: docs/rounds/r10-source-awareness/SCAN_R10_LOCAL_ROLLOUT_RESULTS.md, docs/OUTSTANDING_2026-08-14.md
+
+## Goals
+- Clear the Step 1 decision gate with measured local data instead of inference, then build what the data justified.
+
+## Decisions
+- The scan cleared the agreed ordering: 356/356 rollouts are LEGACY, zero Paginated signals across nine CLI versions, weighted tolerant-capture ratio 0.025%. But three research premises came back false and two of them invalidated planned work.
+- User ruling 2026-08-14: F-2 (agent_message data loss) jumps the queue; investigate before speccing R10-B; Paginated becomes detect-and-degrade rather than map-the-fields; the reduced cross-source acceptance is accepted.
+- R10-A's first priority is not merely low value, it is unbuildable: with no Paginated sample there are no real key paths, and the round forbids inventing field names.
+- `response_item/agent_message` is never empty (544/544, median 84 chars, max 16,215). Dropping it was data loss. Now emitted on the sub-agent side chain with direction read from author/recipient thread paths.
+- `function_call_output.output` has no `success` field anywhere (0 of 4,142), so R10-B's stated route to error parity does not exist. What survives: patch_apply_end.success (2,186/2,186) and mcp_tool_call_end.result's Ok/Err tag (712, all Ok, so the failure shape is unproven).
+- Plain exec records no outcome at all (0 of 9,342). `isError` is therefore left undefined and `ResultInfo.outcomeUnknown` carries the distinction through normalization, rather than coercing "not recorded" into "succeeded".
+- The injection-tag split was dropped on measurement: Codex messages contain all eight tags including 145 recommended_plugins and 57 system-reminder, so splitting would stop stripping preambles that are demonstrably present.
+- `shell_command` (6,037 occurrences, the corpus's most common call) is named as unclassifiable rather than guessed into a bucket. Whether to decide it from the command string is an open ruling.
+- Round ids and phase numbers were renumbered this week after a cloud session opened a second round called R9; the contract preventing a repeat is in CLAUDE.md.
+
+## Changes
+- src/core/adapters/codexJsonl.ts: agent_message kept and directed; patch_apply_end.success and mcp Ok/Err now set isError; exec leaves it undefined.
+- src/core/source/profiles.ts: the source profile table, with Codex tool names measured over 356 rollouts.
+- src/core/denoise/denoiser.ts, src/core/distill/distiller.ts: read the profile instead of hardcoded Claude Code names. filePathMapKeys models Codex reporting edits as a map keyed by path.
+- src/types/spanTree.ts, src/core/normalize/normalizer.ts: optional outcomeUnknown; SCHEMA_VERSION unmoved.
+- src/core/source/crossSourceParity.test.ts: the acceptance test, which fails on the previous commit.
+- docs/OUTSTANDING_2026-08-14.md: 24 acceptance items across four rounds merged into one runnable sheet, plus what is unbuilt, unruled, and unverifiable.
+
+## Open Questions / TODO
+- Nothing in this round has been seen by a human in a browser. docs/OUTSTANDING_2026-08-14.md Part 1 is the sheet; test/uat-2026-08-14 is the branch that carries R9.1 and R10 together.
+- Four rulings pending: shell_command classification, R10-C's three UX questions, whether milestone returns, and when R9.1/R10 merge to main.
+- The three 2026-08-03 release blockers were re-verified as still present and remain unfixed.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 13 – Manual UAT pass on test/uat-2026-08-14 (24 items) + rulings + Codex provenance RCA
+- Status: UAT run, all 4 pending rulings closed; merge to main authorized but gated on a fix-up pass first — round not yet closed
+- Date: 2026-08-15
+- Detail: docs/OUTSTANDING_2026-08-14.md (filled-in results, remarks column), references/DIT-decisions.md (D-001..D-004, P-001), docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_CODEX_SESSION_PROVENANCE_2026-08-15.md
+
+## Goals
+- Run the 24-item consolidated UAT sheet (Part 1 of OUTSTANDING_2026-08-14.md) covering R9.1, R9.2, R10-M1, and R10-B in one pass on the combined branch.
+- Close the four pending Part-3 rulings (shell_command classification, R10-C's three UX questions, milestone reinstatement, main-merge timing).
+
+## Decisions
+- All four Part-3 rulings closed — see references/DIT-decisions.md D-001 (shell_command stays unclassified, reinforced by the R10.1 RCA rather than overturned), D-002 (R10-C: text+params default, parent-card "N hits" collapse handling, annotations not searchable yet), D-003 (milestone stays removed), D-004 (main merge authorized once the fix-up pass lands, not immediately).
+- The R10-B reduced acceptance items (D2/D5/D4/D6 in the sheet) mostly landed as "無法判定" rather than clean pass/fail — the acceptance criteria for D2 (blocked by a separate C1 finding), D4 (test location too vague), and D5 (most sample files lack injection tags) need sharper UAT wording before they can be re-run, not necessarily code changes.
+- P-001 opened: the Codex exec-name/`*_end` pairing problem is root-caused as structurally unrecoverable for ~94% of currently-unpaired events (not a heuristic-tuning problem) via an author-run external Codex CLI investigation, with a four-stage P0-P3 remediation plan proposed and NOT yet implemented.
+
+## New defects surfaced (not pre-existing known blockers; not yet triaged into work cards)
+- **Folder-browser excludes Codex sessions entirely** (C1): `sessionIndexer.ts:298` — `if (headScanUsable && !result.isClaudeCode) continue;` — is a pre-R7 ruling ("本輪只索引 Claude Code") that predates R10 and is therefore not a regression, but it now contradicts R10's multi-source premise: Codex sessions can only be reached via single-file load, never via "挑選 Session" folder browsing. Needs a fresh ruling, not a bug fix — flagged in `## Now` above.
+- **Reader itself does not render Markdown** (B1): literal backtick/syntax text (e.g. `` `span.synthetic === true` ``) is shown unrendered both in the Reader and in exported outputs — broader than the export scope the UAT item was testing.
+- **Transcript export still includes tool activity** (B1) when the author expected pure conversation; export entry-point naming is unclear ("匯出"/"對話紀錄" don't read as distinct); "複製 Markdown" should read "以 MD 形式複製到剪貼簿".
+- **Redaction gaps** (B3): long random tokens (session ids, likely API-key-shaped strings) are not being caught by the secret detector; whether git commit hashes in commands should be redacted is an open question, not yet a ruling.
+- **Subagent messages classified into the generic "群組" bucket instead of the "子代理" category** the legend documents (C3/D3), on both Codex and Claude Code sessions — the legend's 9-symbol vocabulary (from A7's redesign) and the actual rendered classification have drifted apart.
+- **Entry-point copy** (A4): author proposes "挑選 Session"→"從對話集選擇", "載入單一檔案"→"選擇一則對話" for a non-technical audience that shouldn't need to know the word "session".
+- **Legend/tooltip redesign** (A7): the Overview page's collapsed-by-default 符號說明 has no discovery affordance; author wants it replaced by hover tooltips at `.tree-legend` and `.map-legend` without changing the existing layout otherwise.
+
+## Changes
+- docs/OUTSTANDING_2026-08-14.md: all 24 Part-1 rows filled in with results/observations by the author; all 4 Part-3 rulings recorded inline.
+- references/DIT-decisions.md: created (first use in this project) — D-001..D-004, P-001.
+- docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_CODEX_SESSION_PROVENANCE_2026-08-15.md: author-run external Codex CLI investigation, not yet committed to git at checkpoint time.
+- package-lock.json: refreshed by `npm install` on the UAT branch (routine, not a dependency change).
+
+## Open Questions / TODO
+- Whether the folder-browser's Claude-Code-only filter should be lifted for Codex now that R10 exists — this is a ruling, not a code question (see `## Now`).
+- The seven "New defects surfaced" items above are not yet work cards — they need triage (which round, what priority) before D-004's merge gate can be considered met.
+- P-001's P0 remediation (downgrade warning severity/copy, de-emphasize unpaired cards) is the cheapest next slice if this round continues rather than pausing for merge.
+- The three 2026-08-03 release blockers (P2-1/2/3 in OUTSTANDING) remain unfixed and unaddressed by this phase.
+- `docs/rounds/r10.1-codex-session-provenance/RCA_R10.1_CODEX_SESSION_PROVENANCE_2026-08-15.md` is untracked in git as of this checkpoint — needs `git add` in the next commit that touches this round.
+
+# Phase Checkpoint
+- Project: DIT (Dialogue Is Teacher)
+- Phase: Phase 14 – R11 Release Readiness opened (M0 landed, work cards specced, three rulings closed)
+- Status: in-progress — M0 shipped and green; M1..M9 specced but not dispatched at write time
+- Date: 2026-08-15
+- Detail: docs/rounds/r11-release-readiness/PSM_R11_RELEASE_READINESS_v1.0.md
+
+## Goals
+- Triage Phase 13's seven untriaged defects plus the three 2026-08-03 release blockers into one executable round, so D-004's merge gate has a definite closing condition.
+- Land the findings small enough to fix without a work card, and spec the rest.
+
+## Decisions
+- Round id `r11-release-readiness` allocated before any file was written; branch `feat/r11-release-readiness` cut from `test/uat-2026-08-14`. Scope is a fix-up pass, not a feature round.
+- Author ruling: the Markdown/LaTeX render layer is split out as `r11.1-text-rendering`. It is a new capability, not a repair, spans both render paths, and carries an injection surface that needs its own security acceptance — keeping it in R11 would let it hold the main merge hostage.
+- Author ruling: high-entropy redaction ships **default off** with honest "N detected, not redacted" reporting. Catching unprefixed tokens necessarily over-catches git SHAs and UUIDs, and transcript readability is the user's trade to make, not a default's.
+- Author ruling: the Codex skeleton-coverage gap (UAT C3's serious half) gets an investigation card only. D-001 and the R10.1 RCA §P2 both forbid guessing; measuring before editing avoids repeating R10-B's "believed fixed, measured empty" loop.
+- P2-1 and C1 are merged into one card: they are the same 15 lines of `sessionIndexer.ts`, and the stale-adapter recompute has to land before the Codex filter is lifted or the lifted filter inherits the stale verdict.
+- Only P0 of the R10.1 RCA is in scope. P1/P2/P3 each need their own measurement and are named as out-of-scope so a dispatched agent cannot drift into them.
+- `paste` is a declared-but-unproducible `SourceId` — the exact pattern R9.1 removed `milestone` for. Decided under the decision charter (reversible, no UX change): remove it rather than build an entry point nobody requested. This is what made UAT D4 untestable.
+
+## Changes
+- src/i18n/locales.ts: entry-point copy drops "session"; export group names distinguish snapshot from transcript; new `card.groupKindTag` table keyed on `GroupKind`.
+- src/components/GroupCard.tsx: label reads `group.kind` instead of a hardcoded 群組 — subagent groups now show the category the legend documents.
+- src/core/export/contracts.ts: `DEFAULT_TRANSCRIPT_OPTIONS.includeToolSummary` true → false; the stats header still reports the omission.
+- src/core/export/{transcript,transcriptMarkdown,transcriptHtml}.test.ts, src/components/SettingsDialog.test.tsx: four tests now request tool summaries explicitly instead of inheriting the old default; one legend assertion updated.
+- docs/rounds/r11-release-readiness/PSM_R11_RELEASE_READINESS_v1.0.md: the round spec — UAT-finding-to-card traceability table, seven cards with agent assignment, degradation order, twelve manual acceptance items, and an explicit not-in-this-round list.
+
+## Open Questions / TODO
+- M1..M9 are specced but undispatched. Guaranteed core is M1+M2+M3 (the three release blockers); everything after is cut back-to-front if budget runs short, and anything cut must reappear by number in the next OUTSTANDING sheet.
+- Three deferred rulings need real output before they can be answered: R11-Q1 (is a git commit SHA sensitive — decide after seeing M7's output), R11-Q2 (should Codex and Claude Code sessions interleave in the picker), R11-Q3 (does M5's root cause land in R11 or R12).
+- Phase 13's note that the R10.1 RCA was untracked is stale — it was committed as f9dda37.
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 15 – R11 construction complete, manual acceptance run, round NOT accepted
+- Status: in-progress (construction done; acceptance failed, repairs untriaged)
+- Date: 2026-08-16
+- Transcript: d7f966a5-0c07-4e23-aad0-0c89fa63a8c8.jsonl — archived: yes (daily mirror OK 2026-08-16 13:00)
+
+## Goals
+- Execute the seven R11 work cards specced in Phase 14, dispatching subagents and committing each card as its own semantic commit.
+- Close the three deferred rulings once real output existed.
+- Produce a manual acceptance card and get the author through it.
+
+## Decisions
+- Author ruling R11-Q1 (D-009): commit hashes stay inside the high-entropy rule — a hash is not readily reversible without its context and path, and the rule is default-off anyway.
+- Author ruling R11-Q3 (D-011): the Codex skeleton fix goes to R12; R11 stays a presentation-fix round.
+- Author ruling (D-010): WC-4.3 moves to R12 — its "escalate only when ambiguous" clause needs P1 candidate data this round excludes, so the dispatch that omitted it could not have done it correctly anyway.
+- Author ruling (D-012): S-03 promoted into R11 — a consent mechanism that has never functioned should not cross the merge gate.
+- Author ruling R11-Q2: the picker interleaves Codex and Claude Code by time; the current behaviour is what the author wants. Recorded as D-013.
+- Author ruling: the two SECREVIEW suggestions (inert high-entropy checkbox, snapshot export carrying no redaction or disclosure) are recorded as documented exclusions rather than fixed. Recorded as D-014.
+- Author ruling: external free models are withdrawn as the executor after the session limit was exhausted by dispatching six agents at once; cap is two concurrent, and reports are analysed before the next batch. The opencode route was measured first (endpoint flaky, `--variant max` works) and abandoned mid-round at the author's instruction.
+- Dispatcher ruling: prevention of git access for dispatched agents was ATTEMPTED TWICE and FAILED — agent-level `bash: {"git *": "deny"}` loaded but never fired (a default `*/*: allow` rule precedes it), and a PATH shim never reached the agent's shell. Stopped at two attempts per the no-third-guess rule and switched to post-hoc detection: every card committed before the next dispatch, HEAD compared after each batch. No agent ever touched git.
+- M4's root cause was handed to it as evidence but it re-measured independently over 358 rollouts before acting — 5,885/5,889 non-empty `reasoning` summaries are byte-identical to the concatenation of preceding `agent_reasoning` fragments, zero orphans. The fix removes the second span at source rather than deduplicating at render.
+
+## Changes
+- src/core/index/{sessionIndexer,contracts,classifySession}.ts (+tests), src/components/SessionBrowserDialog.tsx: adapter verdict recomputed after the head window widens, THEN the Codex exclusion lifted; three-way rule (readable+unclaimed excluded / unreadable listed as undetermined / claimed kept with its source). New `codex-unclassified` reason. Commit d5ef020.
+- src/store/sessionStore.ts (+tests): snapshotMode guard inside loadPersistedConfig (one enforcement point for every caller); try/catch on indexFileList symmetric with the FSA path; resumeLastDirectory now opens the browser instead of closing it — the WebKit `<input>` fallback had no entry point at all and the old comment claiming otherwise was false. Commit 397d2ac.
+- src/core/adapters/codexJsonl.ts, src/i18n/diagnosticCopy.ts, src/types/spanTree.ts, src/core/source/profiles.ts (+tests): reasoning envelope no longer emits a span; 50,221 bracketed wrapper markers stripped in the one path they occur; unpaired-event diagnostics dropped to the existing info tier; compaction removed as an asserted cause; `paste` SourceId removed (D-008). Commit a5f8899.
+- src/core/privacy/**, src/core/export/**, src/components/ExportControls.tsx, src/i18n/locales.ts (+tests): high-entropy detector, default off, with the disclosure running in both states. Threshold 4.3 bits/char chosen from a sweep over 191,534 real message-text values; the decisive change was requiring the undivided run to reach 20 chars, which cut kebab-case false positives from 274,685 to 582. Commit acce089.
+- src/components/{StructureLegend,SessionMapDialog}.tsx, src/styles/index.css, src/i18n/locales.ts: legends became always-visible with hover/focus/screen-reader tooltips; new spanKindDefinition copy. Two defects fixed on review that no test could see — `<p>` nested inside `<button>` and inside `<p>`, and a descendant selector that could never match the map legend's sibling bubble. Commit 0941ee3.
+- src/core/privacy/redact.ts, src/store/sessionStore.ts (+tests): disclosure counted by containment instead of overlap (a half-redacted high-entropy string was silently dropped from the "not redacted" count); consent scope now reuses the string the review opened with instead of rebuilding it in a second format. Commit 3cbde1f.
+- docs/rounds/r11-release-readiness/: RCA_R11_CODEX_SKELETON_COVERAGE.md (M5), REVIEW_R11_BLIND_SPOTS.md (M9), SECREVIEW_R11_M7_REDACTION.md, UAT_R11_v1.0.md. Commits ecb8146, e49564f, a93462b.
+- references/DIT-decisions.md: D-009..D-014; `## Now` rewritten.
+
+## Open Questions / TODO
+- **R11 IS NOT ACCEPTED.** The author ran UAT_R11_v1.0.md on 2026-08-16: 8 passed, 4 partial, 5 failed, 7 untestable. D-004's merge gate stays shut until the failures are triaged and repaired.
+- Failures needing a home: (a) tooltip is clipped/underlapped near the reading column — same root cause as the narrow-window case, and it is a stacking/overflow problem the DOM assertions could not see; (b) every Codex session classifies as "undetermined" and titles fall back to the rollout filename — a direct consequence of M1 making them visible without giving them a classifier or a title source; (c) Codex card titles show raw `exec_command` and an unexplained "操作 foo"; (d) there is no diagnostics surface in the UI at all, so M4's tier downgrade is unobservable and its acceptance item cannot be judged; (e) the high-entropy disclosure line was not found in a real export; (f) the group legend and the group label do not share an abstraction, so they can disagree — the author's point, and it is a design defect not a copy bug; (g) the browser dialog reopens itself after being closed, and one session was intermittently unreadable until a full reload.
+- Untestable items and why: no API key for any data-out provider (B11/B12), machine cannot be disconnected (C1), no session containing a real secret (C4). C1/C2 were additionally blocked by an error in the acceptance card itself — it said `npm run dev`, but snapshot export is deliberately disabled in dev mode; the card now carries an erratum pointing at `npm run build` + `npm run preview`.
+- A round id must be allocated BEFORE any repair work starts (CLAUDE.md). These are repairs, so they do not belong in the reserved `r11.1-text-rendering`. Recommend `r11.2-uat-repairs`; needs the author's confirmation.
+- Also surfaced, not yet ruled: the provider config fields give the user no guidance on what to enter (B11 remark), and image-bearing sessions are readable but carry no marker that an image was there (C7).
+- Deferred to R12 and still open: the ten remaining M9 findings, the three remaining SECREVIEW suggestions, RCA P1/P2/P3, and the src/ comment-language unification (ticket delivered outside the repo, measured at 1,308 lines across 65% of files).
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 16 – R11.2 UAT repairs
+- Status: completed (construction); the round is NOT accepted yet
+- Date: 2026-08-17
+
+## Goals
+- Repair every failure the R11 acceptance surfaced, under a properly allocated round id, one semantic commit per card.
+- Root-cause each item before editing; the round explicitly forbade symptom-patching on R2, R4, R5 and R7.
+- Produce a re-test card that a non-author could execute blind, and that says plainly what the model could not verify.
+
+## Decisions
+- Dispatcher ruling: info-tier diagnostics get a home in the Overview at the existing diagnostics count, not a new banner — that count was a lie by omission for Codex sessions. `noticeable()` was NOT redefined; `informational()` was added beside it.
+- R4 ruled NO DEFECT after a two-sided calibration (positive control fires, negative control silent, long hyphenated identifier correctly excluded). A one-sided calibration would have scored an implementation that never prints the line at 100%. No source file changed; the ruler is recorded in RESEARCH_R11.2_DISCLOSURE_CALIBRATION.md.
+- R2: `exec_command` is a REAL recorded tool name (19 occurrences) and stays — D-001 forbids treating a genuine name as noise. Only invented names were removed.
+- R7: R11-M3's `resumeLastDirectory` `"closed"` -> `"picking"` change is load-bearing (it is the WebKit `<input webkitdirectory>` fallback's only entry point) and was NOT reverted, though the card named it as the prime suspect. The real cause was elsewhere.
+- R6: `as Record<GroupKind, string>` does not check for missing keys — deleting an entry compiled clean. `satisfies` plus a derived `GROUP_KINDS` array makes the invariant a property of the asset instead of a reminder to a future editor.
+- Dispatcher: two concurrent agents, each report analysed and committed before the next batch. Post-hoc git detection held — HEAD compared after every batch, stash list empty, no agent ever mutated git state (one `git stash` attempt was blocked by the permission system).
+- When two concurrent cards both edited `src/i18n/locales.ts`, the hunks were split programmatically (`git diff` -> hunk selector -> `git apply --cached`) rather than hand-transcribed, so each card still landed as its own semantic commit.
+
+## Changes
+- src/core/index/{classifySession,sessionIndexer}.ts, src/core/adapters/codexJsonl.ts (+tests), scripts/measure-codex-index.mjs: rule 3.5 dispatches by source instead of terminating; Codex reads its own `response_item/message` envelope, excluding `role: "developer"` and auto-review dumps. Measured N=358: classified 0% -> 100%, derived titles 0% -> 59.8%. Commit 346d13c.
+- src/core/adapters/codexJsonl.ts, src/core/normalize/normalizer.ts, src/i18n/diagnosticCopy.ts (+tests): `EXEC_TOOL_NAME_RE` was non-global, so it lifted "foo" out of an RCA document that quoted `tools.foo(` as a negative example. Now all occurrences must unanimously agree; the `"exec"` sentinel fallback is gone (555/9,355 = 5.93% -> 0). Commit 9e1ab8e.
+- src/core/diagnostics/contracts.ts, src/components/OverviewView.tsx, src/styles/index.css, src/i18n/locales.ts (+tests): `informational()` and an on-demand disclosure in Overview step 1. Commit 6cd7e97.
+- docs/rounds/r11.2-uat-repairs/RESEARCH_R11.2_DISCLOSURE_CALIBRATION.md: R4's evidence, no code. Commit 81cc416.
+- src/styles/index.css: `.sidebar` and `.session-map-shell` `overflow: hidden` -> `visible` (clipping ancestor, not stacking context); bubble `max-width: min(260px, calc(100vw - 40px))`. Commit 5074ae0.
+- src/types/spanTree.ts, src/i18n/locales.ts, src/components/StructureLegend.tsx (+tests): legend's group tooltip now reads `card.groupKindTag` through `GROUP_KINDS`. Commit 04118e8.
+- src/store/sessionStore.ts (+tests): `browseGeneration` counter; every `set()` past an `await` checks it, so a background index finishing after close no longer overwrites `"closed"` and reopens the dialog. Commit 7e30f8a.
+- docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md, references/DIT-decisions.md: the re-test card (11 happy-path, 14 stress) and the frontier rewrite. Commit a3f43ee.
+- Gates at HEAD: typecheck clean, 58 files / 508 tests passing, both build steps green.
+
+## Open Questions / TODO
+- **R11.2 IS NOT ACCEPTED.** Next action is the author running docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md under `npm run build` + `npm run preview` (NOT dev — that is what invalidated R11's C1/C2). Passing it reopens D-004's merge gate for R9.1 + R10 + R11 + R11.2 -> `main`.
+- **No appearance claim in this round was verified by the model.** The Chrome extension was unreachable on two attempts and the in-app browser pane reports `visibilityState: "hidden"` with a 0x0 viewport, so geometry reads return zeros. R5 and R3's rendered result are by-eye items only, marked `[目視]` in the card. R5 additionally leaves a known residual: `.workspace-layout` and `.workspace-panel` (index.css:497-498) still carry `overflow: hidden`, so a clip may survive at the window's own right and bottom edges.
+- Four rulings wanted from the author, all in UAT_R11.2_v1.0.md section F: Codex classification is 356 `dialogue` / 2 `machine` because the turn counter increments before preamble stripping (108 files provably contain no human-typed text yet read as `dialogue`); the disclosure line's emphasis; provider config field guidance (still blocks B11/B12); image-bearing session markers.
+- Findings recorded, deliberately not fixed: `src/core/normalize/normalizer.ts` emits user-facing Chinese that never switches locale (pre-existing convention, flagged as debt, not conflated with this round's work); C6's second observation (a session unreadable until a full app reload) is unreproduced and explicitly not claimed fixed.
+- Deferred to R12, unchanged: the ten REVIEW_R11_BLIND_SPOTS findings, the three SECREVIEW suggestions (two now D-014 exclusions), RCA P1/P2/P3, the Codex skeleton gap (D-011), WC-4.3 (D-010), and the src/ comment-language unification (1,308 lines across 65% of files; ticket held outside the repo). T-008 (compact-chain stitching) remains an uncommitted note from another session.
+
+---
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 17 – R11.2 UAT verdicts landed and root-caused; F-01/F-02 fixed; R12 allocated and specced
+- Status: in-progress (R11.2 still NOT accepted; R12 specced but unbuilt)
+- Date: 2026-08-26
+- Detail: docs/rounds/r11.2-uat-repairs/RCA_R11.2_WORKER_BOUNDARY_2026-08-26.md · docs/rounds/r12-source-first-navigation/PSM_R12_SOURCE_FIRST_NAVIGATION_v0.1.md
+- Transcript: fd04f079-22fb-4246-bd36-d4c482708943.jsonl — archived: PENDING (daily mirror last OK 2026-08-26 13:00:02; this session postdates that run)
+
+## Goals
+- Land the R11.2 UAT verdicts and the 2026-08-20 deep review, both of which had been sitting untracked.
+- Root-cause premise 1 (Codex sessions unloadable) instead of accepting the review's leading hypothesis.
+- Fix F-01/F-02 on request, then answer why the author still sees the same titles.
+- Turn the title failure into a design fix rather than a patch.
+
+## Decisions
+- **The review's worker-404 hypothesis is REFUTED for the author's workflow.** `npm run build` + `npm run preview` serves from the root; measured 200 + a booting module worker + three real Codex rollouts reaching COMPLETE with zero fallbacks. Six candidate causes closed, including stale-dist (R11.2 src commits are 08-17, the dist on disk was 08-18, and a rebuild reproduces identical content hashes). The review's location of the fault to the BOUNDARY stands; only its single-cause guess was wrong.
+- **F-01/F-02: boot failure and run failure are different faults.** A worker that has spoken is alive, so a later `onerror` stays fatal (`LOAD_FAILED`, location preserved). One that dies before its first message never started, points at the environment, and is the ONLY case that degrades to a main-thread parse (`WORKER_FALLBACK_SYNC`, warn). A fallback that swallowed both would hide real data faults. `WORKER_BOOT_FAILED` when the retry also fails.
+- One assertion in `transitions.test.ts` had to change: its `toBeNull()` pinned the cleanup of a path that only failed because node has no Worker, and that path now succeeds through the fallback. What it used to catch — a progress bar left mid-phase — is re-pinned by a new regression case with an input that genuinely fails. A loosened gate ships with a case reproducing the original failure.
+- **B1 is not a title bug and F-05 is the wrong root cause.** `pickTitle`'s top two rungs are Claude Code record types (`custom-title` / `ai-title`), which Codex does not have, so all 358 Codex sessions fall to the first-user-message excerpt. F-05 patches the fallback's cosmetics and can never produce a purpose.
+- **This is the SECOND occurrence of the same defect.** R10-B fixed exactly this in `denoise()`/`distill()` by introducing `SourceProfile`, but that profile covered RENDERING only, and nothing made "source differences go through the profile" a property of the asset — so it regrew one layer up in discovery. R12's answer is a discovery half held as a typed exhaustive `Record<SourceId, …>`, which fails to compile when a source is added without one.
+- **Author rulings 2026-08-26**: split discovery per agent system and converge the viewer; state Claude Code and Codex as the only supported systems; the two existing entry modes move to a second level under a source choice; position memory is PER SOURCE (not one last-folder) so the level-1 choice assists locating; 17% sidecar coverage is accepted as-is because an undefined purpose is the session's own gap; **Claude Code is adapted to the maximum, Codex is incidental**; `product-design-thinking` is declined (direction already ruled, root cause measured, and the skill excludes building to an existing spec) — the LLM title-condensation round is named as the case where it would pay.
+
+## Changes
+- docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md: author verdicts committed (`cf3c12b`) — two premises failed, B1 not passed, B2 passed, A2 is a question.
+- docs/rounds/r11.2-uat-repairs/REVIEW_R11.2_STATE_AND_DESIGN_2026-08-20.{md,findings.json,coverage.json}: landed (`df3fa1a`) after six days untracked, during which it already answered the UAT's open question.
+- docs/rounds/r11.2-uat-repairs/RCA_R11.2_WORKER_BOUNDARY_2026-08-26.md: new (`3345289`) — the refutation, six closed causes, two remaining questions.
+- src/core/ingest/sessionLoader.ts + .test.ts, src/core/diagnostics/contracts.ts, src/i18n/diagnosticCopy.ts, src/store/transitions.test.ts: F-01/F-02 (`1fc44b0`). typecheck clean, 58 files / **514** tests (was 508), build green, `git diff --check` clean.
+- references/DIT-tickets.md: T-008 filed (`3ba0ff6`) — closes the "uncommitted note from another session" carried in Phase 16.
+- docs/rounds/r12-source-first-navigation/PSM_R12_SOURCE_FIRST_NAVIGATION_v0.1.md: new round (`54dc1d9`, reweighted `e54742a`). Seven cards, degradation M1→M7 with M1+M2 as the floor.
+- Measured and recorded in the spec so nobody re-derives it: Codex rollouts carry no title field (542 `session_meta`, counted per key); `thread_goal_updated.goal.objective` exists but only 10 times corpus-wide; the purpose lives OUTSIDE the transcript in `.codex-global-state.json` → `thread-descriptions-v1`, keyed by `session_meta.payload.id`, 61/61 resolving to a file on disk = 17% of 358. On the Claude side, attribution (~13k records), `toolUseResult` (17,686), `gitBranch` (66,524), `entrypoint` (66,524) and `leafUuid`/`lastPrompt` (4,523) are referenced NOWHERE in `src/`; `slug` is ruled out as a per-session random codename.
+
+## Open Questions / TODO
+- **R11.2 IS STILL NOT ACCEPTED.** Premise 1 now needs only two answers, both from the author: which browser was used, and whether a Claude Code session fails in the same run. Premise 2 (F-06, the flattened-path masking leak) and B1 remain open; B1's real fix is R12.
+- **Round-id hygiene — CLOSED 2026-08-26.** Phase 16 deferred a set of items "to R12" while R12 was still unallocated; R12 was later given to `source-first-navigation`, a different theme, which turned that sentence into a commitment pointing at the wrong round. Repaired at the mechanism, not just the wording: `docs/rounds/ROUNDS.md` is now the round-id allocation registry (the directory listing was never it — R4 has no directory and R11.1 is reserved without one, so a writer checking `docs/rounds/` could not see either), `docs/DEFERRED.md` holds the seventeen unhomed items as `DW-01..DW-17` with `home: unassigned`, and `npm run check:rounds` fails when a live record names an unallocated id. Every one of those items is `unassigned`; **none was absorbed into R12**. The checker's first real run caught this very TODO line, which had proposed moving the batch to the next free number — reserving an id for a theme nobody has chosen yet is the same defect, one file over. (The line no longer names that number, because naming it is what the rule forbids.)
+- F-05 (preamble whitelist) is deliberately unfixed: after R12's M4/M5 the `derived` rung stops being Codex's only source, so re-evaluate whether it is still worth fixing rather than fixing it now.
+- The remaining 83% of Codex sessions with no purpose need the LLM title-condensation round, which is also the round that would give titles to old Claude Code sessions with no `ai-title` (only 6 records corpus-wide carry one). Not scoped; `product-design-thinking` is the right tool there.
+- R12's branch was cut from `feat/r11.2-uat-repairs`, so it carries F-01/F-02 and cannot merge before R11.2 does. Re-cutting from `main` is still cheap if that coupling is unwanted.
+- Manual acceptance owed for F-01/F-02: the fallback path can only be seen by blocking `session.worker-*.js` in DevTools and re-loading a session — no model-side check covers it.
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 18 – R12 source-first navigation built end to end (M1–M7)
+- Status: in-progress (construction complete and green; author acceptance not yet run)
+- Date: 2026-08-27
+- Detail: docs/rounds/r12-source-first-navigation/PSM_R12_SOURCE_FIRST_NAVIGATION_v0.1.md (a BUILT note under each card records what shipped, how it deviated from the card, and the measurement behind it)
+- Transcript: fd04f079-22fb-4246-bd36-d4c482708943.jsonl — archived: PENDING (daily mirror covers it)
+
+## Goals
+- Close the recurring source-blindness defect at the mechanism, not the symptom: R10-B fixed it in the render layer, it regrew in discovery and cost R11 an acceptance round.
+- Split DISCOVERY per agent system while VIEWING converges on one unchanged `SessionDocument` and one viewer.
+- Give Codex sessions their real purpose as a title (the author's B1 report), and surface the Claude Code metadata already in the files.
+
+## Decisions
+- **Round-id namespace closed at R12** (author ruling). New rounds use `<YYYY-MM>-<slug>`, which cannot be forward-referenced because naming the theme IS allocating the round. R1–R12 keep their ids permanently; closing is not renaming. `docs/rounds/ROUNDS.md` is the registry, `docs/DEFERRED.md` the unhomed-work register, `npm run check:rounds` the gate.
+- **`docs/rounds/**` closed to further annotation.** Three dated correction notes on 2026-08-26 are the last; a misleading frozen document is fixed in the register, not in the document. Exception by status not vintage: `UAT_R11.2_v1.0.md` is the live acceptance card.
+- **DW-02 ruled A** (author): the sync pipeline gets the per-file isolation the worker has had since R9. `parse_failed` already existed everywhere except the path that produced it.
+- **INV-R12-1 restated as a property, not a syntax.** Source knowledge lives in the profile; two exceptions — a module that IS per-source, and an exhaustively guarded dispatch. Enforced per-file by `core/source/sourceKnowledge.test.ts` with a written reason per allow-list entry.
+- **Codex sidecar joins on `payload.id`, never `payload.session_id`.** The latter scores 190 hits against 61 and is wrong 129 times: forked threads wearing their parent's purpose. Rejected the higher number.
+- **`entrypoint` dropped by measurement** (2 distinct values, 99.88% one). **Fork-inherits-parent-description recorded but not built** — needs its own rung and on-screen wording, and is a product ruling.
+
+## Changes
+- `src/core/source/profiles.ts`: discovery half (`rootHint`/`transcripts`/`sidecars`/`subagents`/`titleLadder`/`classify`), `label`, `attribution.kinds`, `SUPPORTED_SOURCES`.
+- `src/core/index/`: `sidecarReader.ts` (new), per-source walk + `expectSource` + sidecar join + Codex session id in `sessionIndexer.ts`, per-source handle keys in `handleRepository.ts`, profile-declared signals + exhaustiveness assertion in `classifySession.ts`.
+- `src/core/adapters/claudeCodeJsonl.ts`: reads the four `attribution*` fields; `types/spanTree.ts` gains `Attribution`, `TitleSource` moves here and gains `sidecar`.
+- `src/core/pipeline.ts`: per-file parse isolation (DW-02). `src/core/normalize/normalizer.ts`: the silent `?? "claude-code"` is now audible.
+- `src/components/`: two-level source-first entry, attribution badges, the symbol guide removed, `sourceAgnostic.test.ts` gate.
+- Docs: three RESEARCH confirmation files, `ROUNDS.md`, `DEFERRED.md`, `scripts/check-round-ids.mjs`.
+
+## Open Questions / TODO
+- **R12 has NOT been accepted.** Construction is green (604/604, typecheck, two-stage build, check:rounds) but nothing here has been seen by the author in a browser. Appearance is unverified throughout: the pane reports `visibilityState: "hidden"`, and the built-in sample is synthetic so it carries neither attribution nor a sidecar.
+- **R11.2 is still not accepted either**, and R12's branch was cut from it, so R12 cannot merge first. Re-cutting from `main` remains cheap.
+- External verification of the complete system ran on 2026-08-27 — correctness, evidence quality, security — and **all three found real defects**, folded in: `joinKey` declared with no consumer (P-005), the sidecar reader unbounded, `pickTitle` able to return an empty title, and `check-round-ids.mjs` printing `RR1`. M6's zero-regression claim was re-measured uncapped and holds (D-019). Measurement scripts are now in `scripts/measure-corpus.mjs`, so the RESEARCH documents' "re-runnable" claim is finally true.
+- **The toolchain broke mid-verification and a gate reported success anyway** (P-006): an npm operation raced the `vite preview` server holding `esbuild.exe`, leaving `node_modules` half-installed; `npm test` then reported `54 passed (54)` while 11 jsdom files never started. Repaired with `npm ci` after stopping the preview. Every gate re-run clean afterwards: typecheck, 609/609 across 65 files, two-stage build, `check:rounds`.
+- Still open from the audit, now DW-19/20/21: `directorySource.ts` and `session.worker.ts` have no tests at all, and M2's per-source folder memory has no end-to-end test across the store. The first guards an invariant this repo has already been burned by (R9.1 RC-A).
+- Author ruling wanted: should a forked Codex thread show its parent's description as a named rung (17% → 53% coverage)?
+- `DW-01`, `DW-03..DW-17` remain `unassigned`; DW-02 and DW-18 closed in this round.
+
+---
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 19 – R12 M8: the three untested modules closed, and two silent-failure defects found by testing them
+- Status: in-progress (construction complete and green; author acceptance of R12 still not run)
+- Date: 2026-08-27
+- Detail: docs/rounds/r12-source-first-navigation/RESEARCH_R12_COVERAGE_GAPS_2026-08-27.md (premises, the coverage measurement and its own miscalibration, both defects with their positive controls, and the mutation results)
+- Transcript: fd04f079-22fb-4246-bd36-d4c482708943.jsonl — archived: PENDING (daily mirror covers it)
+
+## Goals
+- Close DW-19/20/21, the three coverage gaps the 2026-08-27 evidence audit named, before R12 goes to acceptance.
+- Decide where test-only work belongs in the round scheme, and record the reasoning so the next one does not re-litigate it.
+- Accept the tests on whether they FAIL, not on whether they pass.
+
+## Decisions
+- **M8 folded into R12, dated in the PSM, rather than given its own round** (D-020). A round here carries a PSM *and* a UAT card set; test-only work has nothing for a human to accept, so a new round would produce an empty UAT card. It is R12's own verification debt, on R12's branch, before R12 is accepted — the route DW-02 and DW-18 already took. A fourth stacked branch for three test files was rejected on the same grounds.
+- **Acceptance is stated as "every group must be shown to fail when the behaviour is removed."** 18/18 green on the first run against previously untested code is an instrument fault until a positive control says otherwise.
+- **Both defects the tests found were repaired in place, not filed** (D-021). The reproducing test already existed at that point; a test that documents a defect it could instead prevent is the weaker artifact. Each is one line.
+- **The start-up handle read merges instead of replacing.** Order is priority — an in-session pick is newer than a start-up read. Tested in both directions so "do not clobber the pick" cannot become "ignore storage".
+- **The worker's dead cancellation branch is pinned, not deleted** (DW-22). It is the only place cancellation is defined; deleting it would remove the definition along with the dead code.
+
+## Changes
+- `src/core/index/directorySource.test.ts` (new, 18 tests, jsdom): R9.1 RC-A both ways, permission re-check, walk path semantics, and path parity between the FSA and webkitdirectory backends.
+- `src/core/ingest/session.worker.test.ts` (new, 13 tests): per-file isolation and progress accumulation, two-sided; pins the dead cancellation branch.
+- `src/store/sourceFolderMemory.test.ts` (new, 9 tests): M2's acceptance walk across the store, plus never-picked and permission-lost edges.
+- `src/core/ingest/session.worker.ts`: byte total moved inside the `try` — outside it, a malformed request posted no message at all and left the caller pending forever.
+- `src/store/sessionStore.ts`: the module-load handle read merges rather than replaces.
+- `docs/rounds/r12-source-first-navigation/`: M8 card in the PSM, `RESEARCH_R12_COVERAGE_GAPS_2026-08-27.md`.
+- `docs/DEFERRED.md`: DW-19/20/21 → `home: R12`, done; DW-22 added. `references/DIT-decisions.md`: D-020, D-021, P-007.
+
+## Open Questions / TODO
+- **R12 is still NOT accepted, and this changes nothing about that.** M8 adds no user-visible surface, so it adds no UAT items; appearance remains unverified throughout the round.
+- **R11.2 is still not accepted either**, and R12's branch was cut from it.
+- Gates, unpiped and read directly: typecheck exit 0 · **649/649 across 68 files** exit 0 · two-stage build exit 0 · `check:rounds` exit 0.
+- P-007 recorded: a coverage measurement needs a positive control too — the first grep reported `core/privacy/gateway.ts` as untested because its test imports through a barrel. And "looks covered" is the more dangerous state than "untested": `browseFailure.test.ts` loads `directorySource` through the barrel while mocking exactly the functions that hold its logic.
+- `DW-01`, `DW-03..DW-17` and `DW-22` remain `unassigned`.
+- Author ruling still wanted: should a forked Codex thread show its parent's description as a named rung (17% → 53% coverage)?

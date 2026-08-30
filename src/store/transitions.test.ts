@@ -43,7 +43,7 @@ async function indexSource(files: Array<[string, string]>): Promise<void> {
 
 afterEach(() => {
   useSessionStore.setState({
-    browseState: "no_directory",
+    browseState: "closed",
     indexEntries: [],
     indexDiagnostics: [],
     browseProgress: null,
@@ -55,8 +55,8 @@ afterEach(() => {
 });
 
 describe("DSM-4 · session browser transitions", () => {
-  it("no_directory --index--> indexed", async () => {
-    expect(useSessionStore.getState().browseState).toBe("no_directory");
+  it("closed --index--> indexed", async () => {
+    expect(useSessionStore.getState().browseState).toBe("closed");
     await indexSource([["proj/a.jsonl", TRANSCRIPT]]);
     expect(useSessionStore.getState().browseState).toBe("indexed");
     expect(useSessionStore.getState().indexEntries).toHaveLength(1);
@@ -70,10 +70,28 @@ describe("DSM-4 · session browser transitions", () => {
 
     expect(useSessionStore.getState().browseState).toBe("indexed");
     expect(useSessionStore.getState().indexEntries).toEqual(before);
-    // 實際文件的建立走 Web Worker，node 測試環境沒有 Worker，因此這裡只斷言機器的邊；
-    // 「真的載進來了」由 sessionLoader.test.ts（假 worker）與瀏覽器實測負責。
-    // 順帶釘住 RC-5 型的洩漏：無論那條路徑成功或失敗，進度條都不得留在畫面上。
+    // R11.2 F-01/F-02：這條路徑在 node 現在會**真的載入**——沒有 Worker 時降級到主執行緒
+    // 解析，於是這台機器的成功邊第一次能在行程內被觀察，而那正是 F-01 指出缺的東西。
+    // 舊斷言 `toBeNull()` 釘的其實是「node 必定失敗」之後的清理，不是成功終態：成功的終態
+    // 是 `phase: "ready"`（100% + 關閉鈕，見 SessionLoadStatus.tsx），那是設計行為。
+    // RC-5 真正要擋的是「卡在 pending 相位」，由下一條測試原樣接手。
+    expect(useSessionStore.getState().sessionLoadProgress?.phase).toBe("ready");
+    expect(useSessionStore.getState().error).toBeNull();
+  });
+
+  /**
+   * R11.2 F-02 迴歸案例。上一條測試原本兼職擋住 RC-5 型洩漏，但那個斷言是靠
+   * 「node 沒有 Worker，所以載入一定失敗」才成立的——降級路徑把該前提拿掉了。
+   * 因此舊斷言擋下的東西必須在這裡重新被擋一次，而且是用真的會失敗的輸入：
+   * **載入失敗時，進度條不得留在 pending 相位。**
+   */
+  it("a failed load clears the progress bar instead of leaving it mid-phase (RC-5)", async () => {
+    await useSessionStore.getState().loadFromBlobs([
+      { path: "broken.jsonl", blob: new Blob(["not a transcript at all"]) },
+    ]);
+
     expect(useSessionStore.getState().sessionLoadProgress).toBeNull();
+    expect(useSessionStore.getState().error).not.toBeNull();
   });
 
   /**
@@ -97,10 +115,10 @@ describe("DSM-4 · session browser transitions", () => {
     expect(useSessionStore.getState().indexEntries.length).toBeGreaterThan(0);
   });
 
-  it("indexed --close--> no_directory, and re-indexing replaces the list rather than appending", async () => {
+  it("indexed --close--> closed, and re-indexing replaces the list rather than appending", async () => {
     await indexSource([["proj/a.jsonl", TRANSCRIPT]]);
     useSessionStore.getState().closeBrowser();
-    expect(useSessionStore.getState().browseState).toBe("no_directory");
+    expect(useSessionStore.getState().browseState).toBe("closed");
 
     await indexSource([["proj/b.jsonl", TRANSCRIPT], ["proj/c.jsonl", TRANSCRIPT]]);
     expect(useSessionStore.getState().indexEntries).toHaveLength(2);

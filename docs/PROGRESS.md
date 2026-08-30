@@ -1,3 +1,9 @@
+---
+xi: 1
+what: 開發進度紀錄——逐里程碑段落式紀錄，最新在上，止於 2026-07-23 R7 Part B (a milestone-by-milestone progress log, newest entry on top, last updated at R7 Part B on 2026-07-23)
+tags: [dit, progress-log]
+aliases: [開發進度, 進度紀錄, progress log, milestone log]
+---
 # DIT 開發進度 (Progress Log)
 
 > 段落式進度紀錄，對應 RPD 里程碑。最新在上。

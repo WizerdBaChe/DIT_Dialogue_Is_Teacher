@@ -50,7 +50,6 @@ export type SessionMapTarget = MapLandmark | MapCluster;
 export const SKELETON_NODE_SYMBOL: Record<SkeletonNodeKind, string> = {
   objective: "□",
   decision: "◇",
-  milestone: "⬡",
   outcome: "▰",
 };
 
@@ -63,7 +62,7 @@ export const SKELETON_RIB_SYMBOL: Record<SkeletonRibKind, string> = {
 };
 
 /** Session Map 地標清單顯示順序。 */
-export const SKELETON_NODE_KIND_ORDER: SkeletonNodeKind[] = ["objective", "decision", "milestone", "outcome"];
+export const SKELETON_NODE_KIND_ORDER: SkeletonNodeKind[] = ["objective", "decision", "outcome"];
 export const SKELETON_RIB_KIND_ORDER: SkeletonRibKind[] = ["investigation", "error", "retry", "edit-loop"];
 
 /** 子代理地標記號 (與 edit-loop 支線的 ◆ 區分，避免 Map 圖例一符多義)。 */
@@ -356,7 +355,7 @@ function projectionUnits(stations: MapStation[], first = 0, last = stations.leng
 }
 
 function sectionBounds(stations: MapStation[], focusStationIndex: number): [number, number] {
-  const isBoundary = (kind: MapLandmark["kind"]) => kind === "objective" || kind === "milestone" || kind === "outcome";
+  const isBoundary = (kind: MapLandmark["kind"]) => kind === "objective" || kind === "outcome";
   let first = 0;
   let last = stations.length - 1;
   for (let index = focusStationIndex - 1; index >= 0; index -= 1) {

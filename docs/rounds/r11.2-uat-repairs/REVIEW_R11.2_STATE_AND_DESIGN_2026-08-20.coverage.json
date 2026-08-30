@@ -1,0 +1,284 @@
+{
+  "documentType": "code-review-deep-checklist.coverage",
+  "schemaVersion": "1.0",
+  "scanId": "REVIEW_R11.2_STATE_AND_DESIGN_2026-08-20",
+  "mode": "B",
+  "completeness": "partial",
+  "units": [
+    {
+      "id": "src/store/sessionStore.ts",
+      "label": "store / all lifecycle machines",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f02b22",
+        "crd_f07f66",
+        "crd_f09b88",
+        "crd_f10e11",
+        "crd_f11f12",
+        "crd_f15c15",
+        "crd_f16d16"
+      ]
+    },
+    {
+      "id": "src/store/surfaceSelectors.ts",
+      "label": "DSM-3 derivation",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/surface/blockingSurface.ts",
+      "label": "DSM-3 arbiter",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/components/useBlockingSurface.ts",
+      "label": "DSM-3 component half",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f13a13"
+      ]
+    },
+    {
+      "id": "src/core/ingest/",
+      "label": "DSM-1 worker leg (jsonlStream, sessionLoader, session.worker)",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f01a11",
+        "crd_f02b22"
+      ]
+    },
+    {
+      "id": "src/core/pipeline.ts",
+      "label": "DSM-1 batch verdict",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/index/",
+      "label": "DSM-4 indexer, classifier, directory source, contracts",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f03c33",
+        "crd_f14b14"
+      ]
+    },
+    {
+      "id": "src/core/text/preamble.ts",
+      "label": "shared preamble stripper",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f05d44"
+      ]
+    },
+    {
+      "id": "src/core/privacy/detectors.ts",
+      "label": "detection rules",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f06e55"
+      ]
+    },
+    {
+      "id": "src/core/privacy/redact.ts",
+      "label": "document-level redactor",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/diagnostics/",
+      "label": "tier contract and fallback channel",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/annotation/jobController.ts",
+      "label": "DSM-6",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f16d16"
+      ]
+    },
+    {
+      "id": "src/core/runtime/webRuntimeController.ts",
+      "label": "runtime boundary",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/components/SessionBrowserDialog.tsx",
+      "label": "DSM-4 surface",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f08a77",
+        "crd_f09b88"
+      ]
+    },
+    {
+      "id": "src/components/MainView.tsx",
+      "label": "DSM-2 banner surface",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/components/OverviewView.tsx",
+      "label": "R11.2 R3 info surface",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/App.tsx",
+      "label": "startup ordering vs snapshotMode",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "src/snapshot.tsx",
+      "label": "snapshot entry ordering",
+      "disposition": "no_issue_found",
+      "findingRefs": []
+    },
+    {
+      "id": "docs/design/DIT_STATE_MACHINES.md",
+      "label": "state-machine register",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f10e11"
+      ]
+    },
+    {
+      "id": "docs/BACKLOG.md",
+      "label": "debt register",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f12d10"
+      ]
+    },
+    {
+      "id": "docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md",
+      "label": "acceptance card",
+      "disposition": "reported",
+      "findingRefs": [
+        "crd_f04c99"
+      ]
+    },
+    {
+      "id": "src/core/adapters/codexJsonl.ts",
+      "label": "Codex adapter",
+      "disposition": "needs_follow_up",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/adapters/claudeCodeJsonl.ts",
+      "label": "Claude Code adapter",
+      "disposition": "needs_follow_up",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/export/",
+      "label": "transcript export (transcriptRedact read; rest not)",
+      "disposition": "needs_follow_up",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/normalize/ + denoise/ + distill/",
+      "label": "normalization chain",
+      "disposition": "needs_follow_up",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/view/",
+      "label": "view models, session map, fishbone",
+      "disposition": "needs_follow_up",
+      "findingRefs": []
+    },
+    {
+      "id": "src/core/llm/",
+      "label": "providers and endpoint status (DSM-5)",
+      "disposition": "needs_follow_up",
+      "findingRefs": []
+    },
+    {
+      "id": "src/i18n/",
+      "label": "copy tables",
+      "disposition": "needs_follow_up",
+      "findingRefs": []
+    },
+    {
+      "id": "appearance",
+      "label": "every rendered-result claim",
+      "disposition": "needs_follow_up",
+      "findingRefs": []
+    }
+  ],
+  "explicitExclusions": [
+    {
+      "pattern": "dist/**",
+      "reason": "generated; inspected as build evidence only"
+    },
+    {
+      "pattern": "node_modules/**",
+      "reason": "dependency"
+    },
+    {
+      "pattern": "archive/**",
+      "reason": "archived by project convention"
+    },
+    {
+      "pattern": ".tmp/**",
+      "reason": "this review's own repro scripts, gitignored"
+    }
+  ],
+  "deferred": [
+    {
+      "id": "d1",
+      "reason": "codexJsonl.ts read only to line 200 of 661; behavioural evidence over 358 real rollouts substituted for line-by-line review",
+      "unitIds": [
+        "src/core/adapters/codexJsonl.ts"
+      ]
+    },
+    {
+      "id": "d2",
+      "reason": "out of the stateful-logic focus; BACKLOG records R10-B (denoise/distill hardcode Claude tool names and never read doc.session.source) as still open and this review did not re-verify it",
+      "unitIds": [
+        "src/core/normalize/ + denoise/ + distill/",
+        "src/core/view/"
+      ]
+    },
+    {
+      "id": "d3",
+      "reason": "roughly 1,100 lines never reviewed by any pass, per BACKLOG's own blind-spot note; only transcriptRedact.ts was read here",
+      "unitIds": [
+        "src/core/export/"
+      ]
+    },
+    {
+      "id": "d4",
+      "reason": "not in the stateful-logic focus",
+      "unitIds": [
+        "src/core/adapters/claudeCodeJsonl.ts",
+        "src/core/llm/",
+        "src/i18n/"
+      ]
+    },
+    {
+      "id": "d5",
+      "reason": "browser pane and preview server were both denied by the permission layer; no pixel evidence exists, so every appearance claim stays unverified and the UAT's manual items remain the only route",
+      "unitIds": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "d6",
+      "reason": "root cause of the reported 'Session worker failed.' is narrowed to the worker boot boundary but not identified; needs the three-step diagnostic in report section 2.4",
+      "unitIds": [
+        "src/core/ingest/"
+      ]
+    },
+    {
+      "id": "d7",
+      "reason": "dependency advisories are volatile external facts and were not re-checked",
+      "unitIds": []
+    }
+  ]
+}

@@ -37,6 +37,9 @@ export function ExportControls(): ReactNode {
   // 匯出當下的取捨，不進 store：換個 session 重新想一次比記住上次的選擇更合理。
   const [transcriptOptions, setTranscriptOptions] = useState<TranscriptOptions>(DEFAULT_TRANSCRIPT_OPTIONS);
   const [redactSensitive, setRedactSensitive] = useState(false);
+  // 高熵字串規則獨立於上面的主開關，且預設關閉 (D-006)：抓長亂碼必然連帶誤擋 commit hash
+  // 這類無害字串，這個取捨該由使用者自己決定，不該由預設值代決。
+  const [redactHighEntropy, setRedactHighEntropy] = useState(false);
   // 遮蔽要掃過整份逐字稿，大 session 會有可感知的延遲；期間鎖住按鈕避免重複觸發。
   const [busy, setBusy] = useState(false);
 
@@ -105,7 +108,7 @@ export function ExportControls(): ReactNode {
       appVersion: pkg.version,
       options: transcriptOptions,
     });
-    return redactSensitive ? await redactTranscript(transcript) : transcript;
+    return redactSensitive ? await redactTranscript(transcript, { redactHighEntropy }) : transcript;
   };
 
   /** 遮蔽沒能清乾淨時要講出來——使用者以為有遮但其實沒遮乾淨，比沒開遮蔽更危險。 */
@@ -203,9 +206,18 @@ export function ExportControls(): ReactNode {
             />
             {t.transcript.optionRedact}
           </label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={redactHighEntropy}
+              onChange={(event) => setRedactHighEntropy(event.target.checked)}
+            />
+            {t.transcript.optionRedactHighEntropy}
+          </label>
         </div>
         <p className="option-hint">{t.transcript.optionSubagentsHint}</p>
         <p className="option-hint">{t.transcript.optionRedactHint}</p>
+        <p className="option-hint">{t.transcript.optionRedactHighEntropyHint}</p>
         <div className="settings-actions export-actions">
           <button className="btn" onClick={() => void exportTranscript("md")} disabled={!doc || busy}>{t.transcript.markdown}</button>
           <button className="btn" onClick={() => void exportTranscript("html")} disabled={!doc || busy}>{t.transcript.html}</button>

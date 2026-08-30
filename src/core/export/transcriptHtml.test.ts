@@ -87,7 +87,7 @@ describe("renderTranscriptHtml — 目錄與內容", () => {
       ...BASIC,
       { kind: "tool_use", uuid: "t1", toolName: "Read", toolInput: { file_path: "a.ts" }, toolUseId: "t1", raw: {} },
       { kind: "tool_use", uuid: "t2", toolName: "Edit", toolInput: { file_path: "a.ts" }, toolUseId: "t2", raw: {} },
-    ]);
+    ], { includeToolSummary: true });
     const tools = /<div class="tx-tools">[\s\S]*?<\/div>/.exec(html)?.[0] ?? "";
     expect(tools).toContain("<li>Read a.ts</li>");
     expect(tools).toContain("<li>Edit a.ts</li>");

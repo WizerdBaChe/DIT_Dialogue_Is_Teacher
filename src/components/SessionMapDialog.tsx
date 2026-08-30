@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   CLUSTER_MAP_SYMBOL,
@@ -60,6 +60,7 @@ function focusIdForTarget(
 
 export function SessionMapDialog(): ReactNode {
   const t = useT();
+  const legendUid = useId();
   const doc = useSessionStore((state) => state.doc);
   const viewItems = useSessionStore((state) => state.viewItems);
   const activeId = useSessionStore((state) => state.activeId);
@@ -178,11 +179,57 @@ export function SessionMapDialog(): ReactNode {
     setMapZoom(level, focusId ?? undefined);
   };
   const mountedRows = virtualizer.getVirtualItems().slice(0, MAX_MOUNTED_DETAIL_RIBS);
-  const mapLegendItems: Array<readonly [string, string]> = [
-    ...SKELETON_NODE_KIND_ORDER.map((kind) => [SKELETON_NODE_SYMBOL[kind], t.skeletonNode[kind]] as const),
-    ...SKELETON_RIB_KIND_ORDER.map((kind) => [SKELETON_RIB_SYMBOL[kind], t.skeletonRib[kind]] as const),
-    [SUBAGENT_MAP_SYMBOL, t.workspace.tabs.subagents] as const,
-    [CLUSTER_MAP_SYMBOL, t.map.clusterKind] as const,
+  /**
+   * R11 M6：符號說明從固定顯示的一整條文字，改成逐一符號可 hover/focus 的 tooltip。
+   * 骨架七類 (objective/decision/outcome/investigation/error/retry/edit-loop) 有
+   * core/view/categoryDefinitions 的三段式定義，tooltip 帶完整內容。子代理與聚合區段
+   * 兩個符號不在那張表裡（CategoryKey 只涵蓋骨架分類，子代理是來源而非判定結果，
+   * 聚合區段是檢視層級的呈現手法）——這裡沒有更完整的定義可讀，tooltip 內容退回既有的
+   * 單行標籤，與旁邊可見文字相同。這是既有詞彙表的落差，不在此卡修補範圍內。
+   */
+  const mapLegendItems: Array<{ id: string; symbol: string; label: string; detail: ReactNode }> = [
+    ...SKELETON_NODE_KIND_ORDER.map((kind) => {
+      const def = t.categoryDefinition[kind];
+      return {
+        id: `${legendUid}-node-${kind}`,
+        symbol: SKELETON_NODE_SYMBOL[kind],
+        label: t.skeletonNode[kind],
+        detail: (
+          <>
+            <span className="legend-tooltip-line">{def.what}</span>
+            <span className="legend-tooltip-line">{def.rule}</span>
+            <span className="legend-tooltip-line">{def.example}</span>
+          </>
+        ),
+      };
+    }),
+    ...SKELETON_RIB_KIND_ORDER.map((kind) => {
+      const def = t.categoryDefinition[kind];
+      return {
+        id: `${legendUid}-rib-${kind}`,
+        symbol: SKELETON_RIB_SYMBOL[kind],
+        label: t.skeletonRib[kind],
+        detail: (
+          <>
+            <span className="legend-tooltip-line">{def.what}</span>
+            <span className="legend-tooltip-line">{def.rule}</span>
+            <span className="legend-tooltip-line">{def.example}</span>
+          </>
+        ),
+      };
+    }),
+    {
+      id: `${legendUid}-subagent`,
+      symbol: SUBAGENT_MAP_SYMBOL,
+      label: t.workspace.tabs.subagents,
+      detail: <span className="legend-tooltip-line">{t.workspace.tabs.subagents}</span>,
+    },
+    {
+      id: `${legendUid}-cluster`,
+      symbol: CLUSTER_MAP_SYMBOL,
+      label: t.map.clusterKind,
+      detail: <span className="legend-tooltip-line">{t.map.clusterKind}</span>,
+    },
   ];
 
   return (
@@ -224,7 +271,18 @@ export function SessionMapDialog(): ReactNode {
           </div>
           <button type="button" className="btn map-close" onClick={closeMap} aria-label={t.map.close}>{t.map.close}</button>
           <p className="map-legend">
-            {`${t.sidebar.legendLabel}: ${mapLegendItems.map(([symbol, label]) => `${symbol} ${label}`).join(" · ")}`}
+            <span className="map-legend-label">{t.sidebar.legendLabel}:</span>
+            {mapLegendItems.map((item, index) => (
+              <span className="map-legend-entry" key={item.id}>
+                {index > 0 && <span aria-hidden="true"> · </span>}
+                <button type="button" className="map-legend-item" aria-describedby={item.id}>
+                  <span aria-hidden="true">{item.symbol}</span> {item.label}
+                </button>
+                <span role="tooltip" id={item.id} className="legend-tooltip-bubble">
+                  {item.detail}
+                </span>
+              </span>
+            ))}
           </p>
         </header>
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalize } from "./normalizer";
 import type { ParseResult, RawEvent } from "@/core/adapters/types";
+import { getFallbackReport, resetFallbackReport } from "@/core/diagnostics";
 
 function parsed(events: RawEvent[], meta: ParseResult["meta"] = {}): ParseResult {
   return { meta, events, diagnostics: [] };
@@ -84,8 +85,14 @@ describe("normalize — synthetic marker", () => {
       { kind: "assistant_text", text: "done", raw: {} },
     ]));
 
-    // 型別維持 assistant_msg——節點視圖照舊顯示這張卡片，只是多了一個「這不是模型說的」的標記。
-    expect(doc.spans[1].type).toBe("assistant_msg");
+    /*
+     * 這條斷言在 R9.2（逐字稿匯出）寫成時是 `assistant_msg`，因為當時 `unknown` 就對映到那裡。
+     * R9.1（RC-D）之後 `unknown` 有了自己的 `marker` 型別——兩輪各自在自己的分支上綠燈，
+     * 合併時才碰頭。以較晚且刻意的 R9.1 決定為準：標記卡不該偽裝成模型發言。
+     * 逐字稿的排除規則看的是 `synthetic` 而不是型別（transcript.ts `isOutOfScope`），
+     * 所以匯出行為不因此改變——這也是為什麼只有斷言要改，程式不用改。
+     */
+    expect(doc.spans[1].type).toBe("marker");
     expect(doc.spans[1].synthetic).toBe(true);
   });
 
@@ -96,5 +103,57 @@ describe("normalize — synthetic marker", () => {
       { kind: "assistant_text", text: "done", raw: {} },
     ]));
     expect(doc.spans.every((span) => span.synthetic === undefined)).toBe(true);
+  });
+});
+
+describe("normalize — tool_use with no resolvable name (R11.2 R2)", () => {
+  it("renders an explicit placeholder, never a raw identifier, when toolName is missing", () => {
+    const doc = normalize(parsed([
+      { kind: "tool_use", toolInput: { raw: "…" }, raw: {} },
+    ]));
+    expect(doc.spans[0].summary).toBe("未命名操作");
+    expect(doc.spans[0].tool?.name).toBe("未命名操作");
+  });
+
+  it("uses the same placeholder for the title (summary) and the tool badge (span.tool.name)", () => {
+    const doc = normalize(parsed([
+      { kind: "tool_use", raw: {} },
+    ]));
+    expect(doc.spans[0].summary).toBe(doc.spans[0].tool?.name);
+  });
+
+  it("still shows a real tool name normally", () => {
+    const doc = normalize(parsed([
+      { kind: "tool_use", toolName: "shell_command", toolInput: {}, raw: {} },
+    ]));
+    expect(doc.spans[0].summary).toBe("shell_command");
+    expect(doc.spans[0].tool?.name).toBe("shell_command");
+  });
+});
+
+/**
+ * R12 M7 — a session whose source could not be determined must not be quietly labelled.
+ *
+ * `finalizeMeta` defaults `source` to `"claude-code"`, and until M7 it did so SILENTLY, unlike
+ * the `id` default right beside it which has always reported. That matters more than a normal
+ * missing default: `source` selects the profile, and the profile drives denoise tool names, the
+ * title ladder and attribution kinds — one wrong guess and the whole render path is wrong, with
+ * nothing visible to say so. CLAUDE.md's invariant ("every `?? somethingElse` calls
+ * reportFallback") had a hole exactly where this round's defect lives.
+ */
+describe("normalize — an undetermined source is audible, not silent (R12 M7)", () => {
+  it("reports the fallback when the adapter supplied no source", () => {
+    resetFallbackReport();
+    const doc = normalize(parsed([{ kind: "user_text", text: "hi", raw: {} }], { id: "s1" }));
+
+    expect(doc.session.source).toBe("claude-code");
+    expect(getFallbackReport().some((r) => r.reason === "missing-source")).toBe(true);
+  });
+
+  it("says nothing when the adapter did supply one", () => {
+    resetFallbackReport();
+    normalize(parsed([{ kind: "user_text", text: "hi", raw: {} }], { id: "s1", source: "codex" }));
+
+    expect(getFallbackReport().some((r) => r.reason === "missing-source")).toBe(false);
   });
 });

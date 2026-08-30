@@ -1,3 +1,9 @@
+---
+xi: 1
+what: DIT 使用手冊——載入/總覽/閱讀/結構跳轉/地圖/匯出的建議操作順序，離線查閱用 (the DIT user guide covering the load/overview/read/structure/map/export flow, for offline reference)
+tags: [dit, user-guide]
+aliases: [使用手冊, 操作手冊, user guide, how to use DIT]
+---
 # DIT 使用手冊 / User Guide
 
 DIT 將代理工作紀錄整理成可逐步閱讀、回看決策與延伸講解的 Session。所有結構化與瀏覽功能都可離線使用；

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CodexJsonlAdapter
  * 解析 Codex CLI 的 session transcript (`~/.codex/sessions/**\/rollout-*.jsonl`)。
  *
@@ -36,11 +36,31 @@
  * 容錯原則：單行 JSON 解析失敗只記 warning 並跳過，絕不整體拋例外。
  */
 import type { Diagnostic } from "@/core/diagnostics/contracts";
-import type { SourceAdapter, ParseResult, RawEvent } from "./types";
+import type { SourceAdapter, ParseResult, RawEvent, RawEventKind } from "./types";
 import { stripInjectedPreamble } from "@/core/text/preamble";
 
 /** `custom_tool_call.name` 恆為 "exec"；真實工具名藏在 input 的 `tools.<name>(...)` 呼叫裡。 */
-const EXEC_TOOL_NAME_RE = /tools\.([A-Za-z_][\w]*)\s*\(/;
+const EXEC_TOOL_NAME_RE = /tools\.([A-Za-z_][\w]*)\s*\(/g;
+
+/**
+ * R11.2 R2：`.exec()`（非 global）只取*第一個* `tools.<name>(` 出現位置，但 `input` 有時是整段
+ * JS 原始碼——真正的呼叫可能出現在字串字面值（例如組出一份 patch/文件內容）**之後**，而那段
+ * 內容本身又可能剛好包含 `tools.<name>(` 這個文字樣式（例如引用它作為範例，或討論這個規則本身）。
+ * 實測本機真實樣本：一筆 `mcp__node_repl__js` 呼叫的 input 在組一份「解釋這個 pairing 規則」的
+ * RCA 文件內容時，該文件正文引用了 `` `tools.foo(` `` 當反例，被舊版正則誤判為真正呼叫，抽出
+ * "foo"——而這筆記錄實際執行的呼叫是尾端的 `tools.apply_patch(patch)`。
+ *
+ * 修法不是「挑對的那個」（那需要真的懂 JS 語法才能分辨字串字面值和可執行敘述，等於是用猜的），
+ * 而是誠實面對「同一個 input 裡出現兩個不同的工具名」代表證據本身就不足以安全判定——這種情況跟
+ * 完全沒抽到一樣，都算未解析，不得挑一個當作正確答案（D-001 / R10.1 §P2：不得把猜測包裝成事實）。
+ * 只有當整份 input 裡「所有」`tools.<name>(` 出現都指向同一個名字時，才視為可信：同一個工具被
+ * 呼叫多次（例如連續兩次 `tools.shell_command(...)`）沒有這個問題，仍然正常解析。
+ */
+function resolveExecToolName(input: string): string | undefined {
+  const names = new Set<string>();
+  for (const match of input.matchAll(EXEC_TOOL_NAME_RE)) names.add(match[1]);
+  return names.size === 1 ? [...names][0] : undefined;
+}
 
 function isPairableExecToolName(name: string): boolean {
   return name === "apply_patch" || name === "web__run" || name.startsWith("mcp__");
@@ -53,7 +73,11 @@ function asStringOrUndefined(value: unknown): string | undefined {
 /** Codex auto-review 審查子代理轉述先前歷史的固定開頭（首輪／增量輪共用前綴）。 */
 const AUTO_REVIEW_DUMP_PREFIX = "The following is the Codex agent history";
 
-function isAutoReviewDump(text: string): boolean {
+/**
+ * R11.2 R1：匯出給 `sessionIndexer.ts`。這段轉述文字掛的是 `role: "user"` 信封，但不是真人打的字
+ * ——分類與標題來源都不能把它當成真人回合，否則「第一則真人訊息」會變成一整份機器轉述的歷史。
+ */
+export function isAutoReviewDump(text: string): boolean {
   return text.trim().startsWith(AUTO_REVIEW_DUMP_PREFIX);
 }
 
@@ -103,8 +127,13 @@ interface CodexRecord {
   payload?: CodexPayload;
 }
 
-/** 把 Codex 的 `input_text` 區塊陣列攤平成純文字（跟 Claude Code 的 flattenResultContent 同類但格式不同）。 */
-function flattenTextBlocks(content: unknown): string {
+/**
+ * 把 Codex 的 `input_text` 區塊陣列攤平成純文字（跟 Claude Code 的 flattenResultContent 同類但格式不同）。
+ *
+ * R11.2 R1：匯出給 `sessionIndexer.ts` 重用，讓表頭掃描讀 Codex 的 `response_item/message.content`
+ * 時跟這支 adapter 用同一份攤平邏輯——不要另外寫一份會慢慢長歪的複本。
+ */
+export function flattenTextBlocks(content: unknown): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
@@ -122,6 +151,37 @@ function flattenTextBlocks(content: unknown): string {
 /** `custom_tool_call_output`／`function_call_output` 的 output 一律是 input_text 區塊陣列。 */
 function flattenOutput(output: unknown): string {
   return flattenTextBlocks(output);
+}
+
+/**
+ * R11 M4 WC-4.4(1)：`[external_agent_tool_call: <Name>]…[/external_agent_tool_call]` 與
+ * `[external_agent_tool_result]`／`[external_agent_tool_result: error]`…`[/external_agent_tool_result]`
+ * 是這台機器上「Codex 呼叫外部 agent 工具」時，工具呼叫/結果邊界的方括號包裝，出現在
+ * `response_item/message`（role=assistant）的內文裡——不是 `INJECTION_TAGS` 白名單處理的角括號
+ * 前言區塊（那組只認 `<tag>…</tag>` 且只在文字最開頭剝除一次）；這組是方括號、可能出現在文字
+ * 中段、同一則訊息裡可能重複多次。summary/title 目前直接取整段文字的前 90 字，於是包裝標記本身
+ * （常常比真正內容更早出現）被當成卡片標題，吃掉真正的內容。
+ *
+ * 實測本機 358 份 rollout：50,221 次出現，全部在 response_item/message（role=assistant）；
+ * 99.99%（50,218/50,221）包裝本身完整（開頭在段落起點、有對應收尾標籤、收尾後沒有殘留文字），
+ * 只有 3 例是「先有真人可讀的敘述句，後面才接上包裝」。因此只拿掉標記本身（開頭／收尾兩種
+ * token），中間與前後的內容原樣保留——不是新的剝除規則，是「不要把它當標題來源」的最小修正。
+ */
+const EXTERNAL_AGENT_WRAPPER_RE = /\[\/?external_agent_tool_(?:call|result)(?::[^\]]*)?\]\n?/g;
+
+function stripExternalAgentWrapperMarkers(text: string): string {
+  return text.replace(EXTERNAL_AGENT_WRAPPER_RE, "");
+}
+
+/**
+ * `agent_message` 的 `author`／`recipient` 是執行緒路徑（`/root`、`/root/<task>`），實測 author
+ * 恆不等於 recipient。父對子是交付給子代理的提示，子對父是回報——與 Claude Code 旁鏈裡
+ * 「side-chain user_msg 就是子代理的提示」同一個讀法，所以兩邊在下游長得一樣。
+ * 判不出親子關係時退回 assistant_text：把回報誤標成提示，比反過來安全（提示會被當成回合邊界）。
+ */
+function agentMessageKind(author: unknown, recipient: unknown): RawEventKind {
+  if (typeof author !== "string" || typeof recipient !== "string") return "assistant_text";
+  return recipient.startsWith(`${author}/`) ? "user_text" : "assistant_text";
 }
 
 const NO_EVENT_EVENT_MSG_TYPES = new Set([
@@ -281,7 +341,7 @@ export class CodexJsonlAccumulator {
           // 不是預期的裁決 JSON，不裝作看懂，落回一般內容處理（下方）。
         }
 
-        const text = stripInjectedPreamble(flattened);
+        const text = stripInjectedPreamble(stripExternalAgentWrapperMarkers(flattened));
         if (!text.trim()) return;
         this.pushEvent({
           kind: role === "assistant" ? "assistant_text" : "user_text",
@@ -292,25 +352,38 @@ export class CodexJsonlAccumulator {
         return;
       }
 
-      case "reasoning": {
-        // encrypted_content 無法還原；只有 summary 有明文時才出事件，空則略過 (F-6)。
-        const summary = payload?.summary;
-        const text = Array.isArray(summary) ? flattenTextBlocks(summary) : "";
-        if (!text.trim()) return;
-        this.pushEvent({ kind: "thinking", timestamp, text, raw: payload });
+      case "reasoning":
+        // R11 M4 WC-4.4(2) / P-001：Codex 把每一步推理寫兩次——`event_msg/agent_reasoning`
+        // 純文字（見 handleEventMsg），以及這裡的 `response_item/reasoning`，其 `summary` 是
+        // 同一段文字的重述（`encrypted_content` 本身無法還原，不可能拿來當唯一內容來源）。
+        // 兩者過去各自成一個 thinking span，於是同一步推理在卡片列表裡出現兩次；不對齊也不是
+        // 1:1——一則 `reasoning` 常把前面好幾則 `agent_reasoning` 的文字合併成一段 summary，
+        // 有時 summary 是空的（此時 encrypted_content 仍在，但無明文可顯示）。
+        //
+        // 本機 358 份 rollout 實測：12,876 筆 `agent_reasoning`、16,397 筆 `reasoning`
+        // （10,508 筆 summary 為空、5,889 筆非空）。5,889 筆非空 summary 中 5,885 筆
+        // （99.93%）恰好等於「自上一則 reasoning 起累積的 agent_reasoning 文字以 \n 串接」；
+        // 零筆是「summary 有內容但完全沒有對應的 agent_reasoning」孤兒案例。也就是說
+        // `agent_reasoning` 才是明文的權威來源、且沒有測到遺漏；`reasoning.summary` 對本語料
+        // 而言是完全冗餘的重述。因此這裡不再產生任何 span——含 encrypted_content 而 summary
+        // 為空的紀錄本來就不出卡片；summary 非空的紀錄現在也不出卡片，因為同樣的文字已經由
+        // `agent_reasoning` 出過了。不是拿 render 端去重（那樣如果日後語料出現孤兒案例會悄悄
+        // 丟資料而不自知），是直接讓第二個信封不再產生第二個 span。
         return;
-      }
 
       case "custom_tool_call": {
         const callId = payload?.call_id;
         const input = payload?.input;
-        const match = typeof input === "string" ? EXEC_TOOL_NAME_RE.exec(input) : null;
-        const toolName = match?.[1];
+        const toolName = typeof input === "string" ? resolveExecToolName(input) : undefined;
         if (!toolName) this.execToolNameUnresolved += 1;
         const event: RawEvent = {
           kind: "tool_use",
           timestamp,
-          toolName: toolName ?? "exec",
+          // R11.2 R2: leave undefined rather than falling back to the internal sentinel "exec" —
+          // that string used to leak straight into the card title/badge as if it were a real
+          // resolved name. The normalizer renders an honest "unnamed operation" placeholder for
+          // a missing toolName instead.
+          toolName,
           toolInput: { raw: input },
           toolUseId: typeof callId === "string" ? callId : undefined,
           raw: payload,
@@ -358,7 +431,11 @@ export class CodexJsonlAccumulator {
           timestamp,
           text: flattenOutput(payload?.output),
           toolUseId: typeof callId === "string" ? callId : undefined,
-          isError: false,
+          // R10-B: left undefined on purpose. Measured on 9,342 real outputs, Codex records no
+          // status field for a plain exec — `output` is a string or a content-block array and
+          // nothing else. Writing `false` here would assert a success the rollout never claimed.
+          // A later patch_apply_end / mcp_tool_call_end may fill it in; exec never can.
+          isError: undefined,
           raw: payload,
         };
         this.pushEvent(event);
@@ -369,10 +446,25 @@ export class CodexJsonlAccumulator {
         return;
       }
 
-      case "agent_message":
-        // 子代理間通訊，零可讀內容；本輪靜默丟棄 + 聚合診斷 (R7-INV-7 v2，見 R7.5 §3.2)。
-        this.dropKnownNoise();
+      case "agent_message": {
+        // R10-M1：R7.5 記為「零可讀內容」而靜默丟棄。2026-08-14 本機 356 份 rollout 實測推翻了
+        // 這個前提——544 筆全部帶非空 input_text，中位數 84 字、最長 16,215 字。丟棄不是降噪，
+        // 是資料遺失。證據見 docs/rounds/r10-source-awareness/SCAN_R10_LOCAL_ROLLOUT_RESULTS.md F-2。
+        const text = flattenTextBlocks(payload?.content);
+        if (!text.trim()) {
+          // 真的空的那幾筆仍照舊當噪音，不無中生有一張空卡片。
+          this.dropKnownNoise();
+          return;
+        }
+        this.pushEvent({
+          kind: agentMessageKind(payload?.author, payload?.recipient),
+          timestamp,
+          text,
+          isSidechain: true,
+          raw: payload,
+        });
         return;
+      }
 
       default:
         this.recordUnknown(`response_item/${subType}`);
@@ -415,6 +507,9 @@ export class CodexJsonlAccumulator {
         const success = Boolean(payload?.success);
         const detail = success ? String(payload?.stdout ?? "") : `[修改失敗] ${String(payload?.stderr ?? "")}`;
         entry.toolResult.text = [entry.toolResult.text, detail].filter(Boolean).join("\n");
+        // R10-B: `success` was already read for the text but never for the outcome, so a failed
+        // patch reached the skeleton untagged. Present on all 2,186 measured occurrences.
+        entry.toolResult.isError = !success;
       }
       return;
     }
@@ -434,11 +529,24 @@ export class CodexJsonlAccumulator {
         entry.toolUse.toolName = `mcp__${invocation.server}__${invocation.tool}`;
       }
       if (entry.toolResult) {
-        const result = payload?.result as { Ok?: { content?: unknown } } | undefined;
+        const result = payload?.result as { Ok?: { content?: unknown }; Err?: unknown } | undefined;
         const content = result?.Ok?.content;
         if (content !== undefined) {
           const detail = typeof content === "string" ? content : flattenTextBlocks(content);
           entry.toolResult.text = [entry.toolResult.text, detail].filter(Boolean).join("\n");
+        }
+        /*
+         * R10-B: `result` is a serialized Rust Result, so the outcome is the tag itself. All 712
+         * measured occurrences were `Ok`, which means the failure shape is NOT proven by local
+         * data — hence the deliberate asymmetry: a present `Err` is treated as an error, a present
+         * `Ok` as success, and anything else leaves the outcome unknown rather than assuming success.
+         */
+        if (result && "Err" in result) {
+          entry.toolResult.isError = true;
+          const detail = typeof result.Err === "string" ? result.Err : "";
+          entry.toolResult.text = [entry.toolResult.text, detail && `[MCP 呼叫失敗] ${detail}`].filter(Boolean).join("\n");
+        } else if (result && "Ok" in result) {
+          entry.toolResult.isError = false;
         }
       }
       return;
@@ -488,11 +596,20 @@ export class CodexJsonlAccumulator {
 
   finish(): ParseResult {
     const diagnostics: Diagnostic[] = [];
+    // R11 M4 WC-4.1 / P-001: these two used to be "warn", which reads as "this session went
+    // wrong". RCA_R10.1 measured 357 local rollouts / 218,517 lines: 93.9% of unpaired *_end
+    // events have no recoverable candidate anywhere in the exported stream at all — that is a
+    // limit of what Codex's export records, not a per-session fault, and no amount of pairing-
+    // heuristic tuning closes it. Both are named capability limits: the card still renders
+    // (as "unnamed operation" / as a standalone event) with nothing lost. "info" is the existing
+    // tier for exactly this — "a known condition handled by policy... counted, not narrated" — so it is
+    // reused rather than adding a new one; see CODEX_COORDINATION_SKIPPED and
+    // CODEX_AUTO_REVIEW_CONDENSED just below for the same pattern.
     if (this.execToolNameUnresolved > 0) {
-      diagnostics.push({ tier: "warn", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: this.execToolNameUnresolved });
+      diagnostics.push({ tier: "info", code: "CODEX_EXEC_TOOL_NAME_UNRESOLVED", count: this.execToolNameUnresolved });
     }
     for (const [subType, count] of this.unpairedEventCounts) {
-      diagnostics.push({ tier: "warn", code: "CODEX_EVENT_UNPAIRED", detail: subType, count });
+      diagnostics.push({ tier: "info", code: "CODEX_EVENT_UNPAIRED", detail: subType, count });
     }
     for (const [type, count] of this.unknownTypeCounts) {
       diagnostics.push(

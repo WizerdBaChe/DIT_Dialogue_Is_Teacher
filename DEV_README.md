@@ -1,3 +1,9 @@
+---
+xi: 1
+what: 開發者單一入口文件——環境設定、架構精簡版、慣例、進度與下一步 (the developer's single entry point: setup, an architecture summary, conventions, progress, and next steps)
+tags: [dit, entry, dev-guide]
+aliases: [開發者文件, 單一入口文件, 文件地圖, DEV_README, dev guide]
+---
 # DIT — 開發者文件 (DEV_README)
 
 > 給接續開發 / 維護這個專案的人看。使用者導向的說明請見 [README.md](README.md)。
