@@ -41,6 +41,13 @@ export type DiagnosticCode =
   | "FILE_PARSE_FAILED"
   | "NO_MAIN_TRANSCRIPT"
   | "MULTIPLE_SESSIONS"
+  /**
+   * 2026-09-compact-chain: a continuation file re-emits the boundary, the compact summary, the
+   * preserved records and the parent's whole post-boundary segment with their original uuids.
+   * Those copies are dropped when the chain is loaded as one document; `count` says how many.
+   * Info: it explains why the child contributes fewer records than it holds, nothing to act on.
+   */
+  | "CHAIN_DUPLICATES_DROPPED"
   | "NO_RENDERABLE_CONTENT"
   | "EMPTY_INPUT"
   | "LOAD_FAILED"
@@ -131,6 +138,20 @@ export type DiagnosticCode =
    * or entry count, `detail` the path.
    */
   | "INDEX_SIDECAR_TRUNCATED"
+  // --- session index (2026-09-compact-chain) ---
+  /**
+   * A file starts with a `compact_boundary` that points outside itself, and no candidate in the
+   * same project holds that boundary with its logical parent before it. The usual cause is a
+   * parent transcript that has since been cleaned up. Info, and it says "not found" — never
+   * "standalone": the search cannot tell the two apart. `detail` names up to three files.
+   */
+  | "INDEX_CHAIN_UNRESOLVED"
+  /**
+   * The parent search stopped because it ran out of candidate files or read budget before it
+   * could rule. Warn: the list is usable but a chain may be shown split, and the user can act
+   * (pick a smaller folder). `count` is the number of continuation files left unresolved this way.
+   */
+  | "INDEX_CHAIN_SEARCH_CAPPED"
   /**
    * A loaded file's actual harness differs from the one chosen at level 1. On the LOAD path
    * the content wins — the adapter has already read the file and re-reading a Codex rollout as

@@ -22,9 +22,18 @@ export interface PipelineResult {
   diagnostics: Diagnostic[];
 }
 
+/**
+ * 2026-09-compact-chain: a `continuation` file is a later transcript of the SAME conversation
+ * (Claude Desktop writes one when it resumes a compacted session). It carries its own sessionId,
+ * so `MULTIPLE_SESSIONS` must not fire on it, and it re-emits records the chain already holds,
+ * so it is walked after the files it copied from and those copies are dropped. Absent = `main`.
+ */
+export type TranscriptRole = "main" | "continuation";
+
 export interface TranscriptFileInput {
   path: string;
   content: string;
+  role?: TranscriptRole;
 }
 
 /**
@@ -32,7 +41,7 @@ export interface TranscriptFileInput {
  * 由批次層決定它們是 warn (還有別的檔案可用) 還是 fatal (全軍覆沒)。
  */
 export type ParsedFileOutcome =
-  | { status: "parsed"; path: string; parsed: ParseResult; inputBytes: number }
+  | { status: "parsed"; path: string; parsed: ParseResult; inputBytes: number; role?: TranscriptRole }
   | { status: "unrecognized"; path: string; inputBytes: number }
   | { status: "parse_failed"; path: string; inputBytes: number; detail: string };
 
@@ -120,7 +129,7 @@ export function buildSessionDocumentFromFiles(files: TranscriptFileInput[], sour
       try {
         const adapter = sourceId ? getAdapter(sourceId) : detectAdapter(file.content);
         if (!adapter) return { status: "unrecognized", path: file.path, inputBytes: file.content.length };
-        return { status: "parsed", path: file.path, parsed: adapter.parse(file.content), inputBytes: file.content.length };
+        return { status: "parsed", path: file.path, parsed: adapter.parse(file.content), inputBytes: file.content.length, role: file.role };
       } catch (error) {
         return {
           status: "parse_failed",
@@ -140,10 +149,11 @@ export function buildSessionDocumentFromFiles(files: TranscriptFileInput[], sour
  * 超過一種 sessionId，代表選取範圍混進了多個不相關的 session (例如整包 .claude/projects/ 或多個月份
  * 的 Codex rollout 檔)，直接拒絕合併，而不是悄悄挑第一個當 main、其餘硬拼成一棵錯亂的樹。
  */
-function countTopLevelSessions(files: Array<{ path: string; parsed: ParseResult }>): number {
+function countTopLevelSessions(files: Array<{ path: string; parsed: ParseResult; role?: TranscriptRole }>): number {
   return new Set(
     files
-      .filter((file) => !isSubagentFile(file))
+      // A continuation legitimately carries its own sessionId (see TranscriptRole).
+      .filter((file) => !isSubagentFile(file) && file.role !== "continuation")
       .map((file) => file.parsed.meta.id)
       .filter((id): id is string => Boolean(id)),
   ).size;
@@ -171,7 +181,7 @@ export function buildSessionDocumentFromParsedFiles(
   const sessionCount = countTopLevelSessions(parsedFiles);
   if (sessionCount > 1) throw new PipelineFatalError("MULTIPLE_SESSIONS", String(sessionCount));
 
-  const main = parsedFiles.find((file) => !isSubagentFile(file));
+  const main = parsedFiles.find((file) => !isSubagentFile(file) && file.role !== "continuation");
   if (!main) throw new PipelineFatalError("NO_MAIN_TRANSCRIPT");
 
   const batchDiagnostics: Diagnostic[] = [];
@@ -192,15 +202,39 @@ export function buildSessionDocumentFromParsedFiles(
     });
   }
 
-  const ordered = [main, ...parsedFiles.filter((file) => file !== main)];
+  /*
+   * 2026-09-compact-chain: main first, then continuation files in the order the caller gave
+   * them (root → child → grandchild), then everything else (subagents). A continuation
+   * re-emits the boundary, the compact summary, the preserved records and the parent's whole
+   * post-boundary segment with their ORIGINAL uuids (measured: 122–862 copied records per real
+   * pair), so it must be walked after the files it copied from, and an event whose uuid an
+   * earlier main/continuation already emitted is dropped. First occurrence wins, which is also
+   * where the compaction marker comes from — the parent's own boundary record. Repeats INSIDE
+   * one file are left alone (that is how a standalone file has always rendered), and subagent
+   * files take no part: their uuids are their own and a continuation never copies them.
+   */
+  const continuations = parsedFiles.filter((file) => file !== main && file.role === "continuation");
+  const others = parsedFiles.filter((file) => file !== main && file.role !== "continuation");
+  const ordered = [main, ...continuations, ...others];
 
   const sequenced: Array<{ event: RawEvent; sequence: number }> = [];
   let sequence = 0;
-  for (const { path, parsed } of ordered) {
+  const emitted = new Set<string>();
+  let duplicatesDropped = 0;
+  for (const file of ordered) {
+    const { path, parsed } = file;
+    const isContinuation = file.role === "continuation";
     for (const event of parsed.events) {
+      if (isContinuation && event.uuid && emitted.has(event.uuid)) {
+        duplicatesDropped += 1;
+        continue;
+      }
       sequenced.push({ event: { ...event, sourcePath: path }, sequence: sequence++ });
     }
+    if (isSubagentFile(file)) continue;
+    for (const event of parsed.events) if (event.uuid) emitted.add(event.uuid);
   }
+  if (duplicatesDropped > 0) batchDiagnostics.push({ tier: "info", code: "CHAIN_DUPLICATES_DROPPED", count: duplicatesDropped });
   sequenced.sort((left, right) => {
     const leftTime = left.event.timestamp ? Date.parse(left.event.timestamp) : Number.NaN;
     const rightTime = right.event.timestamp ? Date.parse(right.event.timestamp) : Number.NaN;
