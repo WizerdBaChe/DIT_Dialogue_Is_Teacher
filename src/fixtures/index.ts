@@ -15,6 +15,17 @@ import r4SubagentSession from "./r4/subagents/agent-1.jsonl?raw";
  *  - infile:  the AppData shape — a boundary near the head whose logical parent (x-att) sits
  *             in the same file BEFORE it. An in-file compaction, not a continuation.
  */
+/*
+ * 2026-09 UX 走查 F6 的 fixture。閱讀頁標題是單行 nowrap + ellipsis，長標題只靠 `title`
+ * 屬性補回全文——而 `title` 需要 hover，觸控裝置上沒有 hover。要判斷「這樣夠不夠分辨」，
+ * 需要兩份**共用長前綴、只在尾端不同**的 session：截斷之後它們看起來會是同一個東西。
+ * 示範 session 的標題很短，永遠不會截斷，所以走查當時觀察不到這件事。
+ *
+ * 這兩份是 fixture，不是內建範例：它們不會自己出現在畫面上。人工驗收 B2 的用法是用
+ * 「選擇一則對話」載入 `src/fixtures/longTitle/` 底下這兩個檔，各看一次閱讀頁的標題列。
+ */
+import longTitleAttemptOne from "./longTitle/attempt-one.jsonl?raw";
+import longTitleAttemptTwo from "./longTitle/attempt-two.jsonl?raw";
 import chainParentSession from "./chain/parent.jsonl?raw";
 import chainChildSession from "./chain/child.jsonl?raw";
 import chainSiblingSession from "./chain/sibling.jsonl?raw";
@@ -25,6 +36,8 @@ export {
   subagentSession,
   r4MainSession,
   r4SubagentSession,
+  longTitleAttemptOne,
+  longTitleAttemptTwo,
   chainParentSession,
   chainChildSession,
   chainSiblingSession,
