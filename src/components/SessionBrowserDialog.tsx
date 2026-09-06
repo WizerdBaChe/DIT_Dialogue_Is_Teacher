@@ -117,6 +117,14 @@ export function SessionBrowserDialog(): ReactNode {
           )}
 
           {browseState === "picking" && <p className="session-browser-status">{t.browser.picking}</p>}
+          {/*
+            F7：`fallback` 與 `picking` 是兩種現實。前者沒有任何選擇器被打開，等的是使用者去按
+            上面那顆「選擇資料夾」（它的 choose() 在這個瀏覽器裡會落到隱藏的 <input>）。
+            用 role=status 播報，因為狀態是**因為使用者剛按了載入**才變成這樣的。
+          */}
+          {browseState === "fallback" && (
+            <p className="session-browser-status" role="status" aria-live="polite">{t.browser.fallbackPrompt}</p>
+          )}
           {browseState === "indexing" && (
             <p className="session-browser-status" role="status" aria-live="polite">
               {t.browser.indexing(progress?.[0] ?? 0, progress?.[1] ?? 0)}
