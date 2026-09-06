@@ -53,6 +53,7 @@ aliases: [輪次登記表, 配置登記表, round id registry, ROUNDS]
 | R11.1 | — | **已保留，未開工** | Markdown／LaTeX 渲染層。設計指引已存在於 `docs/design/DIT_TEXT_RENDERING.md`，一行程式碼都還沒寫 |
 | R11.2 | `r11.2-uat-repairs` | 施工完成，**驗收未過** | R11 驗收缺陷的修復輪；B1 與前提 1、前提 2 仍開著 |
 | R12 | `r12-source-first-navigation` | 施工完成，**已併入 `main`**（2026-08-30，`aa74fd9`）。作者裁決免除本輪 UAT 等待——**不等於驗收通過**，`UAT_R12_v1.0.md` 的項目未被逐項判定 | 探索 (discovery) 依 agent 系統分流、檢視 (viewing) 收斂回同一套 |
+| 2026-09-compact-chain | `2026-09-compact-chain` | 施工完成，**待驗收、未併入**（2026-09-06 配置並施工；分支 `feat/2026-09-compact-chain`；PSM §4 是驗收清單） | T-008／DW-16：壓縮後的續接檔以 `compact_boundary` 的 uuid 串成一場對話——索引層分組、載入時拼接並跨檔去重 |
 
 ## R 編號到 R12 為止封號 (numeric namespace closed at R12)
 
