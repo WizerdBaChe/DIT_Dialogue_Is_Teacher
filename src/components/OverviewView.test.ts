@@ -3,8 +3,8 @@ import source from "./OverviewView.tsx?raw";
 
 /*
  * R12 M2 (author ruling 2026-08-26): the symbol guide is GONE from the Overview, and the load
- * entries take the slot it held. SA-02's order is otherwise unchanged, so this test keeps
- * guarding it rather than being deleted along with the legend.
+ * entries retain a separate surface. The editorial workspace puts the reading CTA before
+ * the guide, as authorized by the 2026-09 UI/UX redesign.
  *
  * Why the guide went rather than being fixed: the author reports it as the output of a failed
  * implementation, raised before and never repaired. A wrong explanation is worse than none —
@@ -13,14 +13,14 @@ import source from "./OverviewView.tsx?raw";
  * ("the user cannot tell whether to trust this marker") still has a surface.
  */
 describe("SA-02 overview information order", () => {
-  it("keeps badge → title → purpose → three steps → CTA → load entries, in that order", () => {
+  it("keeps orientation → reading CTA → source panel → supporting guide, in that order", () => {
     const markers = [
       "overview-badge",
       'id="overview-title"',
       "overview-purpose",
-      "overview-steps",
       "overview-actions",
       "overview-load",
+      "overview-steps",
     ];
     const indices = markers.map((marker) => {
       const index = source.indexOf(marker);
