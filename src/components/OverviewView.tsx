@@ -54,12 +54,25 @@ export function OverviewView(): ReactNode {
 
   return (
     <main className="main-content overview-view">
-      <section className="overview-card" aria-labelledby="overview-title">
-        <span className="overview-badge">
-          {sessionOrigin === "sample" ? t.overview.sampleBadge : t.overview.loadedBadge}
-        </span>
-        <h2 id="overview-title">{t.overview.startTitle}</h2>
-        <p className="overview-purpose">{t.overview.purpose}</p>
+      <section className={`overview-card ${snapshotMode ? "overview-snapshot" : ""}`} aria-labelledby="overview-title">
+        <div className="overview-lead">
+          <span className="overview-badge">
+            {sessionOrigin === "sample" ? t.overview.sampleBadge : t.overview.loadedBadge}
+          </span>
+          <h2 id="overview-title">{t.overview.startTitle}</h2>
+          <p className="overview-purpose">{t.overview.purpose}</p>
+          <div className="overview-actions">
+            <button type="button" className="btn primary overview-primary-action" onClick={startReading}>
+              {cta}<span aria-hidden="true"> →</span>
+            </button>
+          </div>
+        </div>
+
+        {!snapshotMode && (
+          <div className="overview-load">
+            <SessionLoadActions labels="overview" />
+          </div>
+        )}
 
         <ol className="overview-steps">
           <li>
@@ -104,22 +117,6 @@ export function OverviewView(): ReactNode {
             </div>
           </li>
         </ol>
-
-        <div className="overview-actions">
-          {/* R9.1 RC-E：尺寸由 .overview-actions 這一排統一給，元素本身不再帶尺寸 class。 */}
-          <button type="button" className="btn primary overview-primary-action" onClick={startReading}>
-            {cta}
-          </button>
-        </div>
-
-        {/*
-          R12 M2 修正（作者裁決 2026-08-26）：載入入口不再跟 CTA 擠同一排。
-          一級選單是「一段說明 + 兩顆按鈕」的區塊，塞進一排 flex 之後標題會跟按鈕並排，
-          看起來是交錯的。給它自己一整列，說明在上、按鈕在下。
-        */}
-        <div className="overview-load">
-          <SessionLoadActions labels="overview" />
-        </div>
       </section>
     </main>
   );

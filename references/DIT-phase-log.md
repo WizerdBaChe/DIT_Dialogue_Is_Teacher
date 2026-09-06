@@ -690,3 +690,35 @@ date: 2026-08-30
 - Fold vs nested rows; the diverged-parent case as a branch view — both flippable, neither built.
 - Merge of `feat/2026-09-compact-chain` into `main` waits on the author.
 - Carried over: R11.2 / R12 acceptance unfilled; DW-01, DW-03..DW-15, DW-17, DW-22 unassigned; the Codex fork-rung ruling from Phase 19.
+
+---
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 22 – round `2026-09-editorial-workspace`: editorial UI/UX adjustment
+- Status: implementation complete; local commit authorized by the author; visual acceptance and merge pending
+- Date: 2026-09-07
+
+## Goals
+- Preserve the existing paper, serif, oxblood and hairline style while improving overview hierarchy and reader orientation.
+- Document the criteria, decisions, tradeoffs, implementation and validation in `D:\tmp\DIT_UIUX_2026-09-editorial-workspace.md`, as requested by the author.
+
+## Decisions
+- Put the reading CTA after the purpose text, give source selection its own panel, and place the three-part guide below both. Use columns on wide content areas and a vertical guide below 760px of overview container width.
+- Keep the source-first two-stage flow, snapshot restrictions, diagnostics and virtualization contracts. Reuse existing dependencies and localization.
+- Add a persistent reader title and selected-step position, not a completion percentage. Mark the current sidebar item with aria-current and strengthen keyboard focus styling.
+- The author requested a local commit and wrap-up. This does not mark the visual UAT items as passed and does not authorize a push or merge.
+
+## Changes
+- OverviewView.tsx, MainView.tsx, Sidebar.tsx and index.css implement the layout and orientation changes. OverviewView.test.ts updates the intentionally changed information-order assertion.
+- Round registry, PSM and UAT record scope and pending acceptance. The detailed rationale is outside the repository at the author-requested path and is not included in the commit.
+- Branch `feat/2026-09-editorial-workspace` was created from the existing compact-chain branch; its earlier history is retained.
+
+## Verification
+- npm.cmd test: 70 test files, 696 tests passed. npm.cmd run typecheck: clean. npm.cmd run build: production and single-file snapshot builds passed. npm.cmd run check:rounds: OK. git diff --check: no whitespace errors.
+- Browser spot checks: Chinese and English overview at desktop and 390px widths; source selection and back; reading CTA; next-step position changed from 1 / 16 to 2 / 16. Locale restored to Traditional Chinese and viewport override reset.
+- Existing esbuild/oxc deprecation and Git LF/CRLF notices remain non-failing. No usability improvement metrics were collected.
+
+## Open Questions / TODO
+- Author visual acceptance remains unfilled. This round has not been merged or pushed.
+- No new private-session import, complete keyboard audit, screen-reader audit or full browser/zoom matrix was performed in this round.

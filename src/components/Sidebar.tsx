@@ -109,6 +109,7 @@ export function Sidebar({ variant = "desktop", titleId, titleRef, onItemSelect }
                 key={item.id}
                 type="button"
                 className={`tree-item ${landmarkKind ? `landmark landmark-${landmarkKind}` : ""} ${cls}`}
+                aria-current={selectedId === item.id ? "step" : undefined}
                 onClick={() => {
                   onItemSelect?.(item.id);
                   setActive(item.id);
