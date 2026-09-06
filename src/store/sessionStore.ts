@@ -119,17 +119,40 @@ const GENERIC_PRESET_IDS: GenericChatPresetId[] = ["lmstudio", "jan", "openroute
  *   closed --pick--> picking --cancel--> closed
  *                    picking --got handle--> indexing --ok--> indexed
  *                                            indexing --fail--> index_failed --retry--> picking
+ *   closed --resume, no picker--> fallback --user presses 選擇資料夾--> indexing
  *   indexed --refresh--> indexing
  *   indexed --choose--> loading --done|fail--> indexed
  *
- * 最後那一條是這台機器存在的理由：**載入失敗必須回到清單，而不是回到空白的 app**。
+ * 最後那一條（loading）是這台機器存在的理由：**載入失敗必須回到清單，而不是回到空白的 app**。
  *
  * R9.1 RC-A：`closed` 是唯一讓瀏覽器整個消失的值（見 surfaceSelectors），因此它只能由
  * **使用者的意思**抵達——關閉、初始、或在系統選擇器按取消。任何失敗都不得落在這裡；
  * 舊名 `no_directory` 讓「還沒選目錄」與「失敗了但還沒有任何條目」看起來像同一件事，
  * 於是失敗可以無聲退場。改名是為了讓「誰有資格讓瀏覽器消失」變成讀得出來的事。
+ *
+ * 2026-09 UX 走查 F7：`fallback` 是這一輪新增的，理由同上一段。沒有目錄選擇器的瀏覽器原本
+ * 借用 `picking`，於是畫面說「等待你選擇資料夾…」——但**沒有東西在等**：那條路徑沒有開任何
+ * 選擇器，要等的是使用者去按對話框裡的「選擇資料夾」。一個狀態承載兩種現實，文案就只能對其中
+ * 一種說實話。分成兩個值之後，兩句話各自為真。
+ *
+ * 全集寫成執行期常數再導出型別，不是反過來：`browseFailure.test.ts` 的「只有 closed 會讓瀏覽器
+ * 消失」是對這個全集窮舉的閘，手抄一份清單就會在新增狀態時安靜地漏掉它——這一次差點就是。
  */
-export type BrowseState = "closed" | "picking" | "indexing" | "indexed" | "index_failed" | "loading";
+export const BROWSE_STATES = [
+  "closed", "picking", "fallback", "indexing", "indexed", "index_failed", "loading",
+] as const;
+export type BrowseState = (typeof BROWSE_STATES)[number];
+
+/**
+ * 一次載入嘗試留下的、非錯誤的告知。目前只有一種：使用者按了取消。
+ *
+ * 2026-09 UX 走查 F8：`cancelSessionLoad()` 原本只呼叫 `task.cancel()`，進度條隨即消失，
+ * 畫面上什麼都沒說。使用者不知道取消成功了沒，也不知道原本那份文件還在不在——而它其實一直在
+ * （狀態列上那句「載入期間保留目前文件」講的就是這件事，只是它跟著進度條一起不見了）。
+ *
+ * 存成代碼而不是句子：文案的唯一定義處是字典，元件不自己組字 (SM-12 rule 2)。
+ */
+export type SessionLoadNotice = "cancelled";
 
 const DEFAULT_GENERIC_PRESET_CONFIGS: Record<GenericChatPresetId, GenericPresetConfigState> = {
   lmstudio: { baseUrl: getPreset("lmstudio").baseUrl, model: "", apiKey: "", timeoutMs: DEFAULT_GENERIC_TIMEOUT_MS },
@@ -530,6 +553,8 @@ export interface SessionState {
    */
   error: Diagnostic | null;
   sessionLoadProgress: SessionLoadProgress | null;
+  /** 上一次載入嘗試留下的告知（目前只有「已取消」）；與 progress 互斥，見 SessionLoadStatus。 */
+  sessionLoadNotice: SessionLoadNotice | null;
 
   /**
    * R12 M2：一級選單挑的 agent 系統，`null` = 還沒挑。
@@ -725,6 +750,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   diagnostics: [],
   error: null,
   sessionLoadProgress: null,
+  sessionLoadNotice: null,
 
   activeSource: null,
   browseState: "closed",
@@ -809,6 +835,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({
       sessionLoadProgress: { phase: "reading", loadedBytes: 0, totalBytes, lineCount: 0, sourcePath: null },
       error: null,
+      // 新的嘗試取代上一次的結局；兩者同時在畫面上會互相矛盾。
+      sessionLoadNotice: null,
     });
     // startSessionLoad 本身也會丟（建構 Worker 失敗：CSP、file://、瀏覽器不支援 module worker）。
     // 它原本在 try 之外，於是那條路徑會讓進度條永遠停在「讀取中」——這正是 RC-5 的洩漏型缺陷，
@@ -926,11 +954,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       // only opens the session-browser surface when browseState !== "closed" — so the
       // dialog (and the <input type="file" webkitdirectory> fallback that lives inside it,
       // see SessionBrowserDialog.tsx) never mounted. The old comment's claim that "the UI
-      // opens the <input>" was false; there was no entry point at all. "picking" opens the
-      // dialog and shows "waiting for you to choose a folder" — the user then clicks the
-      // "Choose folder" header button, whose choose() falls back to fileInputRef.click()
-      // when isDirectoryPickerSupported() is false.
-      set({ browseState: "picking" });
+      // opens the <input>" was false; there was no entry point at all. Opening the dialog
+      // is right; the user then clicks the "Choose folder" header button, whose choose()
+      // falls back to fileInputRef.click() when isDirectoryPickerSupported() is false.
+      //
+      // 2026-09 UX 走查 F7：但這裡原本設的是 `picking`，於是畫面說「等待你選擇資料夾…」——
+      // 沒有任何選擇器被打開，沒有東西在等，要動的是使用者。`fallback` 是同一個對話框、
+      // 不同的一句話：它指名那顆使用者需要按的按鈕。
+      set({ browseState: "fallback" });
       return;
     }
     /*
@@ -1029,11 +1060,22 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
+  /*
+   * 2026-09 UX 走查 F8。回饋在**這裡**給，不從 loadFromBlobs 的 catch 反推。
+   *
+   * 那個 catch 認的是 `SessionLoadCancelledError`，而 `reset()` 與「開始下一次載入」也都會
+   * 呼叫 `task.cancel()`——照那條路走，重置之後會冒出一句「已取消載入，仍顯示原本的文件」，
+   * 而那時文件根本已經被換掉了。取消的**意思**只有使用者按這顆按鈕時才成立，所以判準放在
+   * 意思的來源處，不放在它引發的例外上。這與 D-023 無關、也不動它：那條裁決講的是「選擇器
+   * 拒絕」與「使用者取消」在 API 層分不開，處理方式不變，這裡加的是取消**成功之後**說一句話。
+   */
   cancelSessionLoad: () => {
-    activeSessionLoad?.cancel();
+    if (!activeSessionLoad) return;
+    activeSessionLoad.cancel();
+    set({ sessionLoadNotice: "cancelled" });
   },
 
-  dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, error: null }),
+  dismissSessionLoadStatus: () => set({ sessionLoadProgress: null, sessionLoadNotice: null, error: null }),
   dismissWarnings: () => set({ warningsDismissed: true }),
   // 確認即清掉 fatal：使用者已經看過原因與下一步，留著它只會讓空狀態重複同一句話。
   acknowledgeParseNotice: () => set({ parseNoticeAcknowledged: true, error: null }),
@@ -1052,6 +1094,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       doc: null,
       viewItems: [],
       sessionLoadProgress: null,
+      // reset() 也會取消進行中的載入，但那不是使用者按了「取消載入」，不該留下那句告知。
+      sessionLoadNotice: null,
       primaryView: "overview",
       cacheReady: true,
     });

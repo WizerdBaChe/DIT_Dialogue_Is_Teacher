@@ -201,6 +201,11 @@ const zhTW = {
     cancel: "取消載入",
     dismiss: "關閉狀態",
     previousPreserved: "載入期間保留目前文件；只有完整驗證通過後才會替換。",
+    /*
+     * 2026-09 UX 走查 F8。這句話要回答的是取消當下腦中的兩個問題：取消成功了嗎、我原本在看的
+     * 東西還在嗎。所以兩件事都講，而且用的是 `previousPreserved` 已經承諾過的同一件事實。
+     */
+    cancelled: "已取消載入，仍顯示原本的文件。",
   },
 
   /** R9：Session 瀏覽器。把「載入資料夾」從盲選變成瀏覽後挑選。 */
@@ -212,7 +217,15 @@ const zhTW = {
     close: "關閉",
     hintPath: "Claude Code 的 session 在 ~/.claude/projects/<專案>/；選那個專案資料夾，或選 projects/ 一次看全部。",
     hintFallback: "這個瀏覽器不支援記住資料夾，每次都要重新選一次。",
+    // 「等待」只有在**真的有東西在等**的時候才成立：原生選擇器已經打開、瀏覽器正握著這次互動。
     picking: "等待你選擇資料夾…",
+    /*
+     * 2026-09 UX 走查 F7：沒有目錄選擇器的瀏覽器走的是另一條路——沒有選擇器被打開，要動的是
+     * 使用者。這句話因此不描述系統在做什麼，而是指名那顆要按的按鈕。
+     *
+     * 指名按鈕、不指方位——理由與 F1 同一條：對話框在窄版會換行，方位詞只在其中一種版面成立。
+     */
+    fallbackPrompt: "這個瀏覽器不能記住資料夾，請按「選擇資料夾」重新挑一次。",
     indexing: (done: number, total: number) => `讀取中… ${done}/${total}`,
     indexFailedTitle: "讀不到這個資料夾",
     retry: "重新選擇",
@@ -895,6 +908,8 @@ const en: Messages = {
     cancel: "Cancel load",
     dismiss: "Dismiss status",
     previousPreserved: "The current document stays available until the replacement passes full validation.",
+    // F8: answers both questions a cancel raises — did it stop, and is my document still here.
+    cancelled: "Load cancelled — the document you were reading is still shown.",
   },
 
   browser: {
@@ -906,6 +921,9 @@ const en: Messages = {
     hintPath: "Claude Code keeps sessions in ~/.claude/projects/<project>/. Pick that project folder, or pick projects/ to see everything at once.",
     hintFallback: "This browser cannot remember the folder, so you will pick it again each time.",
     picking: "Waiting for you to choose a folder…",
+    // F7: no picker was opened on this path, so nothing is waiting — the user has to act.
+    // Names the button rather than where it sits, for the same reason as F1.
+    fallbackPrompt: "This browser cannot remember a folder — press “Choose folder” to pick one again.",
     indexing: (done: number, total: number) => `Reading… ${done}/${total}`,
     indexFailedTitle: "Could not read that folder",
     retry: "Choose again",
