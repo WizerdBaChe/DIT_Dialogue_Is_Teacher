@@ -656,3 +656,37 @@ date: 2026-08-30
 - **R12 acceptance was never run, and merging did not run it.** `UAT_R12_v1.0.md` — which also carries R11.2's unfinished items — is still unfilled, and appearance remains unverified across the whole round. This is the one thing a reader of `ROUNDS.md` must not misread as `shipped`.
 - `DW-01`, `DW-03..DW-17` and `DW-22` remain `unassigned`.
 - Author ruling still wanted, carried over from Phase 19: should a forked Codex thread show its parent's description as a named rung (17% → 53% coverage)?
+
+---
+
+# Phase Checkpoint
+- Project: DIT
+- Phase: Phase 21 – round `2026-09-compact-chain` (T-008 / DW-16): compacted continuation files render as ONE session
+- Status: completed (built and green on `feat/2026-09-compact-chain`; author acceptance and merge pending)
+- Date: 2026-09-06
+- Transcript: session 8a5b20ed (claude-config, Fable main loop, ops-relaxation L2) — archived: pending
+
+## Goals
+- Take T-008 exactly as ruled by the author on 2026-09-06 (start now, touch nothing else): chained files grouped in the picker, timeline stitched in order, the boundary rendered as the existing marker, a fixture shaped after a real chained pair, gates green.
+
+## Decisions
+- D-024: chain key = the head boundary's own uuid; parent = the candidate in which the `logicalParentUuid` target sits BEFORE that boundary; resolution at index time by bounded ranged reads of time-filtered candidates; children fold under the parent row; a continuation's copied records are dropped by uuid when the chain loads (cross-file only). Measured before designing — six real pairs, see the PSM §1.
+- The round id was allocated in `docs/rounds/ROUNDS.md` before any file was written; DW-16's home set to the round; T-008 marked in-progress with the spec path. `check:rounds` OK at both ends.
+- No separate `UAT_*.md`: the manual checklist lives in the PSM §4. `UAT_R12_v1.0.md` is still the only live acceptance card and is unfilled; opening a second one is the author's call, not the builder's.
+- Real-data control run through a temporary vitest file reading `~/.claude/projects` directly, then deleted (never committed): private transcripts do not belong in the repo, and the fixture pair carries the shape with the content replaced.
+
+## Changes
+- `src/core/index/chains.ts` (new; `locateChainParent`, `resolveChains`, `chainMembers`, `foldChains`) + `chains.test.ts` (12 tests, positive and negative controls incl. a needle straddling a chunk edge, the parentUuid decoy, a grandchild copy, budget/candidate caps, an unreadable candidate, a cycle).
+- `src/core/index/sessionIndexer.ts`: `ScanStats` gains `seenUuids` / `chainHead` / `chainHeadSettled`; `noteChainHead` judges only the FIRST head-window boundary and tail boundaries never qualify; `resolveChains` runs after the scan loop. `contracts.ts`: `ChainHead`, `ChainLink`, `SessionIndexEntry.chain`.
+- `src/core/pipeline.ts`: `TranscriptRole`; continuation files are exempt from `MULTIPLE_SESSIONS`, walked after the files they copied from, and their already-emitted uuids dropped (`CHAIN_DUPLICATES_DROPPED`, info). `ingest/contracts.ts`, `session.worker.ts`, `sessionLoader.ts` carry the role through both load paths.
+- `src/store/sessionStore.ts` `loadIndexEntry`: loads `chainMembers(root)` in chain order, each member followed by its own subagents. `SessionBrowserDialog.tsx`: `foldChains(visible)`, a `接續 ×N` tag with the member file names in the tooltip. `locales.ts` (`browser.chainCount/chainMembers`), `diagnosticCopy.ts` and `diagnostics/contracts.ts` (`INDEX_CHAIN_UNRESOLVED` info, `INDEX_CHAIN_SEARCH_CAPPED` warn, `CHAIN_DUPLICATES_DROPPED` info), both locales.
+- `src/fixtures/chain/{parent,child,sibling,infile}.jsonl` + `fixtures/index.ts`: shaped after `7d074bf8` → `7fed77ca` with content replaced; `infile` is the AppData negative (boundary near the head, logical parent in-file before it).
+- Tests added in `sessionIndexer.test.ts` (2) and `pipeline.test.ts` (3). Gates at the branch tip, exit codes read directly: `tsc --noEmit` clean; vitest **696/696 across 70 files** (was 679/69); two-stage build clean; `check:rounds` OK (21 ids, 19 directories).
+- Real-data control (temporary test, deleted): `C--Users-gunda--claude` 156 files → 152 entries, 5 chain heads, parents `7fed77ca→7d074bf8`, `0ee5c8e5→2d736817`, `68f287cd`/`bc7436fd`/`fffca805→5b8bea97`, 0 chain diagnostics; index 333 ms, of which resolution 122 ms over 21 ranged reads / 76.3 MB (the scan itself read 116.5 MB). `D--AIWork` `1c256260→8ee03a1f`, `D--AIWork-NTUMail2TG` `4593d832→e258504a`; the AppData directory with two in-file boundaries produced 0 heads. Every expectation was fixed from the Python measurement BEFORE the TypeScript ran.
+- Docs: `docs/rounds/ROUNDS.md` row, `docs/DEFERRED.md` DW-16 home, `references/DIT-tickets.md` T-008, `docs/rounds/2026-09-compact-chain/PSM_2026-09-compact-chain_v0.1.md` (boundary contract §0, measurements §1, design §2, acceptance §3–§5), D-024.
+
+## Open Questions / TODO
+- **Author acceptance** (PSM §4): A1 one row each for 論文分析簡報製作流程 (`接續 ×1`) and 子代理分派成本優化 (`接續 ×3`); A2 parent → single compaction marker → child turns; A3 the diverged parent's 18 records stay visible before the child's turns; A4 diagnostics show only the info line; B1 tooltip names the members; B2 indexing speed. Appearance is unverified — green tests prove the data path, not the picture.
+- Fold vs nested rows; the diverged-parent case as a branch view — both flippable, neither built.
+- Merge of `feat/2026-09-compact-chain` into `main` waits on the author.
+- Carried over: R11.2 / R12 acceptance unfilled; DW-01, DW-03..DW-15, DW-17, DW-22 unassigned; the Codex fork-rung ruling from Phase 19.
