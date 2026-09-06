@@ -1,5 +1,5 @@
 /** 可重用的卡片內部區塊：思考層、IO 區塊、講解區塊、標籤。 */
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import type { Annotation, Span, SpanTag } from "@/types/spanTree";
 import { useT } from "@/i18n";
 
@@ -40,16 +40,29 @@ export function Badges({ span }: { span: Span }): ReactNode {
   );
 }
 
-/** 可摺疊的思考鏈。 */
+/**
+ * 可摺疊的思考鏈。
+ *
+ * 2026-09 UX 走查 F2：這個頭原本是 `div onClick`，滑鼠打得開、Tab 到不了。展開控制是核心
+ * 路徑的一部分（「展開結果，看第一次為什麼失敗」），所以它必須是**原生 button**：鍵盤啟動、
+ * 焦點環與 role 由平台提供，不靠自製 keydown——自製的那份永遠會漏掉某一個鍵或某一種輔助技術。
+ */
 export function ThinkingBlock({ text }: { text: string }): ReactNode {
   const t = useT();
   const [collapsed, setCollapsed] = useState(true);
+  const bodyId = useId();
   return (
     <div className={`thinking ${collapsed ? "collapsed" : ""}`}>
-      <div className="thinking-head" onClick={() => setCollapsed((c) => !c)}>
-        {t.card.thinkingHead} <span className="chev">▾</span>
-      </div>
-      <div className="thinking-body">{text}</div>
+      <button
+        type="button"
+        className="thinking-head"
+        aria-expanded={!collapsed}
+        aria-controls={bodyId}
+        onClick={() => setCollapsed((c) => !c)}
+      >
+        {t.card.thinkingHead} <span className="chev" aria-hidden="true">▾</span>
+      </button>
+      <div className="thinking-body" id={bodyId}>{text}</div>
     </div>
   );
 }
@@ -145,6 +158,7 @@ export function IOBlock({
 }): ReactNode {
   const t = useT();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const bodyId = useId();
   let collapsedSummary: string;
   if (structured) {
     const { count, preview } = summarizeParams(structured);
@@ -156,11 +170,18 @@ export function IOBlock({
   const headText = collapsed ? `${title} · ${collapsedSummary}` : title;
   return (
     <div className={`io-block ${collapsed ? "collapsed" : ""}`}>
-      <div className="io-head" onClick={() => setCollapsed((c) => !c)}>
+      {/* F2：同 ThinkingBlock——摺疊摘要文字與滑鼠行為原封不動，換的只是承載它們的元素。 */}
+      <button
+        type="button"
+        className="io-head"
+        aria-expanded={!collapsed}
+        aria-controls={bodyId}
+        onClick={() => setCollapsed((c) => !c)}
+      >
         {headText}
-        <span className="chev">▾</span>
-      </div>
-      <div className="io-body">{colored ? colorize(text) : text}</div>
+        <span className="chev" aria-hidden="true">▾</span>
+      </button>
+      <div className="io-body" id={bodyId}>{colored ? colorize(text) : text}</div>
     </div>
   );
 }

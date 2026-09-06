@@ -1,5 +1,5 @@
 /** 降噪群組卡片 (edit-loop 等)：可折疊，內含多個成員節點。 */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { SpanGroup } from "@/types/spanTree";
 import type { SpanNode } from "@/core/view/viewModel";
 import { useSessionStore } from "@/store/sessionStore";
@@ -22,6 +22,7 @@ export function GroupCard({
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(true);
+  const childrenId = useId();
 
   const activeId = useSessionStore((s) => s.activeId);
   const playingId = useSessionStore((s) => s.playingId);
@@ -50,7 +51,18 @@ export function GroupCard({
         isPlaying ? "playing" : isActive ? "highlighted" : ""
       }`}
     >
-      <div className="group-head" onClick={() => setCollapsed((c) => !c)}>
+      {/*
+        2026-09 UX 走查 F2：群組頭與 thinking／io 頭是**同一類控制**，走查列舉的六個裡沒有它，
+        只因為示範 session 的可視範圍剛好沒有群組卡——不是因為它沒有這個缺陷。而 C2（找第一次
+        失敗與後續修正）走的正是 retry／edit-loop 群組，所以漏掉它等於 F2 沒修完。
+      */}
+      <button
+        type="button"
+        className="group-head"
+        aria-expanded={!collapsed}
+        aria-controls={childrenId}
+        onClick={() => setCollapsed((c) => !c)}
+      >
         <span className="g-icon" aria-hidden="true">{GROUP_DOT}</span>
         <span className="layer-title" style={{ margin: 0, padding: 0, border: 0 }}>
           <span className="kind">{t.card.groupKindTag[group.kind] ?? t.card.kindTag}</span>
@@ -60,8 +72,8 @@ export function GroupCard({
           </span>
         </span>
         <span className="group-hint">{t.card.groupHint(collapsed)}</span>
-      </div>
-      <div className="group-children">
+      </button>
+      <div className="group-children" id={childrenId}>
         {group.kind === "subagent" && <SubagentMiniGraph nodes={nodes} />}
         {nodes.map((n) => (
           <div key={n.span.id} className={group.kind === "subagent" ? "subagent-step" : undefined} style={{ marginBottom: 8 }}>
