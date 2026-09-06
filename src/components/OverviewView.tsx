@@ -15,6 +15,7 @@ export function OverviewView(): ReactNode {
   const activeId = useSessionStore((state) => state.activeId);
   const playingId = useSessionStore((state) => state.playingId);
   const snapshotMode = useSessionStore((state) => state.snapshotMode);
+  const providerId = useSessionStore((state) => state.providerId);
   const startReading = useSessionStore((state) => state.startReading);
   const dismissError = useSessionStore((state) => state.dismissError);
   const copy = useDiagnosticCopy();
@@ -113,7 +114,12 @@ export function OverviewView(): ReactNode {
             <span className="overview-step-number" aria-hidden="true">3</span>
             <div>
               <h3>{t.overview.steps.extendTitle}</h3>
-              <p>{t.overview.steps.extendBody}</p>
+              {/*
+                F3 / R3：「有沒有 why 可以展開」的唯一判準，與卡片上決定要不要渲染講解區塊的
+                判準是同一條（`providerId !== "none"`，見 SpanCard／GroupCard）。導讀承諾的東西
+                與畫面上真的會出現的東西，必須由同一個條件決定，否則它們遲早各走各的。
+              */}
+              <p>{t.overview.steps.extendBody(providerId !== "none")}</p>
             </div>
           </li>
         </ol>
