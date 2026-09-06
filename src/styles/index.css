@@ -1039,6 +1039,21 @@ select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-prim
 .layer-desc { font-family: var(--font-serif); font-size: calc(14.5px * var(--ui-scale)); color: var(--text-main); line-height: 1.75; margin-bottom: 14px; overflow-wrap: break-word; white-space: pre-wrap; }
 .layer-desc code { font-family: var(--font-mono); background: var(--bg-sunken); padding: 1px 6px; border-radius: 2px; color: var(--accent-primary); font-size: calc(12.5px * var(--ui-scale)); }
 
+/* ---- Expand controls (thinking / io / group heads) ----
+ * 2026-09 UX 走查 F2：這三個頭原本是 `div onClick`，於是閱讀頁 main 內只有一個可聚焦元素，
+ * 僅鍵盤的人打不開「結果」，也就答不出「第一次失敗的原因」。改成原生 <button> 之後，UA 會帶
+ * 上自己的邊框、背景與置中文字，這一段就是把那些清掉、讓外觀維持原樣。
+ *
+ * 刻意放在三個頭各自的規則**之前**：同特異度時後者勝，所以 `.io-head` 的 border-bottom、
+ * `.thinking-head` 的字色與字體仍然是它們自己說了算，這裡只補 UA 沒有預設好的那幾項。
+ */
+.thinking-head, .io-head, .group-head {
+  width: 100%; border: 0; background: none; color: inherit; font-family: inherit; text-align: left;
+}
+.thinking-head:focus-visible, .io-head:focus-visible, .group-head:focus-visible {
+  outline: 2px solid var(--accent-primary); outline-offset: 2px;
+}
+
 /* ---- Thinking (collapsible) ---- */
 .thinking { margin-bottom: 12px; }
 .thinking-head { font-family: var(--font-sans); font-size: calc(11px * var(--ui-scale)); color: var(--accent-primary); cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
