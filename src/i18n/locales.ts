@@ -130,17 +130,39 @@ const zhTW = {
     startTitle: "從這裡開始",
     sampleBadge: "內建示範 Session",
     loadedBadge: "已載入 Session",
-    purpose: "DIT 把代理執行紀錄整理成可學習的步驟。先確認任務，再沿左側結構逐步閱讀。",
+    /*
+     * 2026-09 UX 走查 F1：導讀原本說「沿左側結構」「左側顯示目前位置」。390px 時側欄整個隱藏、
+     * 只剩「結構」抽屜入口，於是這兩句把窄版與螢幕閱讀器使用者指向一個不存在的位置
+     * （WCAG 2.2 SC 1.3.3）。改成指名那個控制本身，而不是它這次剛好待的邊——控制的名字在
+     * 每個寬度都成立，方位詞只在其中一個成立。
+     */
+    purpose: "DIT 把代理執行紀錄整理成可學習的步驟。先確認任務，再用結構導覽選擇要讀的步驟。",
     sessionSummary: (title: string, source: string, itemCount: number, warningCount: number) =>
       `${title} · ${source} · ${itemCount} 個步驟 · ${warningCount} 則解析提示`,
     steps: {
       confirmTitle: "確認 Session",
       readTitle: "沿主線閱讀",
-      readBody: "左側顯示目前位置；可逐項跳轉或按逐步瀏覽。",
+      readBody: "結構導覽顯示目前位置，閱讀頁頂端也有；可逐項跳轉或按逐步瀏覽。",
       extendTitle: "延伸理解",
-      extendBody: "展開 why；需要全局或分支時再開地圖或子代理。",
+      /*
+       * 2026-09 UX 走查 F3（作者裁決 R3）：這一句原本無條件承諾「展開 why」，但預設是
+       * 「不講解」，那個模式下卡片上根本沒有 why 的入口——找不到的人會把「沒設定講解」讀成
+       * 「壞了」或「藏起來」。承諾必須跟著狀態走：沒有講解來源時，這句話說的是**怎麼讓它出現**，
+       * 而不是它已經在那裡。後半句（地圖／子代理）與講解來源無關，兩種狀態都保留。
+       */
+      /*
+       * 回傳型別明寫 `string`：`Messages` 是 `typeof zhTW`，不寫的話這裡會被推論成那兩個
+       * **字面值**的聯集，於是 `en` 的同一個鍵永遠對不上（英文句子不是那兩個中文字面值）。
+       * 其他插值函式沒踩到，是因為它們回傳樣板字串、本來就是 string。
+       */
+      extendBody: (hasNotesSource: boolean): string =>
+        hasNotesSource
+          ? "展開 why；需要全局或分支時再開地圖或子代理。"
+          : "設定講解來源後，每一步可展開 why；需要全局或分支時再開地圖或子代理。",
     },
-    startSample: "開始示範",
+    // 2026-09 UX 走查 F4（作者裁決 R1）：純措辭。程式只切到閱讀頁、保留選取，並不從頭開始，
+    // 而「開始」暗示的是重來。名字改成它真正做的事；要「從頭」是另一個契約，另外裁。
+    startSample: "閱讀示範對話",
     startReading: "開始閱讀",
     continueReading: "繼續閱讀",
     startBrowsing: "開始逐步瀏覽",
@@ -263,7 +285,13 @@ const zhTW = {
 
   structure: {
     label: "Session 結構",
-    position: (current: number | string, total: number) => `位置 ${current} / ${total}`,
+    /*
+     * 2026-09 UX 走查 F5（作者裁決 R2）：這個數字的來源是 playingId ?? activeId——也就是
+     * **選取／播放到的那一步**，不是捲軸位置。叫它「位置」邀請讀者拿它對捲動，手動捲了之後
+     * 看它不動就以為壞了。可見範圍另有小地圖負責。改名是為了讓字面說出它實際代表什麼；
+     * 刻意不把捲動寫回選取——那會讓「我讀到哪」與「我選了哪」變成同一件事，是另一種缺陷。
+     */
+    position: (current: number | string, total: number) => `目前步驟 ${current} / ${total}`,
     openDrawer: "結構",
     closeDrawer: "關閉 Session 結構",
     collapse: "收合 Session 結構",
@@ -278,7 +306,8 @@ const zhTW = {
     currentOutOfView: "目前閱讀位置不在此檢視範圍內",
     anchoredAt: (label: string) => `本層以 ${label} 為中心`,
     anchorUnresolved: "無法定位取景中心；暫以第 1 站裁切",
-    currentPosition: (current: number | string, total: number) => `位置 ${current} / ${total}`,
+    // F5／R2 同源：地圖說的是同一個數字，兩處用不同的詞會比不改更糟。
+    currentPosition: (current: number | string, total: number) => `目前步驟 ${current} / ${total}`,
     levels: {
       global: "全局",
       section: "區段",
@@ -818,17 +847,25 @@ const en: Messages = {
     startTitle: "Start here",
     sampleBadge: "Built-in sample session",
     loadedBadge: "Loaded session",
-    purpose: "DIT turns an agent execution trace into learnable steps. Confirm the task first, then read through the structure on the left.",
+    // F1: name the control, not the edge it happens to sit on — at 390px the sidebar is gone
+    // and only the "Structure" drawer entry remains, so "on the left" points at nothing.
+    purpose: "DIT turns an agent execution trace into learnable steps. Confirm the task first, then use the session structure to choose what to read.",
     sessionSummary: (title: string, source: string, itemCount: number, warningCount: number) =>
       `${title} · ${source} · ${itemCount} steps · ${warningCount} parsing warnings`,
     steps: {
       confirmTitle: "Confirm the session",
       readTitle: "Read the main path",
-      readBody: "The structure on the left shows your current position; jump to any step or start stepping through.",
+      readBody: "The session structure shows your current position, and so does the reader header; jump to any step or start stepping through.",
       extendTitle: "Build understanding",
-      extendBody: "Expand why; open the map or subagents when you need the global shape or a branch.",
+      // F3 / ruling R3: the promise follows the state. With no notes source there is no why to
+      // expand, so the sentence has to say how to get one instead of claiming it is already there.
+      extendBody: (hasNotesSource: boolean): string =>
+        hasNotesSource
+          ? "Expand why; open the map or subagents when you need the global shape or a branch."
+          : "Set a notes source and every step can expand its why; open the map or subagents when you need the global shape or a branch.",
     },
-    startSample: "Start sample",
+    // F4 / ruling R1: wording only. The code switches view and keeps the selection; it does not restart.
+    startSample: "Read the sample conversation",
     startReading: "Start reading",
     continueReading: "Continue reading",
     startBrowsing: "Start step-through browsing",
@@ -937,7 +974,8 @@ const en: Messages = {
 
   structure: {
     label: "Session structure",
-    position: (current: number | string, total: number) => `Position ${current} / ${total}`,
+    // F5 / ruling R2: the number is the selected/playing step, never the scroll offset.
+    position: (current: number | string, total: number) => `Current step ${current} / ${total}`,
     openDrawer: "Structure",
     closeDrawer: "Close session structure",
     collapse: "Collapse session structure",
@@ -952,7 +990,8 @@ const en: Messages = {
     currentOutOfView: "Your reading position is outside this view",
     anchoredAt: (label: string) => `This view is centred on ${label}`,
     anchorUnresolved: "Cannot locate the view anchor; cropping from station 1",
-    currentPosition: (current: number | string, total: number) => `Position ${current} / ${total}`,
+    // Same number as structure.position — two words for one number would be worse than not renaming.
+    currentPosition: (current: number | string, total: number) => `Current step ${current} / ${total}`,
     levels: {
       global: "Overview",
       section: "Section",
