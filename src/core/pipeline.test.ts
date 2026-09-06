@@ -7,7 +7,7 @@ import {
 } from "@/core/pipeline";
 import { PipelineFatalError, type DiagnosticCode } from "@/core/diagnostics/contracts";
 import { claudeCodeJsonlAdapter } from "@/core/adapters/claudeCodeJsonl";
-import { r4MainSession, r4SubagentSession, sampleSession, subagentSession } from "@/fixtures";
+import { chainChildSession, chainParentSession, r4MainSession, r4SubagentSession, sampleSession, subagentSession } from "@/fixtures";
 
 /** 斷言拋出的是具名的 fatal，而不只是「有丟東西」。 */
 function expectFatal(run: () => unknown, code: DiagnosticCode): void {
@@ -193,6 +193,44 @@ describe("DSM-1 batch outcome machine (R9)", () => {
     expectFatal(() => buildSessionDocumentFromFiles([
       { path: "project-a/session-1.jsonl", content: sampleSession },
       { path: "project-b/session-2.jsonl", content: subagentSession },
+    ]), "MULTIPLE_SESSIONS");
+  });
+
+  /**
+   * 2026-09-compact-chain (T-008). The child fixture re-emits the parent's boundary, the compact
+   * summary, the preserved records and the parent's post-boundary turn with their original uuids
+   * (as a real Desktop resume does), then adds two records of its own.
+   */
+  it("chain — a continuation merges into its parent as ONE document, copies dropped, marker once", () => {
+    const { doc, diagnostics } = buildSessionDocumentFromFiles([
+      { path: "p/parent.jsonl", content: chainParentSession, role: "main" },
+      { path: "p/child.jsonl", content: chainChildSession, role: "continuation" },
+    ]);
+    expect(doc.session.id).toBe("p-session");
+    const summaries = doc.spans.map((span) => span.summary);
+    const at = (needle: string): number => summaries.findIndex((summary) => summary.includes(needle));
+    const count = (needle: string): number => summaries.filter((summary) => summary.includes(needle)).length;
+
+    expect(count("壓縮")).toBe(1);                       // the parent's own boundary marker, once
+    expect(count("第三步也完成了")).toBe(1);               // the copied post-boundary turn, once
+    expect(count("子檔的新回答")).toBe(1);                 // the child's own turn, present
+    expect(at("子檔的新回答")).toBeGreaterThan(at("第三步也完成了"));
+    expect(at("第三步也完成了")).toBeGreaterThan(at("壓縮"));
+    // boundary + summary + preserved assistant + copied user + copied assistant = 5 events
+    expect(diagnostics.find((d) => d.code === "CHAIN_DUPLICATES_DROPPED")).toMatchObject({ tier: "info", count: 5 });
+    expect(diagnostics.find((d) => d.code === "MULTIPLE_SESSIONS")).toBeUndefined();
+  });
+
+  it("chain — a continuation without its main is the named no_main state", () => {
+    expectFatal(() => buildSessionDocumentFromFiles([
+      { path: "p/child.jsonl", content: chainChildSession, role: "continuation" },
+    ]), "NO_MAIN_TRANSCRIPT");
+  });
+
+  it("chain — without roles the two files are still two sessions (no guessing from content)", () => {
+    expectFatal(() => buildSessionDocumentFromFiles([
+      { path: "p/parent.jsonl", content: chainParentSession },
+      { path: "p/child.jsonl", content: chainChildSession },
     ]), "MULTIPLE_SESSIONS");
   });
 

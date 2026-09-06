@@ -70,8 +70,33 @@ export interface SessionIndexEntry {
   hasCompaction: boolean;
   /** 同層的 <id>/subagents/*.jsonl，由索引器配對——這正是 RC-1b 的正解。 */
   subagentPaths: string[];
+  /**
+   * 2026-09-compact-chain (T-008): is this file the continuation of a compacted session, and
+   * which file does it continue? `head` is read from the head window by the scanner; `parentPath`
+   * is filled by `resolveChains` (see `chains.ts` for the measured shape and the parent test).
+   */
+  chain: ChainLink;
   kind: SessionKind;
   kindReason: SessionKindReason;
+}
+
+/**
+ * The head `compact_boundary` of a continuation file. Both uuids are shared with the parent
+ * file: the boundary uuid names the compaction, the logical parent is the record that sits
+ * BEFORE the boundary only in the parent (children and siblings hold it as a preserved copy
+ * after the boundary). Measured 2026-09-06; see `chains.ts`.
+ */
+export interface ChainHead {
+  boundaryUuid: string;
+  logicalParentUuid: string;
+  boundaryTimestamp: string | null;
+}
+
+export interface ChainLink {
+  /** null = the file does not start with a boundary pointing outside itself (in-file compactions included). */
+  head: ChainHead | null;
+  /** The parent's path once resolved; null with a head means "not found" — the diagnostics say why. */
+  parentPath: string | null;
 }
 
 export interface SessionIndex {

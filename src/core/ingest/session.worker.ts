@@ -62,7 +62,7 @@ async function load(request: SessionWorkerLoadRequest): Promise<void> {
       try {
         const result = await parseJsonlBlob(file.blob, { onProgress });
         outcomes.push(result.status === "recognized"
-          ? { status: "parsed", path: file.path, parsed: result.parsed, inputBytes: result.inputBytes }
+          ? { status: "parsed", path: file.path, parsed: result.parsed, inputBytes: result.inputBytes, role: file.role }
           : { status: "unrecognized", path: file.path, inputBytes: result.inputBytes });
         completedBytes += result.inputBytes;
         completedLines += result.lineCount;

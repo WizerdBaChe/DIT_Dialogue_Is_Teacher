@@ -34,7 +34,7 @@ const defaultWorkerFactory: SessionWorkerFactory = () => new Worker(
 );
 
 const defaultFallback: SessionLoadFallback = async (files) => buildSessionDocumentFromFiles(
-  await Promise.all(files.map(async (file) => ({ path: file.path, content: await file.blob.text() }))),
+  await Promise.all(files.map(async (file) => ({ path: file.path, content: await file.blob.text(), role: file.role }))),
 );
 
 /**

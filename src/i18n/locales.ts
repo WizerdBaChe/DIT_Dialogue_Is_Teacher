@@ -240,6 +240,9 @@ const zhTW = {
       exact ? `${human} 問 / ${assistant} 答` : `≥ ${human} 問 / ≥ ${assistant} 答`,
     subagentCount: (count: number) => `子代理 ${count}`,
     compaction: "含壓縮",
+    // 2026-09-compact-chain：一列代表整條續接鏈；成員檔名放在 tooltip。
+    chainCount: (count: number) => `接續 ×${count}`,
+    chainMembers: (names: string[]) => `已併入的續接檔：${names.join("、")}`,
     open: "載入這一個",
   },
 
@@ -913,6 +916,8 @@ const en: Messages = {
       exact ? `${human} asked / ${assistant} replied` : `≥ ${human} asked / ≥ ${assistant} replied`,
     subagentCount: (count: number) => `${count} subagents`,
     compaction: "compacted",
+    chainCount: (count: number) => `+${count} continuation${count === 1 ? "" : "s"}`,
+    chainMembers: (names: string[]) => `Merged continuation files: ${names.join(", ")}`,
     open: "Load this one",
   },
 

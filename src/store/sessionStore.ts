@@ -65,6 +65,7 @@ import {
 } from "@/core/ingest";
 import {
   buildSessionIndex,
+  chainMembers,
   clearDirectoryHandle,
   directorySourceFromFileList,
   DirectoryPermissionError,
@@ -998,11 +999,25 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ browseState: "loading" });
     try {
       const files = await source.list();
-      const wanted = new Set([entry.path, ...entry.subagentPaths]);
+      const byPath = new Map(files.map((file) => [file.path, file]));
+      /*
+       * 2026-09-compact-chain: a row stands for its whole chain. Blobs go in chain order — the
+       * root, then each continuation — with every member's own subagents right behind it; the
+       * pipeline relies on that order to drop the records a continuation copied from its parent.
+       * A path that is not itself a chain root (only reachable from stale state, the picker folds
+       * children) loads as before: itself plus its own descendants.
+       */
       const blobs: SessionBlobInput[] = [];
-      for (const file of files) {
-        if (!wanted.has(file.path)) continue;
-        blobs.push({ path: file.path, blob: await file.read() });
+      for (const [position, memberPath] of chainMembers(indexEntries, entry.path).entries()) {
+        const member = indexEntries.find((candidate) => candidate.path === memberPath);
+        if (!member) continue;
+        for (const path of [member.path, ...member.subagentPaths]) {
+          const file = byPath.get(path);
+          if (!file) continue;
+          const blob: SessionBlobInput = { path, blob: await file.read() };
+          if (position > 0 && path === member.path) blob.role = "continuation";
+          blobs.push(blob);
+        }
       }
       await get().loadFromBlobs(blobs, "user");
     } catch (error) {
