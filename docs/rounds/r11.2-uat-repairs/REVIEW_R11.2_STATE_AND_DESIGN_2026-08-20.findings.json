@@ -1,0 +1,525 @@
+{
+  "documentType": "code-review-deep-checklist.findings",
+  "schemaVersion": "1.0",
+  "scanId": "REVIEW_R11.2_STATE_AND_DESIGN_2026-08-20",
+  "target": {
+    "type": "git_revision",
+    "id": "c2216c0+worktree"
+  },
+  "findings": [
+    {
+      "findingId": "crd_f01a11",
+      "ruleId": "review.state.observability",
+      "identity": {
+        "anchor": "src/core/ingest/sessionLoader.ts:startSessionLoad"
+      },
+      "fingerprint": "crd/v1:sha256:c170e0dcae120e5f4826ccf76e7cc46b140a0202d33d5a7acdcb42a74ee8da3a",
+      "severity": {
+        "level": "blocker",
+        "changeConditions": "Downgrade to should-fix if the diagnostic in report section 2.4 shows a Codex-only data defect after all; upgrade stays if any Claude Code session fails through the same path."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Traced every UI load entry point by grep: all reach loadFromBlobs -> Worker. Ran the exact worker data path (parseJsonlBlob + buildSessionDocumentFromParsedFiles + structuredClone) over 15 of the author's real rollouts (149KB..34MB): 15/15 clean, so the failure cannot be in the data path."
+      },
+      "dimension": "correctness",
+      "preExisting": true,
+      "title": "The only production load path runs in a Web Worker whose boundary no test executes",
+      "summary": "Every user-initiated load (folder browser and the single-file button) goes through loadFromBlobs -> Web Worker. transitions.test.ts states node has no Worker so it only asserts the state edge; sessionLoader.test.ts uses a fake worker. The reported 'Session worker failed.' therefore sits on a boundary that 508 green tests never execute.",
+      "recommendation": "Do not edit the adapter. Run the three-step diagnostic in report section 2.4 first (load a Claude Code session through the same dialog; check the session.worker request status in DevTools Network; check the console). Cost: minutes, no code change. Benefit: collapses three hypotheses to one. Why now: this is the round's exit blocker and a second blind guess is not permitted.",
+      "locations": [
+        {
+          "path": "src/core/ingest/sessionLoader.ts",
+          "startLine": 66,
+          "role": "failure sink"
+        },
+        {
+          "path": "src/store/transitions.test.ts",
+          "startLine": 89,
+          "role": "stated coverage gap"
+        }
+      ],
+      "evidence": "worker-path repro over 15 real rollouts: '15/15 stream=recognized ... clone=ok', largest 34189KB -> 5559 spans."
+    },
+    {
+      "findingId": "crd_f02b22",
+      "ruleId": "review.state.undefined-transition",
+      "identity": {
+        "anchor": "src/core/ingest/sessionLoader.ts:worker.onerror"
+      },
+      "fingerprint": "crd/v1:sha256:3c564b8999865292b007b877d618901c4785f41f682e9af6a7259710edeb5505",
+      "severity": {
+        "level": "blocker",
+        "changeConditions": "Downgrade to should-fix once a named code plus filename/lineno is emitted; stays blocker while the app has no non-worker fallback."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Read the handler; it discards ErrorEvent.filename/lineno/error. grep shows loadFromFiles (the synchronous non-worker path) has 0 production callers and 18 test callers."
+      },
+      "dimension": "correctness",
+      "preExisting": true,
+      "title": "Worker-boundary failure is unnamed and has no fallback, while a tested synchronous path sits unused",
+      "summary": "worker.onerror collapses script-load failure and in-worker crash into one untyped LOAD_FAILED with the literal 'Session worker failed.', dropping filename/lineno/error. R9 RC-5 required every failure to be named; this boundary was missed. Separately loadFromFiles -> buildSessionDocumentFromFiles is complete, tested 18 times, and unreachable from the UI, so a worker that cannot boot leaves the app unable to load anything.",
+      "recommendation": "Add a WORKER_BOOT_FAILED diagnostic code carrying filename/lineno, and fall back to loadFromFiles when the worker fails to start (slower on large files, with a warn diagnostic, but 'slow' beats 'nothing loads'). Cost: small, one module. Benefit: the next report of this symptom is decidable from the message alone. Why now: it is the reason the current report cannot be closed.",
+      "locations": [
+        {
+          "path": "src/core/ingest/sessionLoader.ts",
+          "startLine": 63,
+          "role": "handler"
+        },
+        {
+          "path": "src/store/sessionStore.ts",
+          "startLine": 735,
+          "role": "unused fallback"
+        }
+      ],
+      "evidence": "grep 'loadFromFiles' src: 1 definition + 18 sessionStore.test.ts call sites + 0 production callers."
+    },
+    {
+      "findingId": "crd_f03c33",
+      "ruleId": "review.state.invariant",
+      "identity": {
+        "anchor": "src/core/index/contracts.ts:SessionIndexEntry"
+      },
+      "fingerprint": "crd/v1:sha256:8b000aae8244a2da907eba23819b2d2c17cd4a4eba213443f29f56fbad9df533",
+      "severity": {
+        "level": "blocker",
+        "changeConditions": "Downgrade to should-fix if the scan window is widened enough that windowed misses become rare; the type-level gap itself only closes when the entry can express 'partial scan'."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Cross-tabbed the real buildSessionIndex output against a whole-file re-read using the indexer's own predicates: 144 filename rows = 108 genuinely empty + 36 whose human text the scan never reached."
+      },
+      "dimension": "correctness",
+      "preExisting": false,
+      "title": "Scan-window truncation is not encoded in the entry type, so 'never looked' is indistinguishable from 'not there'",
+      "summary": "countsExact honestly marks humanPromptCount/assistantCount as a lower bound, but title/titleSource/kind/kindReason carry no equivalent. R11 WC-1.2 fought to keep 'could not read' distinct from 'read it, it says no' at the adapter level; one level down, in the scan window, that distinction is lost again. Measured: 36 of 144 filename-titled rows have a perfectly good human-typed first message beyond the 128KB head window.",
+      "recommendation": "Give the entry a scanCoverage field (whole | head-tail | head-widened) and make titleSource/kind consumers render 'not scanned' differently from 'none found'. Cost: one field plus its consumers. Benefit: it also unblocks the UAT F1 ruling, which is currently being made against a 25%-contaminated population. Why now: the ruling is queued and would mislabel 36 real conversations as machine runs.",
+      "locations": [
+        {
+          "path": "src/core/index/contracts.ts",
+          "startLine": 60,
+          "role": "type"
+        },
+        {
+          "path": "src/core/index/sessionIndexer.ts",
+          "startLine": 366,
+          "role": "producer"
+        }
+      ],
+      "evidence": "join repro: 'filenameRows=144 / genuinely no human text=108 / DOES contain human text the scan never read=36'."
+    },
+    {
+      "findingId": "crd_f05d44",
+      "ruleId": "review.state.spec-divergence",
+      "identity": {
+        "anchor": "src/core/text/preamble.ts:stripInjectedPreamble"
+      },
+      "fingerprint": "crd/v1:sha256:2937271f1c7d0e0ee02e56ac28e964d96b2da4608b5245b2d117e3928d4719b4",
+      "severity": {
+        "level": "should-fix",
+        "changeConditions": "Upgrade to blocker if a stripped-to-nothing title ever leaks a filesystem path into a shared export; downgrade to consider if Codex stops injecting bracketed wrappers."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Ran the real indexer over 358 rollouts and inspected the derived titles: 25 of 214 are injection markup. Read the regex: INJECTION_XML_BLOCK_RE is ^<(tag)> and cannot match a tag carrying attributes."
+      },
+      "dimension": "correctness",
+      "preExisting": false,
+      "title": "The preamble whitelist is Claude-Code-shaped and cannot match tags with attributes, so Codex wrappers become session titles",
+      "summary": "INJECTION_TAGS lists eight Claude Code tags; Codex injects <codex_internal_context source=...>, <scheduled-task name=... file=...>, <task-notification>, <turn_aborted>, <codex_delegation> and bracketed [external unsupported block: image]. Even whitelisting them would not help for the attribute-bearing ones, because the pattern anchors on ^<(tag)>. 25/214 = 11.7% of derived titles are markup; one of them puts a full user path into the title.",
+      "recommendation": "Allow attributes in the tag pattern, add the Codex wrapper names, and handle the bracketed marker family; add a test asserting no derived title starts with < or [. Cost: one module plus a table. Benefit: closes the visible half of R1's acceptance. Why now: it is what the author actually sees in B1.",
+      "locations": [
+        {
+          "path": "src/core/text/preamble.ts",
+          "startLine": 9,
+          "role": "whitelist"
+        },
+        {
+          "path": "src/core/text/preamble.ts",
+          "startLine": 22,
+          "role": "pattern"
+        }
+      ],
+      "evidence": "index repro suspicious titles: '<codex_internal_context source=\"goal\">', '<scheduled-task name=... file=\"C:/Users/gunda/...\">', '[external unsupported block: image]', '1. mixed', bare code fence."
+    },
+    {
+      "findingId": "crd_f06e55",
+      "ruleId": "review.contract.ungated-twin",
+      "identity": {
+        "anchor": "src/core/privacy/detectors.ts:IDENTIFIER_RULES"
+      },
+      "fingerprint": "crd/v1:sha256:54aa808ea0ed205115ca750b0692b756c8333e73682a1ced8c346c1a335137ce",
+      "severity": {
+        "level": "should-fix",
+        "changeConditions": "Upgrade to blocker if the author shares an export publicly; downgrade to consider only if exports are never shared, which contradicts the feature's purpose."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Read both sides: detectors.ts:29-30 require literal C:\\Users\\ or /home|/Users/; sessionIndexer.ts:387-389 documents that the project directory name is the cwd with ':' '\\' '.' all replaced by '-'. The author counted 6 surviving occurrences in a real export."
+      },
+      "dimension": "correctness",
+      "preExisting": false,
+      "title": "The redactor does not know the flattened project-directory path form that this same codebase documents elsewhere",
+      "summary": "Claude Code encodes a cwd into a directory name by replacing ':' '\\' and '.' with '-', so C:/Users/gunda/.claude becomes C--Users-gunda--claude. Neither user_path rule matches that shape, so the Windows username survives export redaction. The knowledge exists in the repo (the indexer's comment) but lives in a second, unlinked copy.",
+      "recommendation": "Extract the known path shapes into one shared constant read by both modules, add a rule for the flattened form (note '.' also becomes '-', so a \\b boundary is not enough), and add a regression test asserting that both the raw and flattened forms of the same cwd are redacted. Cost: small. Benefit: removes a PII leak from a shareable artifact and gates the next variant (WSL /mnt/c/Users/). Why now: reported as failing in this round's acceptance.",
+      "locations": [
+        {
+          "path": "src/core/privacy/detectors.ts",
+          "startLine": 29,
+          "role": "rule"
+        },
+        {
+          "path": "src/core/index/sessionIndexer.ts",
+          "startLine": 387,
+          "role": "the other copy of the knowledge"
+        }
+      ],
+      "evidence": "detectors.ts:29 /(?<=\\b[A-Za-z]:\\\\Users\\\\)[^\\\\\\s]+/g vs sessionIndexer.ts:387 comment 'the directory name is encoded (: \\ . all become -)'."
+    },
+    {
+      "findingId": "crd_f07f66",
+      "ruleId": "review.state.single-writer",
+      "identity": {
+        "anchor": "src/store/sessionStore.ts:surface-clearing actions"
+      },
+      "fingerprint": "crd/v1:sha256:dac33606714c3aaa18d8c60226f7af91f9d6bef2da8a78fa08cb06c216e842c8",
+      "severity": {
+        "level": "should-fix",
+        "changeConditions": "Upgrade to blocker if a new blocking surface is added without updating all five lists; downgrade to consider if the clears are replaced by a derived selector."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Tabulated the five actions' set() payloads directly from the source."
+      },
+      "dimension": "maintainability",
+      "preExisting": false,
+      "title": "Which surfaces get closed is enforced by five hand-written clear-lists that disagree",
+      "summary": "DSM-3 removed the second owner of surface *display* by deriving it, but the booleans it derives from are still cleared ad hoc: setPrimaryView and startReading skip structureDrawerOpen; jumpToMapItem skips settingsOpen; gotoIndex skips both. This is exactly RC-4's 'three of them fake mutual exclusion by manually clearing each other', surviving on the write side. It does not misbehave today only because the priority order happens to cover the differences.",
+      "recommendation": "Replace the ad-hoc clears with one closeAllSurfaces() helper (or derive 'wants' from primaryView so the booleans stop being independently writable). Cost: one refactor inside a single module, covered by existing surface tests. Benefit: adding surface number eight stops being a five-place edit. Why now: only when a surface is next added; otherwise this is a documented trend, not an outage.",
+      "locations": [
+        {
+          "path": "src/store/sessionStore.ts",
+          "startLine": 1140,
+          "role": "setPrimaryView"
+        },
+        {
+          "path": "src/store/sessionStore.ts",
+          "startLine": 1234,
+          "role": "gotoIndex"
+        }
+      ],
+      "evidence": "setPrimaryView/startReading clear mapOpen+settingsOpen; jumpToMapItem clears mapOpen+structureDrawerOpen; gotoIndex clears mapOpen only; setActive clears all three."
+    },
+    {
+      "findingId": "crd_f08a77",
+      "ruleId": "review.state.undefined-transition",
+      "identity": {
+        "anchor": "src/components/SessionBrowserDialog.tsx:onFallbackFiles"
+      },
+      "fingerprint": "crd/v1:sha256:05e24cb163aeb3641de216ddca5bfac202b3a10f727b38f72dd404c5c36100e9",
+      "severity": {
+        "level": "should-fix",
+        "changeConditions": "Downgrade to consider if the WebKit fallback is formally declared unsupported; upgrade if a non-Chromium user is ever a target."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Read the handler: an empty filtered list returns with no state write and no message."
+      },
+      "dimension": "completeness",
+      "preExisting": true,
+      "title": "DSM-4 'picking' has an undefined cell: a fallback folder with no .jsonl silently does nothing",
+      "summary": "onFallbackFiles filters to .jsonl and returns on an empty list. browseState stays 'picking' with the 'waiting for you to choose a folder' copy showing, forever, with no indication that the folder was read and rejected. On the state x event table this cell is neither a transition nor an explicit rejection.",
+      "recommendation": "Set an index_failed (or a dedicated empty) state with an INDEX_EMPTY-style diagnostic. Cost: three lines plus copy. Benefit: closes the last silent cell in DSM-4. Why now: cheap, and it is the only path non-Chromium users have.",
+      "locations": [
+        {
+          "path": "src/components/SessionBrowserDialog.tsx",
+          "startLine": 70,
+          "role": "handler"
+        }
+      ],
+      "evidence": "'const list = [...].filter(...); if (list.length === 0) return;' with no set() and no diagnostic."
+    },
+    {
+      "findingId": "crd_f09b88",
+      "ruleId": "review.state.concurrent",
+      "identity": {
+        "anchor": "src/store/sessionStore.ts:loadIndexEntry"
+      },
+      "fingerprint": "crd/v1:sha256:c6b1810e3495b1181b2cb07ad5cd328b41c6c014f8ce4151ab7ff5b1c2c582d6",
+      "severity": {
+        "level": "should-fix",
+        "changeConditions": "Upgrade to blocker if a double-click is shown to leave the dialog claiming 'indexed' while a load is still writing the document; downgrade to consider if the list is disabled during loading."
+      },
+      "confidence": {
+        "level": "medium",
+        "rationale": "Read loadIndexEntry and the dialog's render conditions; the list renders on visible.length alone, independent of browseState. Not reproduced in a browser this round."
+      },
+      "dimension": "correctness",
+      "preExisting": false,
+      "title": "'loading' is not an exclusive state and loadIndexEntry does not claim a browse generation",
+      "summary": "The row list stays clickable while browseState === 'loading'. A second click's loadFromBlobs cancels the first via activeSessionLoad?.cancel(); the first load's finally then writes browseState 'indexed' while the second is still in flight. loadIndexEntry also only reads browseGeneration (line 906) instead of claiming one, so two concurrent loads share a generation and the guard cannot separate them.",
+      "recommendation": "Disable the row buttons while browseState === 'loading', and have loadIndexEntry claim a generation like the other entry points. Cost: small. Benefit: makes the C6 generation guard actually cover the load leg. Why now: bundle it with whatever fix comes out of F-01/F-02, same module.",
+      "locations": [
+        {
+          "path": "src/store/sessionStore.ts",
+          "startLine": 897,
+          "role": "action"
+        },
+        {
+          "path": "src/components/SessionBrowserDialog.tsx",
+          "startLine": 140,
+          "role": "unconditional list"
+        }
+      ],
+      "evidence": "sessionStore.ts:906 'const generation = browseGeneration;' with no increment, unlike the other three entry points."
+    },
+    {
+      "findingId": "crd_f04c99",
+      "ruleId": "review.contract.doc-drift",
+      "identity": {
+        "anchor": "docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md:A2"
+      },
+      "fingerprint": "crd/v1:sha256:3c456cd52567a01e84d147ca5d38fc02e5852d02c1de97f1c0c7b908cfbe0077",
+      "severity": {
+        "level": "should-fix",
+        "changeConditions": "Resolved when the metric is reported per visible window rather than as a corpus average."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Re-ran scripts/measure-codex-index.mjs (identical 59.8%) and then measured the same index by list position: top-10 90% filename, top-30 90%, whole corpus 40.2%."
+      },
+      "dimension": "completeness",
+      "preExisting": false,
+      "title": "The delivered metric and the acceptance step measure different populations",
+      "summary": "A1/A2 report corpus-wide aggregates (100% classified, 59.8% derived titles). B1 asks the author to open the picker and look, and the picker sorts newest-first, where 27 of the first 30 rows are filename-titled. Both numbers are correct; placing them side by side invites the reader to check a claim the metric never made.",
+      "recommendation": "Report such metrics with the visible window broken out (top-10 / top-30 / all). Cost: a few lines in the measurement script. Benefit: acceptance disagreements stop looking like measurement fraud. Why now: before the next round quotes another aggregate.",
+      "locations": [
+        {
+          "path": "docs/rounds/r11.2-uat-repairs/UAT_R11.2_v1.0.md",
+          "startLine": 29,
+          "role": "claim"
+        }
+      ],
+      "evidence": "index repro: 'top-10: filename=9/10 (90.0%)' ... 'top-358: filename=144/358 (40.2%)'."
+    },
+    {
+      "findingId": "crd_f12d10",
+      "ruleId": "review.contract.doc-drift",
+      "identity": {
+        "anchor": "docs/BACKLOG.md:2026-08-03-blockers"
+      },
+      "fingerprint": "crd/v1:sha256:25385226cc0df22aa1e680a7dd1e26b008a823d36cad3bc1aa2ad3c3c416c14d",
+      "severity": {
+        "level": "should-fix",
+        "changeConditions": "Resolved when the three entries are re-verified and moved out; upgrade if a future round skips re-checking because the document claims a line-by-line audit."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Checked each of the three against current source: sessionIndexer.ts:252 re-runs detectAdapter after widening; sessionStore.ts:1066 guards loadPersistedConfig on snapshotMode and snapshot.tsx hydrates before render; indexFileList has a try/catch and resumeLastDirectory sets 'picking'."
+      },
+      "dimension": "correctness",
+      "preExisting": false,
+      "title": "The three blockers at the top of BACKLOG.md are marked 'all still present' but all three are fixed",
+      "summary": "The document states they were re-verified line by line on 2026-08-14 and that none had been fixed. B1, B2 and B3 are all fixed in the current tree. A list that claims to have been audited is more dangerous than no list, because the next round will trust it and skip the re-check.",
+      "recommendation": "Move the three to a resolved section citing the fixing commit, and date-stamp the claim. Cost: minutes. Benefit: the top of the backlog stops being false. Why now: it is the first thing anyone reads.",
+      "locations": [
+        {
+          "path": "docs/BACKLOG.md",
+          "startLine": 10,
+          "role": "stale claim"
+        }
+      ],
+      "evidence": "sessionIndexer.ts:252 'source = detectAdapter(headText)?.id;' inside the widening branch, which the entry says is missing."
+    },
+    {
+      "findingId": "crd_f10e11",
+      "ruleId": "review.arch.boundary-erosion",
+      "identity": {
+        "anchor": "src/store/sessionStore.ts:cacheReady"
+      },
+      "fingerprint": "crd/v1:sha256:40bd88c55ef31b5d8b85efae41a8d70fa1a663c9703bcbe9afc43e6d4d45db4b",
+      "severity": {
+        "level": "consider",
+        "changeConditions": "Upgrade to should-fix if a seventh writer appears or if a cacheReady desync is observed in the UI."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "grep counted 6 write sites plus the initial value; DIT_STATE_MACHINES.md DSM-8 documents 3."
+      },
+      "dimension": "maintainability",
+      "preExisting": true,
+      "title": "DSM-8's documented debt has doubled and the state-machine register was not updated",
+      "summary": "cacheReady is written at sessionStore.ts 357, 377, 385, 468, 774 and 950. docs/design/DIT_STATE_MACHINES.md, which declares itself continuously maintained ('update the matching section whenever any machine changes'), still says three, and has been touched once since R9 while R10, R10.1, R11 and R11.2 all changed machines. DSM-4's new browseGeneration counter has no entry at all.",
+      "recommendation": "Update the document, not the code: refresh DSM-8's count, add browseGeneration to the section 1 inventory, and record writers-per-field as the trend metric for the next review. Cost: one document. Benefit: the register regains the property it claims. Why now: it is the artifact this review had to distrust.",
+      "locations": [
+        {
+          "path": "src/store/sessionStore.ts",
+          "startLine": 357,
+          "role": "writer"
+        },
+        {
+          "path": "docs/design/DIT_STATE_MACHINES.md",
+          "startLine": 155,
+          "role": "stale count"
+        }
+      ],
+      "evidence": "grep cacheReady src (non-test): 6 assignment sites vs the document's '有三個寫入點'."
+    },
+    {
+      "findingId": "crd_f11f12",
+      "ruleId": "review.state.single-writer",
+      "identity": {
+        "anchor": "src/store/sessionStore.ts:browseGeneration"
+      },
+      "fingerprint": "crd/v1:sha256:02035c247e4e613d52217ae535fd6cee42b0144c203e5bc7a9731b9383aa64b1",
+      "severity": {
+        "level": "consider",
+        "changeConditions": "Upgrade to should-fix together with F-09, since the asymmetry is what makes the load leg unguarded."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Read all five touch points."
+      },
+      "dimension": "maintainability",
+      "preExisting": false,
+      "title": "browseGeneration is a new machine with no register entry and asymmetric claiming",
+      "summary": "pickAndIndexDirectory, indexFileList, resumeLastDirectory and closeBrowser all increment it; loadIndexEntry only reads it. reset() and resetToSample() do not touch it. The asymmetry is deliberate but no invariant states it, and the counter is absent from the DSM inventory.",
+      "recommendation": "Write the invariant next to the declaration ('every entry point that can outlive a close claims a generation; loadIndexEntry is the exception because X') and add it to DIT_STATE_MACHINES.md section 1. Cost: a comment and a table row. Benefit: the next editor cannot mistake the asymmetry for an oversight. Why now: pair with F-09.",
+      "locations": [
+        {
+          "path": "src/store/sessionStore.ts",
+          "startLine": 406,
+          "role": "declaration"
+        }
+      ],
+      "evidence": "sessionStore.ts:906 reads browseGeneration without incrementing, unlike lines 796, 830, 840 and 889."
+    },
+    {
+      "findingId": "crd_f13a13",
+      "ruleId": "review.performance.rerender",
+      "identity": {
+        "anchor": "src/components/useBlockingSurface.ts:useBlockingSurface"
+      },
+      "fingerprint": "crd/v1:sha256:f80e5a7f0865f14844aa1f6ce461b40ddb93f8d9edf77bff85b4ff97bb443621",
+      "severity": {
+        "level": "consider",
+        "changeConditions": "Upgrade to should-fix if profiling shows dropped frames during a large index or load; downgrade to nit if the dialogs prove cheap to re-render."
+      },
+      "confidence": {
+        "level": "medium",
+        "rationale": "Read the hook and confirmed zustand ^4.5.5 in package.json; not profiled in a browser this round."
+      },
+      "dimension": "performance",
+      "preExisting": true,
+      "title": "Every blocking surface re-renders on every store write",
+      "summary": "useBlockingSurface subscribes with useSessionStore(selectSurfaceWants); the selector builds a fresh object each call and zustand v4's default equality is Object.is, so the result never compares equal and all seven dialog components re-render on each set(). set() fires per progress chunk during a load and per file during an index.",
+      "recommendation": "Either pass a shallow equality function or subscribe to the single derived SurfaceId instead of the whole wants object. Cost: one line. Benefit: removes a per-chunk render storm. Why now: only if the UI feels sluggish during large loads; measure before changing.",
+      "locations": [
+        {
+          "path": "src/components/useBlockingSurface.ts",
+          "startLine": 36,
+          "role": "subscription"
+        }
+      ],
+      "evidence": "'const wants = useSessionStore(selectSurfaceWants);' where selectSurfaceWants returns a new object literal."
+    },
+    {
+      "findingId": "crd_f14b14",
+      "ruleId": "review.completeness.truncation",
+      "identity": {
+        "anchor": "src/core/index/sessionIndexer.ts:buildSessionIndex"
+      },
+      "fingerprint": "crd/v1:sha256:fb165d79826b81753542bdcaaeacf010222e5ebc591b8b8b88849f90149279c0",
+      "severity": {
+        "level": "consider",
+        "changeConditions": "Upgrade to should-fix once any real directory exceeds 500 sessions; the author's Codex folder is at 358."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Read the code: mains.slice(0, maxFiles) precedes the endedAt sort at line 418."
+      },
+      "dimension": "correctness",
+      "preExisting": false,
+      "title": "INDEX_MAX_FILES truncates in directory order, before the newest-first sort",
+      "summary": "With more than 500 main transcripts the picker keeps an arbitrary 500 chosen by directory enumeration order, then sorts those by endedAt. The INDEX_TRUNCATED diagnostic says how many were dropped but not that the survivors may exclude the most recent sessions. The author's Codex folder is at 358 and growing.",
+      "recommendation": "Sort by a cheap key (mtime or the timestamp embedded in the rollout filename) before slicing, and say in the diagnostic that the newest were kept. Cost: small. Benefit: the cap stops silently changing which sessions exist. Why now: before the folder crosses 500.",
+      "locations": [
+        {
+          "path": "src/core/index/sessionIndexer.ts",
+          "startLine": 322,
+          "role": "truncation"
+        },
+        {
+          "path": "src/core/index/sessionIndexer.ts",
+          "startLine": 418,
+          "role": "sort, applied after"
+        }
+      ],
+      "evidence": "'const scanned = mains.slice(0, maxFiles);' at line 322; 'entries.sort(... endedAt ...)' at line 418."
+    },
+    {
+      "findingId": "crd_f15c15",
+      "ruleId": "review.correctness.wrong-code",
+      "identity": {
+        "anchor": "src/store/sessionStore.ts:privacyReviewer"
+      },
+      "fingerprint": "crd/v1:sha256:e2ff2d956b48e2b68af3d9b558e88f7723e2c10316a2348b0dc5786a5d055c8c",
+      "severity": {
+        "level": "consider",
+        "changeConditions": "Downgrade to nit if the concurrent-review path is made unreachable in the UI."
+      },
+      "confidence": {
+        "level": "high",
+        "rationale": "Read the throw site."
+      },
+      "dimension": "readability",
+      "preExisting": false,
+      "title": "'another review is in progress' is reported as PRIVACY_DETECTOR_FAILED",
+      "summary": "Clicking a card's annotate button while a privacy review dialog is pending throws PrivacyError('PRIVACY_DETECTOR_FAILED', 'Another privacy review is already in progress'). The code says a detector failed, which is a different and more alarming fact than 'you already have one open'.",
+      "recommendation": "Add a PRIVACY_REVIEW_BUSY code. Cost: one enum member plus copy. Benefit: the error text stops contradicting its own code. Why now: bundle with any other privacy work.",
+      "locations": [
+        {
+          "path": "src/store/sessionStore.ts",
+          "startLine": 1304,
+          "role": "throw"
+        }
+      ],
+      "evidence": "throw new PrivacyError(\"PRIVACY_DETECTOR_FAILED\", \"Another privacy review is already in progress; no data was sent.\")"
+    },
+    {
+      "findingId": "crd_f16d16",
+      "ruleId": "review.correctness.miscount",
+      "identity": {
+        "anchor": "src/core/annotation/jobController.ts:start"
+      },
+      "fingerprint": "crd/v1:sha256:e3a3b942390c5f9da6337b3fbf95d9440a44a72751037cad742a8d5e869af22c",
+      "severity": {
+        "level": "consider",
+        "changeConditions": "Downgrade to nit if the progress panel is not shown after a cancellation."
+      },
+      "confidence": {
+        "level": "medium",
+        "rationale": "Traced annotateItem's catch (PRIVACY_REVIEW_CANCELLED records no error and returns false) into the controller's failed counter. Not observed in a browser."
+      },
+      "dimension": "correctness",
+      "preExisting": false,
+      "title": "Cancelling a privacy review is counted as a failed annotation",
+      "summary": "annotateItem deliberately records no annotationErrors entry when the user cancels a privacy review, but still returns false; AnnotationJobController counts a false return as failed + 1. The progress panel then reports a failure that did not occur.",
+      "recommendation": "Let runItem return a tri-state (succeeded | failed | cancelled) so the controller can stop without inflating failed. Cost: small, one interface. Benefit: the progress numbers stop lying after a cancel. Why now: only when the annotation flow is next touched.",
+      "locations": [
+        {
+          "path": "src/store/sessionStore.ts",
+          "startLine": 1388,
+          "role": "swallowed cancel"
+        },
+        {
+          "path": "src/core/annotation/jobController.ts",
+          "startLine": 51,
+          "role": "counter"
+        }
+      ],
+      "evidence": "jobController.ts:51 'failed: snapshot.failed + (succeeded ? 0 : 1)' with no cancellation case."
+    }
+  ]
+}

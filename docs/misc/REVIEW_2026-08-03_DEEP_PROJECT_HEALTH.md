@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 全專案深度審查 (對 R9.1 分支)——3 個 release-blocking findings + 8 個 should-fix (a whole-project deep health review against the R9.1 branch — 3 release-blocking findings plus 8 should-fix)
+tags: [dit, review, health]
+aliases: [深度審查, 專案健檢, deep project health, blocker findings]
+date: 2026-08-03
+---
 # DIT 全專案深度審查（Deep Project Health Review）
 
 日期：2026-08-03  

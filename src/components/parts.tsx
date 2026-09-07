@@ -3,7 +3,13 @@ import { useState, type ReactNode } from "react";
 import type { Annotation, Span, SpanTag } from "@/types/spanTree";
 import { useT } from "@/i18n";
 
-/** 標籤徽章列 (含工具名稱)。 */
+/**
+ * 標籤徽章列 (含工具名稱與來歷)。
+ *
+ * R12 M4：來歷徽章讀的是 `span.attribution`，那是**來源無關**的結構——這個元件因此不需要、
+ * 也不得知道自己在看哪一套 agent 系統 (INV-R12-2)。哪個來源會不會有這種資料，答案在側寫的
+ * `attribution.kinds`，不在這裡。
+ */
 export function Badges({ span }: { span: Span }): ReactNode {
   const t = useT();
   return (
@@ -14,6 +20,22 @@ export function Badges({ span }: { span: Span }): ReactNode {
         </span>
       ))}
       {span.tool && <span className="badge tool">{span.tool.name}</span>}
+      {span.attribution?.map((attribution) => (
+        <span
+          key={`${attribution.kind}:${attribution.name}`}
+          className={`badge attribution ${attribution.kind}`}
+          data-attribution={attribution.kind}
+          /*
+           * 名字原樣顯示、來歷種類寫在 title 裡。不把 `mcp-tool` 的 server 併進徽章文字：
+           * 實測 54 個工具名分屬 12 個 server，併起來會讓徽章長到擠掉工具名本身，而工具名
+           * 才是讀者要找的東西。
+           */
+          title={t.attribution.title(attribution.kind, attribution.name, attribution.server)}
+        >
+          {t.attribution.prefix[attribution.kind]}
+          {attribution.name}
+        </span>
+      ))}
     </div>
   );
 }

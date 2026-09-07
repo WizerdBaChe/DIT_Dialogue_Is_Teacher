@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalize } from "./normalizer";
 import type { ParseResult, RawEvent } from "@/core/adapters/types";
+import { getFallbackReport, resetFallbackReport } from "@/core/diagnostics";
 
 function parsed(events: RawEvent[], meta: ParseResult["meta"] = {}): ParseResult {
   return { meta, events, diagnostics: [] };
@@ -127,5 +128,32 @@ describe("normalize — tool_use with no resolvable name (R11.2 R2)", () => {
     ]));
     expect(doc.spans[0].summary).toBe("shell_command");
     expect(doc.spans[0].tool?.name).toBe("shell_command");
+  });
+});
+
+/**
+ * R12 M7 — a session whose source could not be determined must not be quietly labelled.
+ *
+ * `finalizeMeta` defaults `source` to `"claude-code"`, and until M7 it did so SILENTLY, unlike
+ * the `id` default right beside it which has always reported. That matters more than a normal
+ * missing default: `source` selects the profile, and the profile drives denoise tool names, the
+ * title ladder and attribution kinds — one wrong guess and the whole render path is wrong, with
+ * nothing visible to say so. CLAUDE.md's invariant ("every `?? somethingElse` calls
+ * reportFallback") had a hole exactly where this round's defect lives.
+ */
+describe("normalize — an undetermined source is audible, not silent (R12 M7)", () => {
+  it("reports the fallback when the adapter supplied no source", () => {
+    resetFallbackReport();
+    const doc = normalize(parsed([{ kind: "user_text", text: "hi", raw: {} }], { id: "s1" }));
+
+    expect(doc.session.source).toBe("claude-code");
+    expect(getFallbackReport().some((r) => r.reason === "missing-source")).toBe(true);
+  });
+
+  it("says nothing when the adapter did supply one", () => {
+    resetFallbackReport();
+    normalize(parsed([{ kind: "user_text", text: "hi", raw: {} }], { id: "s1", source: "codex" }));
+
+    expect(getFallbackReport().some((r) => r.reason === "missing-source")).toBe(false);
   });
 });

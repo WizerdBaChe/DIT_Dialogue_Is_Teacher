@@ -28,6 +28,29 @@ const IDENTIFIER_RULES: PatternRule[] = [
   { kind: "phone", action: "replace", confidence: 0.88, pattern: /(?<![\w.])(?:\+?886[-\s]?)?0?9\d{2}[-\s]?\d{3}[-\s]?\d{3}(?!\d)/g },
   { kind: "user_path", action: "replace", confidence: 0.97, pattern: /(?<=\b[A-Za-z]:\\Users\\)[^\\\s]+/g },
   { kind: "user_path", action: "replace", confidence: 0.97, pattern: /(?<=\/(?:home|Users)\/)[^/\s]+/g },
+  /*
+   * DW-23 — the FLATTENED project-directory form. Reported by the author in R11.2 acceptance
+   * (「前提2」, 6 occurrences with line numbers) and unregistered anywhere until 2026-08-27.
+   *
+   * Claude Code encodes a project's absolute path into a single directory name by replacing
+   * `:\`, `\`, `/` and `.` with hyphens, so `C:\Users\gunda\.claude` becomes
+   * `C--Users-gunda--claude`. The two rules above match the path's ORIGINAL punctuation, which
+   * the encoding has removed — so the header could truthfully report "6 redacted" while the same
+   * username sat in plain sight further down. A transform that defeats a redaction rule is worse
+   * than no rule, because the report says the work was done.
+   *
+   * Scoped to the evidenced shape: a drive letter, `--Users-`, then the name up to the next
+   * separator. Verified against the 60 real directory names in `~/.claude/projects`, including
+   * `C--Users-gunda-AppData-Local-Temp-claude-C--Users-gunda--claude-…`, where the name occurs
+   * TWICE in one token and both must go.
+   *
+   * NOT covered, and deliberately not guessed at: the macOS/Linux flattened forms
+   * (`-Users-name-…` / `-home-name-…`). They carry no drive letter, so any pattern for them
+   * would also match ordinary hyphenated prose (`-home-page`), and there is no sample of one in
+   * this corpus to calibrate against. Naming the gap beats a rule whose false-positive rate
+   * nobody has measured.
+   */
+  { kind: "user_path", action: "replace", confidence: 0.97, pattern: /(?<=\b[A-Za-z]--Users-)[^-\s\\/]+/g },
   { kind: "ip_address", action: "replace", confidence: 0.9, pattern: /\b(?!(?:127\.0\.0\.1|0\.0\.0\.0)\b)(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b/g },
 ];
 

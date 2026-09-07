@@ -1,3 +1,9 @@
+---
+xi: 1
+what: Task Ledger 任務帳本——T-NNN 編號的任務狀態、驗收條件與證據 (the task ledger, T-NNN numbered tasks with status, acceptance criteria and evidence)
+tags: [dit, tickets]
+aliases: [任務帳本, 工單清單, task ledger, T-ticket]
+---
 # DIT — Task Ledger
 
 ## Not yet specified
@@ -50,3 +56,9 @@ acceptance: All five cards EX-01..EX-05 in `docs/rounds/r6-export/PSM_R6_EXPORT_
 notes: User approved the sole-source contract `docs/rounds/r6-export/PSM_R6_EXPORT_v0.1.md` (D-R6-01..07) on 2026-07-21. EX-01 `3e196e0` adds the versioned export wrapper, JSON export, and Settings tray Export fieldset. EX-02 `06f7b01` adds compile-time type freshness assertions for the RPD D-5 `SessionLibrary` reservation with zero runtime/UI footprint. EX-03 `37e3920` adds the `vite-plugin-singlefile` snapshot build target, `snapshotMode`/`hydrateSessionExport` store additions, and Header gating; discovered during file:// hard verification that Vite always tags entry scripts `type="module"` in `<head>` regardless of rollup output format, fixed with an IIFE output format plus a post-build plugin that strips the attribute and wraps the code in a `DOMContentLoaded` listener (inline scripts ignore `defer`). EX-04 `a88a739` wires the in-app HTML snapshot export button; the file:// hard verification caught a real bug where the snapshot bundle's self-reference to the placeholder string literal (from `snapshotTemplate.ts`'s own source being inlined into the bundle) caused a non-global string replace to corrupt the JS bundle instead of hitting the real payload `<script>` tag — fixed by anchoring the replace to the full tag structure, with a regression test. Both EX-03 and EX-04 were verified end-to-end by killing the server, injecting/downloading real payloads, and opening the result via `file://`.
 
 ## Archive
+
+## T-008 Compacted sessions render as ONE logical conversation via logicalParentUuid
+status: open  owner: dispatcher  blocked-by: - (unhomed: `docs/DEFERRED.md` DW-16; independent of R11 merge)
+type: build
+acceptance: loading a folder containing a real compacted chain (a continuation file whose head `compact_boundary` record carries `logicalParentUuid` pointing into an earlier file) shows ONE logical session in the browser - chained files grouped, timeline stitched in order, the boundary rendered as the existing marker event; a fixture with a real chained pair passes; typecheck/tests/build stay green.
+notes: Filed 2026-08-16 by the claude-config session (co-upgrade loop, workflow-checkpoint round 1). The norm is already recorded in-repo: PSM_R9_WORKCARDS_v0.1.md line 50 says the field exists but is unapplied; adapter already parses compact_boundary's compactMetadata, so this is consuming one more field plus a browser-side grouping. Why it matters NOW: a daily transcript archive exists at D:\AIWork\_session-archive\ (README there) precisely so history stays queryable in DIT; until this ticket lands, every compacted conversation in that archive displays as multiple unrelated sessions - the user reads that as "records lost", which is a DIT rendering gap, not data loss. Verified 2026-08-16: both halves of a real chain exist on disk and the uuid resolves across files.

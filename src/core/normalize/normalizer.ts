@@ -93,6 +93,21 @@ function finalizeMeta(meta: Partial<SessionMeta>, events: RawEvent[]): SessionMe
     // 合成 id 每次載入都不同，會讓講解快取的 session 指紋對不上。
     reportFallback("normalizer/finalizeMeta", "missing-session-id");
   }
+  if (!meta.source) {
+    /*
+     * R12 M7：這裡原本是無聲的 `?? "claude-code"`——**一個猜錯來源的預設值**，而且沒有走
+     * fallback 通道（上面那個 id 有走）。CLAUDE.md 的不變式明寫「每個 `?? somethingElse`
+     * 都必須呼叫 `reportFallback`」，這一處漏了。
+     *
+     * 為什麼特別嚴重：`source` 決定側寫，側寫決定降噪工具名、標題階梯、來歷種類——猜錯一次，
+     * 整條渲染路徑都跟著錯，而且畫面上完全看不出來。這正是這一輪要消滅的形狀，只是它躲在
+     * 正規化層而不是探索層。
+     *
+     * 目前兩個 adapter 都會寫死自己的 `source`，所以理論上到不了這裡。但 R11.2 的 F-01／F-02
+     * 才剛示範過「今天到不了」不等於「明天到不了」——所以留著預設值保命，同時讓它出聲。
+     */
+    reportFallback("normalizer/finalizeMeta", "missing-source");
+  }
   return {
     id: meta.id ?? `session-${Date.now()}`,
     source: meta.source ?? "claude-code",
@@ -161,6 +176,15 @@ export function normalize(parsed: ParseResult): SessionDocument {
     // 型別上落到 assistant_msg 好讓節點視圖照常顯示，但它不是模型真的說的話——標記起來，
     // 讓逐字對話輸出能把它排除，不至於冒充成 AI 發言。
     if (ev.kind === "unknown") span.synthetic = true;
+
+    /*
+     * R12 M4：來歷原樣帶過去，不加工。
+     *
+     * 這裡刻意不做「沒有就補一個預設值」——缺席的意思是「來源沒有標」，而那跟「沒有來歷」
+     * 是兩件事。要區分它們的是側寫的 `attribution.kinds`（空陣列 = 這套系統不記錄），
+     * 不是在這裡塞一個佔位字串。
+     */
+    if (ev.attribution?.length) span.attribution = ev.attribution;
 
     if (ev.kind === "tool_use") {
       // R11.2 R2: a missing tool name is a *named* degradation, not a silent one — the reader
