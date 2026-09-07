@@ -4,7 +4,7 @@
  * 下游 Normalizer 只認 RawEvent[]，不認得任何特定來源格式。
  */
 import type { Diagnostic } from "@/core/diagnostics/contracts";
-import type { SessionMeta, SourceId } from "@/types/spanTree";
+import type { Attribution, SessionMeta, SourceId } from "@/types/spanTree";
 
 /** 來源無關的中介事件種類。 */
 export type RawEventKind =
@@ -37,6 +37,11 @@ export interface RawEvent {
   toolUseId?: string;
   /** 工具結果是否為錯誤 (kind === "tool_result")。 */
   isError?: boolean;
+  /**
+   * 這一步的來歷 (R12 M4)。概念是來源無關的（見 `Attribution`），各 adapter 從自己的欄位
+   * 填。沒填 = 這個來源對這一筆沒有標，不是「沒有來歷」。
+   */
+  attribution?: readonly Attribution[];
   /** 原始事件，保底可回溯。 */
   raw: unknown;
 }

@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 概念演化軌跡 Concept Note (CET)——構想存檔未立項的未來產品，把對話蒸餾成概念依賴樹 (the Concept Note for CET, a shelved future-product idea that distills AI dialogue into a concept dependency tree)
+tags: [dit, concept-note]
+aliases: [概念演化軌跡, 構想存檔, Concept Note, CET]
+date: 2026-07-04
+---
 # Concept Note — 概念演化軌跡（暫名 CET, Concept Evolution Tracker）v0.2
 
 > 日期：2026-07-04｜狀態：**構想存檔，未立項**。DIT 剩餘藍圖（R1→R7→…）優先，本產品不插隊。

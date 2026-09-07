@@ -1,3 +1,10 @@
+---
+xi: 1
+what: 實機驗收清單——各輪次（R5 起）UAT 逐項紀錄，改完功能對照這份手測 (the running acceptance/UAT checklist across rounds from R5 onward — the manual test reference to check after any change)
+tags: [dit, uat, acceptance]
+aliases: [驗收清單, 手測清單, UAT, acceptance checklist]
+date: 2026-07-19
+---
 # DIT R5 最終驗收單 (Acceptance Checklist)｜2026-07-19
 
 > 狀態：GN-01～GN-10 的自動化、build 與 production preview 預檢已通過；下列視覺／互動項目必須由使用者

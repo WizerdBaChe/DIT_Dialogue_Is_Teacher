@@ -2,9 +2,6 @@ import { useState, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import { useDiagnosticCopy, useT } from "@/i18n";
 import { informational, noticeable } from "@/core/diagnostics/contracts";
-import { SKELETON_NODE_SYMBOL, SKELETON_RIB_SYMBOL } from "@/core/view/sessionMap";
-import { CATEGORY_ORDER, isSkeletonNodeKind } from "@/core/view/categoryDefinitions";
-import { SPAN_DOT, SPAN_LEGEND_ORDER } from "./labels";
 import { SessionLoadActions } from "./SessionLoadActions";
 import { NoticeBanner } from "./NoticeBanner";
 
@@ -113,51 +110,16 @@ export function OverviewView(): ReactNode {
           <button type="button" className="btn primary overview-primary-action" onClick={startReading}>
             {cta}
           </button>
-          <SessionLoadActions labels="overview" />
         </div>
 
-        <details className="overview-legend">
-          <summary>{t.overview.legend.label}</summary>
-          <div className="overview-legend-body">
-            <section aria-labelledby="overview-legend-span-heading">
-              <h4 id="overview-legend-span-heading">{t.overview.legend.spanHeading}</h4>
-              <ul className="overview-legend-list">
-                {SPAN_LEGEND_ORDER.map((type) => (
-                  <li key={type}>
-                    <span aria-hidden="true">{SPAN_DOT[type]}</span> {t.spanKind[type]}
-                  </li>
-                ))}
-              </ul>
-            </section>
-            {/*
-              R9.1 RC-G：原本這裡只有記號加一個名詞。「決策」是什麼、DIT 憑什麼這樣標，
-              使用者無從得知，也就無從判斷該不該相信這個標記。定義表是唯一來源
-              (core/view/categoryDefinitions)，這裡只是它的其中一個消費端。
-            */}
-            <section aria-labelledby="overview-legend-skeleton-heading">
-              <h4 id="overview-legend-skeleton-heading">{t.overview.legend.skeletonHeading}</h4>
-              <dl className="overview-legend-defs">
-                {CATEGORY_ORDER.map((kind) => {
-                  const definition = t.categoryDefinition[kind];
-                  const isNode = isSkeletonNodeKind(kind);
-                  return (
-                    <div key={kind} className="overview-legend-def">
-                      <dt>
-                        <span aria-hidden="true">{isNode ? SKELETON_NODE_SYMBOL[kind] : SKELETON_RIB_SYMBOL[kind]}</span>{" "}
-                        {isNode ? t.skeletonNode[kind] : t.skeletonRib[kind]}
-                      </dt>
-                      <dd>
-                        <p className="overview-legend-what">{definition.what}</p>
-                        <p className="overview-legend-rule">{definition.rule}</p>
-                        <p className="overview-legend-example">{definition.example}</p>
-                      </dd>
-                    </div>
-                  );
-                })}
-              </dl>
-            </section>
-          </div>
-        </details>
+        {/*
+          R12 M2 修正（作者裁決 2026-08-26）：載入入口不再跟 CTA 擠同一排。
+          一級選單是「一段說明 + 兩顆按鈕」的區塊，塞進一排 flex 之後標題會跟按鈕並排，
+          看起來是交錯的。給它自己一整列，說明在上、按鈕在下。
+        */}
+        <div className="overview-load">
+          <SessionLoadActions labels="overview" />
+        </div>
       </section>
     </main>
   );

@@ -35,4 +35,36 @@ describe("stripInjectedPreamble — whitelist-based source-injected preamble str
     const text = "<system-reminder>\nbackground task notice\n</system-reminder>";
     expect(stripInjectedPreamble(text)).toBe("");
   });
+
+  /**
+   * 2026-08-27. Measured on the local Codex corpus: 2 rollouts open with
+   * `<scheduled-task name="…" file="…">`, and it survived to the session list as a title — the
+   * author reported it as 「一些 `<>` 的東西」. TWO separate reasons, both fixed here:
+   * the tag was not on the whitelist, AND the matcher required the opening tag to be exactly
+   * `<tag>`, so no attributed tag could ever match.
+   */
+  describe("attributed injection tags (2026-08-27)", () => {
+    it("strips a whitelisted tag that carries attributes", () => {
+      const text = '<scheduled-task name="prism-r35-continue" file="C:\\tasks\\p.md">\nrun it\n</scheduled-task>\n接下來請幫我改這段';
+      expect(stripInjectedPreamble(text)).toBe("接下來請幫我改這段");
+    });
+
+    it("still strips the same tag with no attributes", () => {
+      expect(stripInjectedPreamble("<scheduled-task>\nnotice\n</scheduled-task>\nreal text")).toBe("real text");
+    });
+
+    it("leaves a NON-whitelisted attributed tag alone — the whitelist did not get wider", () => {
+      // The relaxation is about attributes on known tags, not about admitting unknown ones.
+      // A user pasting their own XML must still get it back untouched (R7.5-INV-3).
+      const text = '<div class="note">mine</div>\ntrailing';
+      expect(stripInjectedPreamble(text)).toBe(text);
+    });
+
+    it("does not treat a tag as whitelisted just because it starts with a whitelisted name", () => {
+      // `<scheduled-task-runner>` is a different tag; matching it would be the classic
+      // prefix-match error this project has already been bitten by in the classifier.
+      const text = "<scheduled-task-runner>x</scheduled-task-runner>\ntrailing";
+      expect(stripInjectedPreamble(text)).toBe(text);
+    });
+  });
 });
