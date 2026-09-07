@@ -68,25 +68,32 @@ date: 2026-06-25
   等項目**在 R9.1 分支上已經修掉**（RC-B），對 main 才成立。
 - `_MAIN.md` §C-07 的相依套件 advisory 屬於易變外部事實，引用前需重查。
 
-## 📌 2026-08-26 讀取層的版本前提（非 round 的 chore，執行卡已開，未施工）
+## ✅ 2026-08-26 讀取層的版本前提（2026-09-07 Codex 複核後完成）
 
 > 完整卡片見 [`WORKCARD_CC-READING-LAYER_2026-08-26.md`](misc/WORKCARD_CC-READING-LAYER_2026-08-26.md)。
 > 起因：`~/.claude` 對帳 Claude Code 2.1.200→2.1.246 時，發現 8 條全域 ops 事實已走樣且沒有任何
 > 機制會發現；DIT 的 `CLAUDE.md` 有**同一類**問題。分支 `chore/cc-reading-layer`，
-> **不吃 round id**（2026-08-26 作者裁定）。純文件，不動 `src/`。
+> **不吃 round id**（2026-08-26 作者裁定）。2026-09-07 依 Codex 官方載入規則重查後，
+> 範圍修正為指令文件＋report-only checker，不動 `src/`。
 
-- [ ] **M1 為受 harness 影響的斷言蓋版本戳**：`CLAUDE.md` §Round layout 裡有兩條其實是在描述
-  **Claude Code 的行為**而非 DIT 慣例（cloud session 產生 `claude/<slug>` 分支；cloud session
-  從 `origin/main` 開分支所以無法安全分配 round id），卻寫得像專案規則，沒有 `as-of`，
-  也沒有指名什麼事件會讓它失效。這是唯一「不做就會繼續被誤讀」的一項。
-- [ ] **M2 把 worktree 納入分支契約**：`/fork` 自 CC **2.1.221** 起會**自己開一個 worktree**，
+- [x] **M1 為受 harness 影響的斷言蓋版本戳**：`CLAUDE.md` §Round layout 裡有兩條其實是在描述
+  **Claude Code 的行為**而非 DIT 慣例（cloud session 產生 `claude/<slug>` 分支；以及它從
+  `origin/main` 開分支、可能看不到本機進度），卻寫得像專案規則，沒有 `as-of`，也沒有指名
+  什麼事件會讓它失效。現已把 harness 前提與「日期＋slug 可安全分配」的 DIT 命名性質拆開。
+- [x] **M2 把 worktree 納入分支契約**：除 Claude Code `/fork` 外，也納入 Codex managed
+  worktree 的 detached HEAD、Handoff 與 app 預設 `codex/` prefix；它們都是 transport，
+  durable branch 仍須服從本專案的 `feat/`、`chore/`、`fix/` 契約。
+
+  原始卡片的 Claude Code 證據：`/fork` 自 CC **2.1.221** 起會**自己開一個 worktree**，
   不再共用原 session 的 checkout。現行契約只講分支不講 worktree，等於 round 工作可以落在
   契約沒有命名的 checkout 裡，而照著契約找的人不會想到去那裡看。
-  （DIT 目前這一軸是乾淨的：只有主 checkout、零 `claude/*` 分支 —— 趁便宜補契約，不是收爛攤。）
-- [ ] **M3 `AGENTS.md` ↔ `CLAUDE.md` 漂移檢查器**（2026-08-26 裁定：走檢查器，不走一行
+  （卡片開立時這一軸是乾淨的：只有主 checkout、零 `claude/*` 分支 —— 當時是在補契約，
+  不是收爛攤。）
+- [x] **M3 `AGENTS.md` ↔ `CLAUDE.md` 漂移檢查器**（2026-08-26 裁定：走檢查器，不走一行
   `review-when`）：`AGENTS.md` 自己就記著「完整複製兩週內就走樣」，薄指標設計**不動**，
   它是檢查器的輸入；缺的是沒有東西驗證那份短名單仍然忠實。**必須附正對照** —— 一條刻意
-  去同步的規則，證明檢查器抓得到；只跑過通過側的檢查器等於沒測過。
+  去同步的規則，證明檢查器抓得到；只跑過通過側的檢查器等於沒測過。複核時已實際抓到
+  `AGENTS.md` 的舊 `r<N>` 規則；修正後由 `dit-contract` 語意錨點與 in-memory probe 守住。
 
 降級順序 **M1 → M2 → M3**，保底 **M1**。
 

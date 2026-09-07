@@ -15,7 +15,10 @@ multi-phase ops workflow is not. Do not re-ask the relaxation gate for this proj
 
 Follow the global rule in `~/.claude/CLAUDE.md`. In this repo that resolves to:
 code, comments and commit messages in English; `docs/**` round documents in Traditional
-Chinese with inline English for technical terms; work-card bodies in English.
+Chinese with inline English for technical terms; work-card bodies in English; conversation
+with the author in Traditional Chinese.
+
+<!-- dit-contract: language | code-comments-commits=English; docs-rounds=Traditional-Chinese-with-inline-English; work-cards=English; author-conversation=Traditional-Chinese -->
 
 ## Round layout and naming
 
@@ -29,6 +32,8 @@ different rounds both call themselves R9 in July/August 2026.
 |---|---|---|
 | **Round id** `<YYYY-MM>-<slug>` | directory name, doc filenames, branch name, backlog item prefix | one round = one id, allocated **once**, never reused. The `r<N>[.<m>]-<slug>` form is a **closed legacy namespace**: R1–R12 keep their ids forever, nothing new joins them. See `docs/rounds/ROUNDS.md`. |
 | **Phase number** | `references/DIT-phase-log.md` only | monotonic, one checkpoint per round, never renumbered downward. It counts checkpoints, not rounds — historically one phase has covered several rounds. |
+
+<!-- dit-contract: round-id | new=<YYYY-MM>-<slug>; legacy=r<N>[.<m>]-<slug>:closed; registry=docs/rounds/ROUNDS.md; branch=feat/<round-id>; non-round=chore/<slug>|fix/<slug> -->
 
 Rules:
 
@@ -67,19 +72,39 @@ Rules:
 - **Branches**: round work is `feat/<round-id>`, matching the round directory exactly.
   Non-round work is `chore/<slug>` or `fix/<slug>` and gets no round id. The historical `codex/`
   prefix is retired — it named the agent that did the work, which is not a property of the branch.
-- **Cloud sessions** produce auto-named `claude/<random-slug>` branches. Those are transport, not
-  identity: merge one into `main` (or into its properly named round branch), then delete it.
-  Never let an auto-named branch be the record of a round.
-- **A cloud session can now allocate a round id safely**, which it could not under the old
-  scheme. It branches from `origin/main` and may be behind local work it cannot see, so it could
-  never know whether `R<next>` was taken; `<YYYY-MM>-<slug>` needs no such knowledge. Give it the
-  theme and it can name its own round.
+- **Claude Code cloud sessions** produced auto-named `claude/<random-slug>` branches when last
+  verified against Claude Code 2.1.246 on 2026-08-26. Those branches are transport, not identity:
+  merge one into `main` (or into its properly named round branch), then delete it. Never let an
+  auto-named branch be the record of a round. Review this premise after a Claude Code upgrade
+  that changes cloud-session branching, `/fork`, or worktree behaviour; the reconciliation
+  record is `~/.claude/reports/2026-08-26-cc-version-reconcile-2.1.200-2.1.246.md`.
+- **A Claude Code cloud session can now allocate a round id safely**, which it could not under
+  the old scheme. When last verified against Claude Code 2.1.246 on 2026-08-26, it branched from
+  `origin/main` and could be behind local work it could not see, so it could never know whether
+  `R<next>` was taken; `<YYYY-MM>-<slug>` needs no such knowledge. Give it the theme and it can
+  name its own round. Review the branching premise on the Claude Code trigger above; the safe
+  date-plus-slug conclusion is a DIT naming property and does not depend on that premise staying
+  true.
+
+<!-- dit-contract: worktree-identity | detached-worktree=transport; durable-branch=project-contract; codex-prefix=retired; handoff=allowed -->
+- **Worktrees are transport, not round identity.** Codex-managed worktrees start detached and
+  the app's branch-creation UI suggests a `codex/` prefix; neither changes this repository's
+  branch contract. Keep working detached only while the work is disposable. For durable work,
+  create the correctly named `feat/<round-id>`, `chore/<slug>`, or `fix/<slug>` branch in that
+  worktree, or hand the task back to the local checkout. A branch cannot be checked out in two
+  worktrees at once. As of the official Codex worktree documentation checked on 2026-09-07,
+  managed worktrees live under `$CODEX_HOME/worktrees` by default and ignored setup files do not
+  follow unless covered by `.worktreeinclude`; review when Codex changes its worktree or Handoff
+  behaviour. Claude Code `/fork` also created its own worktree when last verified at 2.1.246;
+  review that half on the same Claude Code trigger above.
 
 ## Invariants worth knowing before editing
 
+<!-- dit-contract: adapter-tolerance | bad-line=diagnostic-and-skip; unreadable-file=diagnostic-and-continue-batch -->
 - Adapters never throw on a bad line — a line-level failure records a diagnostic and is
   skipped. As of R9 the same discipline applies at file level: one unreadable file in a
   batch must not fail the batch.
+<!-- dit-contract: fallback-visibility | silent-substitution=reportFallback; named-degradation=Diagnostic-aggregate -->
 - Every fallback (`?? somethingElse`) must call `reportFallback`. A silent fallback has
   already caused one class of wrong-target bug in this codebase. As of R9.1 the invariant is
   sharpened: `reportFallback` is for a substitution the **user cannot observe**. A degradation
@@ -87,5 +112,16 @@ Rules:
   "filename"`, rendered with its own badge) is a *named* degradation — it reports through
   `Diagnostic` aggregates, not through the fallback channel. Putting named degradations on the
   fallback channel floods the console and buries the silent ones it exists to catch.
+<!-- dit-contract: blocking-surface | forbidden=window.confirm|window.alert|window.prompt; required=blocking-surface-machine -->
 - No `window.confirm` / `alert` / `prompt` in `src/`. Blocking surfaces go through the
   blocking-surface machine (R9 M4).
+
+## Verification
+
+<!-- dit-contract: windows-gates | npm=npm.cmd; required=test|typecheck|build|git-diff-check -->
+On Windows, use `npm.cmd`. Before claiming an implementation works, run `npm.cmd test`,
+`npm.cmd run typecheck`, `npm.cmd run build`, and `git diff --check`, and paste the output.
+
+<!-- dit-contract: visual-acceptance | automated-build=data-path-only; visual-done=author-confirmation-in-running-app -->
+A green build proves the data path, not the picture. Anything visual needs the author's
+confirmation in the running app before it can be called done.

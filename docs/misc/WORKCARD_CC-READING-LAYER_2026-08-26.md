@@ -1,9 +1,16 @@
-# Work card — bring DIT's reading layer under a version premise
+# Work card — bring DIT's agent-instruction reading layer under explicit contracts
 
 **Type**: non-round chore. No round id (see `CLAUDE.md` §Round layout: non-round work is `chore/`).
 **Branch**: `chore/cc-reading-layer`
-**Scope**: documentation only. No `src/` change, no build impact.
+**Scope**: instruction documents plus one report-only checker and its package script. No `src/`
+change and no runtime product impact.
 **Origin**: `~/.claude/reports/2026-08-26-cc-version-reconcile-2.1.200-2.1.246.md`
+
+**Re-audited 2026-09-07**: Codex CLI 0.153.4 and the current official OpenAI documentation for
+[`AGENTS.md`](https://developers.openai.com/codex/guides/agents-md) and
+[Codex worktrees](https://developers.openai.com/codex/app/worktrees). This re-audit found a live
+round-id drift in `AGENTS.md`, so the earlier ruling that the file must remain untouched is
+superseded by direct evidence: leaving it untouched would preserve an incorrect Codex instruction.
 
 ---
 
@@ -32,8 +39,8 @@ harness-dependent claims *legible as harness-dependent*, which is the cheap 80%.
 `CLAUDE.md` §Round layout and naming, "Cloud sessions" and the bullet after it:
 
 - "**Cloud sessions** produce auto-named `claude/<random-slug>` branches."
-- "**A cloud session cannot allocate a round id safely** — it branches from
-  `origin/main`, which may be behind local work it cannot see."
+- "**A Claude Code cloud session can now allocate a round id safely**" under the new id scheme,
+  with the supporting premise that it branches from `origin/main` and may be behind local work.
 
 Both describe how Claude Code behaves, not how DIT works. Neither carries an `as-of`
 nor a `review-when`. Per the global rule, any rule resting on a fact outside the repo
@@ -56,17 +63,26 @@ Related and now fixed, but worth knowing when reading old state: before **2.1.24
 the background retention sweep could delete git worktrees under `.claude/worktrees/`
 that a user had created themselves.
 
-DIT is currently clean on this axis — `git worktree list` shows only the main
-checkout and there are zero `claude/*` branches — so this is a contract gap, not an
-active mess. Fix it while it is cheap.
+At card opening, DIT was clean on this axis — `git worktree list` showed only the main
+checkout and there were zero `claude/*` branches — so this was a contract gap rather than an
+active cleanup.
 
-### D3 — no carrier for drift between `CLAUDE.md` and `AGENTS.md`
+### D3 — Codex's native entrypoint had already drifted, and a pointer is not an include
 
 `AGENTS.md` is deliberately a thin pointer, and records why: "A full duplicate was
-tried and had already drifted out of date within two weeks." That design is correct
-and should not be undone. But nothing verifies that the pointer's short rule list is
-still a faithful subset of `CLAUDE.md`, and the same two-week drift applies to a
-subset just as it did to a copy.
+tried and had already drifted out of date within two weeks." Keeping it thin is correct, but two
+facts were missing from the original card:
+
+- Codex natively discovers one instruction file per directory in this order:
+  `AGENTS.override.md`, `AGENTS.md`, then configured fallback names. Because this repository has
+  `AGENTS.md`, `CLAUDE.md` is not a loader-level include or fallback. The pointer works only as an
+  instruction for the running agent to perform a second file read.
+- The subset had already drifted. `AGENTS.md` told Codex to allocate new `r<N>[.<m>]-<slug>` ids
+  and check the directory for collisions, while `CLAUDE.md` had closed that namespace and made
+  `docs/rounds/ROUNDS.md` the registry. This was an active wrong instruction, not future risk.
+
+The repair therefore keeps the pointer short, states the two-step loading boundary explicitly,
+corrects the stale round rule, and gives each costly invariant an exact `dit-contract` marker.
 
 ---
 
@@ -110,27 +126,25 @@ Build a repo-local check that every rule in `AGENTS.md` §"The rules most expens
 violate" still has a corresponding statement in `CLAUDE.md`. Report-only, never
 blocking, runnable from `package.json` alongside the existing scripts.
 
-`AGENTS.md` is **not edited** by this card (ruled). It is the checker's INPUT: the
-point is that it stays a thin pointer while something independent verifies the pointer
-is still faithful. Resist the urge to "fix" a drift by editing `AGENTS.md` mid-build —
-that would make the checker pass against a tree it was never tested on.
+The 2026-08-26 "do not edit `AGENTS.md`" ruling assumed the current subset was faithful. The
+2026-09-07 Codex audit falsified that premise, so the stale round-id rule is corrected before the
+checker baseline is accepted. This does not expand the file into a duplicate: it remains the
+native Codex entrypoint plus the rules most expensive to violate.
 
 Ships with a positive control or it does not ship: a seeded, deliberately desynced
 `AGENTS.md` rule that the checker is PROVEN to flag. A checker that has only ever been
 run against a passing tree has not been tested, and one that can never fail is not a
 control. Run the passing side too — both, or neither counts.
 
-Expect the matching to be the hard part: `AGENTS.md` paraphrases rather than quotes
-(compare its fallback bullet with `CLAUDE.md`'s). Exact-substring matching will report
-drift on every line and be switched off within a week. Anchor on something stable —
-a marker, an id, or a normalised key phrase — and say in the script's header which one
-was chosen and why.
+The checker compares exact one-line `dit-contract` marker payloads. This makes semantics strict
+without requiring the surrounding prose to match. It also checks that the pointer states the
+native-loader boundary and gives Codex an executable instruction to read `CLAUDE.md` in full.
 
-**Files**: one script (suggest `scripts/check-instruction-drift.*`, matching the
-repo's existing script conventions), one `package.json` entry. Not `AGENTS.md`, not
-`src/`.
+**Files**: `AGENTS.md`, `CLAUDE.md`, `scripts/check-instruction-drift.mjs`, and `package.json`.
+Not `src/`.
 **Acceptance**: two-sided — exits clean on the current tree, and exits non-clean on a
-seeded desync with the offending rule named in the output. Paste both runs.
+seeded in-memory desync with the offending `round-id` contract named in the output. Paste both
+runs. The probe must not modify either instruction file.
 **Windows**: invoke via `npm.cmd`, per `AGENTS.md`.
 
 ---
@@ -149,28 +163,26 @@ seeded desync with the offending rule named in the output. Paste both runs.
 
 ## 5. Verification
 
-Documentation only, so the usual gates do not apply and saying "tests pass" would be
-meaningless here. What must be run:
+The product runtime is unchanged, but the repository instruction contract requires the standard
+gates before claiming the work is complete. Run:
 
+- `npm.cmd run check:instructions`
+- `npm.cmd run check:instructions -- --probe-desync` (expected non-zero)
+- `npm.cmd test`
+- `npm.cmd run typecheck`
+- `npm.cmd run build`
 - `git diff --check` (whitespace)
 - confirm no file under `src/` is in the diff
 
-Do **not** claim a build or test result for this card. If M3b is chosen, that script
-is the only thing with a real pass/fail, and it needs the seeded-desync control above.
-
 ---
 
-## 6. 待裁決事項（作者決定，不要自行選）
+## 6. Rulings resolved by the 2026-09-07 Codex audit
 
-1. **`AGENTS.md` 要不要跟著改？** 它的設計原則明寫是「thin pointer, not a second
-   copy」，而且記錄了完整複製兩週內就走樣。往裡面加一條 worktree 規則，等於宣告
-   「這條錯了很貴」到足以進那份短名單。加或不加都合理，這是你的判斷。
-2. **M3 走 a 還是 b？** M3a 是一行 `review-when`，幾分鐘完成、靠人讀；M3b 是真的
-   檢查器，會抓到漂移但要多養一個腳本和它的正對照。依 D3 的證據（薄指標尚未被驗證
-   過是否仍忠實），b 比較實在，但它是本卡唯一會長出程式碼的部分。
-3. **要不要吃一個 round id？** 依 `CLAUDE.md` 這是 chore、不配 round id；但它改的是
-   `CLAUDE.md` 本身，而不是某一輪的產物。若你認為改動契約層應該留下 round 記錄，
-   現在是分配 id 的時機（分配前先看 `docs/rounds/`）。
+1. Edit `AGENTS.md`: **yes**, narrowly, because it contained a proven false round-id rule and is
+   the only project instruction file Codex loads natively in this directory.
+2. M3: **mechanical checker**, with an in-memory failing control and no seeded bad file left in
+   the repository.
+3. Round id: **none**. This remains a non-round `chore/` contract correction.
 
 ## 7. 降級順序（預算不足時）
 
