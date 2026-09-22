@@ -172,11 +172,11 @@ DIT 是純前端的網頁應用，**沒有安裝檔，也不挑作業系統**—
 
 ### 目前狀態與已知限制
 
-DIT 目前開發到 **R7.5**，已驗證可用，但仍是個人專案，持續開發中：
+DIT 的 R12 construction 已併入 `main`，但作者免除的是等待，不是逐項 acceptance；目前仍是持續開發中的個人專案：
 
-- ✅ 已完成：多來源 `.jsonl` 解析（Claude Code + Codex）、確定性降噪、高密度閱讀 + Session 地圖（魚骨骨架）雙導覽、step-through 重播、本地 Ollama 講解、雲端 OpenCode 講解橋接（含本機去識別化 + 逐次送出確認）、JSON／單檔 HTML 匯出、繁中/英雙語介面。
-- 🚧 尚未完成：跨檔 subagent（`subagents/*.jsonl`）串接、全局摘要、行動裝置版面、Codex 子代理事件的專屬視覺呈現（目前落回通用「未知事件」寬容收納）。
-- 📌 一次只處理單一 session；多 session／個人技能庫等橫向串接功能還在規劃中，但架構上已預留擴充空間（新增來源只需在 `src/core/adapters` 註冊，不必改動 pipeline 或 UI）。
+- ✅ 已落地：Claude Code + Codex 多來源 `.jsonl` 解析、確定性降噪、Overview／Reader／Subagents 導覽、Session Map、step-through 閱讀、本地與 OpenCode 講解、去識別化、JSON／單檔 HTML 匯出，以及繁中/英雙語介面。
+- ⏳ 待確認：R12 的人工 acceptance、`2026-09-compact-chain` 的人工驗收，以及 `2026-09-editorial-workspace` 的視覺驗收；這些不是自動化 gate 可以代替的項目。
+- 📌 仍在規劃：跨 session／個人技能庫等更高層級串接與全局摘要；目前以單一 session 的可追蹤閱讀為產品邊界，新增來源仍透過 `src/core` 的 source profile/adapter 契約擴充。
 
 詳細的決策紀錄、里程碑進度與待辦清單，維護者可參考 [DEV_README.md](DEV_README.md) 與 `docs/` 目錄。
 
@@ -351,11 +351,11 @@ The interface always shows the relevant privacy disclosure the moment you switch
 
 ### Current status and known limitations
 
-DIT is currently at **R7.5** — validated and usable, but still a personal project under active development:
+R12 construction has been merged into `main`, but the author waived the wait, not the item-by-item acceptance. The project remains an actively developed personal tool:
 
-- ✅ Done: multi-source `.jsonl` parsing (Claude Code + Codex), deterministic denoising, high-density reading + session map (fishbone skeleton) dual navigation, step-through replay, local Ollama explanations, cloud OpenCode explanation bridge (with local de-identification + per-send confirmation), JSON/single-file HTML export, bilingual (Traditional Chinese/English) UI.
-- 🚧 Not yet done: cross-file sub-agent (`subagents/*.jsonl`) stitching, global summaries, mobile layout, dedicated visual treatment for Codex sub-agent events (currently falls back to the generic "unknown event" catch-all).
-- 📌 Handles one session at a time; cross-session / personal skill-library features are still being planned, though the architecture already leaves room for it (adding a new source only requires registering it in `src/core/adapters` — no changes to the pipeline or UI needed).
+- ✅ Landed: Claude Code + Codex multi-source `.jsonl` parsing, deterministic denoising, Overview/Reader/Subagents navigation, Session Map, step-through reading, local and OpenCode explanations, de-identification, JSON/single-file HTML export, and a bilingual (Traditional Chinese/English) UI.
+- ⏳ Pending: manual acceptance for R12, manual acceptance for `2026-09-compact-chain`, and visual acceptance for `2026-09-editorial-workspace`; automated gates cannot replace those checks.
+- 📌 Still planned: cross-session/personal skill-library integration and global summaries. The product boundary remains traceable single-session review, with new sources extended through the `src/core` source-profile/adapter contract.
 
 For detailed decision records, milestone progress, and the backlog, maintainers can refer to [DEV_README.md](DEV_README.md) and the `docs/` directory.
 
