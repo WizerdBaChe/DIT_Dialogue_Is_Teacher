@@ -1,6 +1,6 @@
 ---
 xi: 1
-what: 待辦備忘——已決定但尚未實作的長期項目；現在真正欠什麼以 OUTSTANDING/DEFERRED 為準 (a long-standing memo of decided-but-not-yet-built items; what is currently actually owed is tracked in OUTSTANDING/DEFERRED instead)
+what: 待辦備忘——尚未決定是否施工的長期項目；已決定但未歸屬的工作以 DEFERRED 為準 (a long-standing memo of undecided work; decided but unhomed work is tracked in DEFERRED)
 tags: [dit, backlog]
 aliases: [待辦備忘, 長期備忘, backlog, todo list]
 date: 2026-06-25
@@ -12,9 +12,9 @@ date: 2026-06-25
 > **2026-08-26：已決定要做、但還沒有輪次收留的工作，改看** → [`docs/DEFERRED.md`](DEFERRED.md)（DW-01..DW-17）。
 > 本檔是「想做、但還沒決定要不要做」的長期備忘；那一份是「已經決定、在等輪次」。兩者不重疊。
 >
-> **2026-08-14：未結項已封版成一份可執行的總表** → [`docs/OUTSTANDING_2026-08-14.md`](OUTSTANDING_2026-08-14.md)。
-> 那份含四輪合併的 24 項待驗收 UAT（附操作步驟、通過條件與可填欄位）、待施工分級、待裁定問題，
-> 以及**明確不做**的無法驗證項。本檔仍是長期備忘，但「現在欠什麼」以那一份為準。
+> **2026-09-18：** `OUTSTANDING_2026-08-14.md` 是已停止更新的歷史快照，已移入
+> `archive/2026-09-18-cleanup/legacy-docs/docs/`。現在的工作歸屬與狀態以
+> [`docs/DEFERRED.md`](DEFERRED.md)、[`docs/rounds/ROUNDS.md`](rounds/ROUNDS.md) 與 `references/DIT-*.md` 為準。
 
 ## ✅ 2026-08-03 深度審查的三個 blocker（2026-08-28 重新核對，**三項全部已修**）
 
@@ -143,10 +143,11 @@ date: 2026-06-25
   觸碰 Reader／Sidebar DOM 數量的卡片都應在真實瀏覽器（而非本沙盒的合成檔案載入）重新量測，不能沿用此輪
   沙盒內數字作為唯一證據。
 
-## 📌 2026-07-21 R7 候選：多來源接入（Codex adapter）— ✅ 2026-07-23 施工完成，待 ACCEPTANCE.md §23 UAT
+## 📌 2026-07-21 R7 候選：多來源接入（Codex adapter）— 歷史紀錄；施工結果以 R7 round records 為準
 
 > 完整設計分析與 Codex 格式實測證據見 [DESIGN_R7_MULTI_SOURCE_v0.1.md](rounds/r7-multi-source-and-layout/DESIGN_R7_MULTI_SOURCE_v0.1.md)（pre-PSM 草稿）；本段只記排程與範圍。
-> 施工結果見 `PROGRESS.md` 的「R7 Part B」段落與 `docs/rounds/r7-multi-source-and-layout/R7B_BASELINE_2026-07-23.md`；
+> 施工結果的舊摘要曾見於已封存的 `PROGRESS.md`「R7 Part B」段落；可重跑的 round evidence 見
+> `docs/rounds/r7-multi-source-and-layout/R7B_BASELINE_2026-07-23.md`；
 > 施工中發現的新候選項移至本文件開頭「2026-07-23 R7 Part B 收尾新增」。
 
 **排程順序（使用者 2026-07-21 拍板）**：R5.5 UAT 收尾 → R6（範圍不變：匯出＋多 session 型別保鮮）→ **R7 多來源輪**。R6 期間不擴範圍；唯一順手事項是型別保鮮不得把 Claude 專屬假設寫進快照渲染器（SA-INV-5 常數同源已在擋）。
@@ -199,13 +200,13 @@ date: 2026-06-25
 ## 🧪 系統檢查 (2026-06-25 review) 衍生
 - [ ] 響應式 / 行動裝置版面（前端 6.1 / 5.6）— 目前桌面優先。
 - [ ] 大檔虛擬化與漸進載入（後端 3.7 / 前端 9.5）。
-- [ ] 自動化測試：pipeline 快照（adapter→denoise→distill）、關鍵元件（後端 3.11）。
+- [x] 自動化測試：pipeline 快照（adapter→denoise→distill）與核心元件測試已落地；剩餘視覺/E2E 驗收另行處理。
 - [ ] 螢幕閱讀器實機測試（前端 7.4）。
 - [ ] 雲端階段再加斷路器 / 重試策略（後端 6.6 / 6.7）。
 - [ ] **npm audit（dev-only）**：esbuild ≤0.24.2 / vite ≤6.4.2（GHSA-67mh-4wv8-2f99）。僅影響本地 dev server，
       不影響 production 產物。唯一根治是升 vite@8（破壞性）。風險低，暫不升；待之後需要時再做 vite 大版升級 + 回歸測試。
 - 已修：Ollama 逾時、檔案讀取錯誤、輸入過大軟警告（見 docs/misc/REVIEW_2026-06-25.md）；
-      錯誤卡邊框、Ollama 引導面板、卡片大小字去重（2026-06-26 驗收回饋，見 docs/PROGRESS.md M3）。
+      錯誤卡邊框、Ollama 引導面板、卡片大小字去重（2026-06-26 驗收回饋，原始進度敘述見 archive 內的歷史 snapshot）。
 
 ## 🛠 後端 / 資料
 - [ ] **蒸餾 preset v1 格式待定稿**：`DistilledSkeleton` 的規則與欄位目前為預設版，後續再依魚骨需求調整

@@ -6,46 +6,41 @@ aliases: [文件目錄索引, docs入口, 目錄索引, docs index]
 ---
 # docs/ 索引
 
-這份索引不是新的文件內容，只是幫忙找路——實際決策紀錄仍在下面列的各檔案裡，這裡不重複、不摘要。
+這份索引只負責路由，不複製各文件的決策內容。判斷「現在是什麼狀態」時，優先使用 live records；不要把歷史快照當成現況。
 
-## 核心與活文件（隨時效期更新，永遠在 `docs/` 根目錄）
+## `docs/` 根目錄：維護中的契約與登記表
 
-| 檔案 | 用途 |
+| 檔案 | 分類與用途 |
 |---|---|
-| [RPD_DIT_v0.1.md](RPD_DIT_v0.1.md) | 最初的需求與決策文件（D-1～D-5），改動核心方向前先回去看這份 |
-| [PSM_DIT_v1.0.md](PSM_DIT_v1.0.md) | 接手實作 AI 的單一施工入口：契約定稿、ADR 紀錄 |
-| [architecture.md](architecture.md) | 架構與資料流的權威說明（as-built） |
-| [PROGRESS.md](PROGRESS.md) | 逐里程碑的開發紀錄，新進度往上加 |
-| [BACKLOG.md](BACKLOG.md) | 已決定但還沒做的事項，待辦來源 |
-| [ACCEPTANCE.md](ACCEPTANCE.md) | 實機驗收清單，改完功能對照這份手測 |
-| [USER_GUIDE.md](USER_GUIDE.md) | 使用手冊（離線查閱用，非唯一入口） |
+| [architecture.md](architecture.md) | 現行 as-built 架構與資料流 |
+| [BACKLOG.md](BACKLOG.md) | 尚未決定是否施工的長期備忘 |
+| [DEFERRED.md](DEFERRED.md) | 已決定但尚未歸屬 round 的 `DW-NN` 登記表 |
+| [USER_GUIDE.md](USER_GUIDE.md) | 使用者操作與匯出說明 |
+| [RPD_DIT_v0.1.md](RPD_DIT_v0.1.md) | 初始需求與 D-1～D-5 基礎決策；屬 foundation record |
+| [PSM_DIT_v1.0.md](PSM_DIT_v1.0.md) | 初始施工契約與 ADR 基線；屬 foundation record |
 
-## `rounds/` — 按開發輪次分類的設計/驗收文件
+舊版 `ACCEPTANCE.md`、`PROGRESS.md`、`OUTSTANDING_2026-08-14.md` 是已封版或停止更新的歷史文件；完整內容已移入本機 `archive/2026-09-18-cleanup/legacy-docs/`，`docs/` 根目錄只保留 compatibility pointer，不冒充 live source。
 
-每個子資料夾對應一輪已完成（或部分完成）的工作；輪次內部彼此的順序與依賴關係，請看各輪自己的 PSM 開頭「定位」段。
+## `rounds/`：按 round 保存的 frozen evidence
 
-| 資料夾 | 主題 | 內含文件類型 |
-|---|---|---|
-| [r1-test-foundation/](rounds/r1-test-foundation/) | 專案起步：git init、測試地基 | 施工開場 prompt |
-| [r2-ollama-uat/](rounds/r2-ollama-uat/) | 本地 Ollama 講解品質驗收 | 兩輪 UAT 報告 |
-| [r3-analysis-runtime/](rounds/r3-analysis-runtime/) | 分析執行層（Privacy Gateway、Batch controller、RuntimeController） | 子系統 PSM ×2 |
-| [r5-guided-navigation/](rounds/r5-guided-navigation/) | 導引式導航：Overview/Reader/Subagents 主視角、Session Map | 概念評估、PSM ×3、量測基線 |
-| [r5.5-semantic-alignment/](rounds/r5.5-semantic-alignment/) | R5 UAT 後的語意/文案補強 | PSM |
-| [r6-export/](rounds/r6-export/) | JSON／靜態 HTML 快照匯出 | PSM |
-| [r6.5-layout-scale/](rounds/r6.5-layout-scale/) | 版面與字級縮放整治 | PSM、量測基線 |
-| [r7-multi-source-and-layout/](rounds/r7-multi-source-and-layout/) | Codex 多來源接入 + 設定對話框改版 + 六軌版面 | 基礎設計 ×2、PSM、施工開場 prompt、量測基線 ×2（Part A／Part B） |
-| [r7.5-codex-noise-and-settings-card/](rounds/r7.5-codex-noise-and-settings-card/) | Codex 雜訊降噪 + 設定卡片式重排 | PSM、量測基線 |
+每個 round 目錄保存當時的 PSM、UAT、RCA、RESEARCH、baseline 或 handoff。完整 round id 與狀態以 [`rounds/ROUNDS.md`](rounds/ROUNDS.md) 為準；R1–R12 是封閉的 legacy namespace，新 round 使用 `<YYYY-MM>-<slug>`。
 
-需要知道「現在整體進度到哪一輪」，看根目錄的 [PROGRESS.md](PROGRESS.md)，不要靠猜資料夾名稱推斷。
+`docs/rounds/**` 是 post-mortem evidence，不能因現在狀態改變而回寫。現行唯一 live acceptance card 是 [`r12-source-first-navigation/UAT_R12_v1.0.md`](rounds/r12-source-first-navigation/UAT_R12_v1.0.md)；新 round 的 acceptance 應放在自己的 round 目錄。
 
-## 其他
+## 其他分類
 
-| 位置 | 內容 |
+| 位置 | 分類 |
 |---|---|
-| [concepts/](concepts/) | 尚未立項的未來產品構想（目前只有一份：概念演化軌跡 CET，見內文「啟動硬條件」） |
-| [misc/](misc/) | 不屬於任何單一輪次的一次性檢查報告 |
-| [demo/](demo/) | 靜態展示素材（非文件） |
+| [design/](design/) | 跨 round 的設計契約與尚未施工的設計引導 |
+| [concepts/](concepts/) | 尚未立項的未來產品構想 |
+| [misc/](misc/) | 不屬於單一 round 的一次性審查與檢查報告 |
+| [demo/](demo/) | 靜態展示素材，不是產品文件 |
 
-## 之後新增一輪時
+跨階段的 live workflow records 不放在這裡，而在 [`../references/DIT-context.md`](../references/DIT-context.md)、[`../references/DIT-decisions.md`](../references/DIT-decisions.md)、[`../references/DIT-phase-log.md`](../references/DIT-phase-log.md) 與 [`../references/DIT-tickets.md`](../references/DIT-tickets.md)。
 
-新開一個 `rounds/rN-一句話主題/` 資料夾放該輪的 PSM／設計文件／量測基線，並在上面的表格加一列——不要把新文件丟在 `docs/` 根目錄，根目錄只留「核心與活文件」表列的那 7 份。
+## 新文件放置規則
+
+- 只描述目前狀態的文件：放在 `docs/` 根目錄或 `references/` 的既有 live record。
+- 只屬一個 round 的施工、驗收與證據：放進 `docs/rounds/<round-id>/`。
+- 跨 round 設計：放進 `docs/design/`；未立項想法放 `docs/concepts/`；一次性審查放 `docs/misc/`。
+- 已停止更新的快照或明確過時的工作入口：移到根目錄 `archive/<date>-cleanup/`，並在 manifest 保留原位置與 hash。
