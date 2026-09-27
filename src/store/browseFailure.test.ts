@@ -25,7 +25,7 @@ vi.mock("@/core/index", async (importOriginal) => {
   };
 });
 
-const { useSessionStore } = await import("./sessionStore");
+const { useSessionStore, BROWSE_STATES } = await import("./sessionStore");
 const { DirectoryPickCancelledError } = await import("@/core/index");
 const { selectSurfaceWants } = await import("./surfaceSelectors");
 const { selectActiveSurface } = await import("@/core/surface/blockingSurface");
@@ -90,9 +90,11 @@ describe("browse failures never end in an invisible state", () => {
 });
 
 describe("closed is the only browseState that hides the browser", () => {
-  const STATES = ["closed", "picking", "indexing", "indexed", "index_failed", "loading"] as const;
-
-  it.each(STATES)("%s", (browseState) => {
+  /*
+   * 全集讀自 store 導出的 `BROWSE_STATES`，不再手抄。手抄的那份在 2026-09 新增 `fallback`
+   * 時就會安靜地漏掉它——一個少列一項的窮舉閘，仍然會印出「全部通過」。
+   */
+  it.each(BROWSE_STATES)("%s", (browseState) => {
     useSessionStore.setState({
       browseState,
       error: null,
@@ -143,6 +145,35 @@ describe("WebKit fallback failure exit (R11 M3)", () => {
     expect(selectActiveSurface(selectSurfaceWants(state))).toBe("session-browser");
     // pickDirectory() throws when unsupported (RC-A) — the fallback path must never call it.
     expect(pickDirectoryMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 2026-09 UX 走查 F7。上一條只釘住「對話框有開」，那在 `picking` 底下也成立——而 `picking`
+   * 的文案說「等待你選擇資料夾…」，那條路徑上卻沒有任何選擇器被打開，也就沒有東西在等。
+   * 狀態必須把「系統在等」與「使用者要動」分開，文案才可能兩種都說實話。
+   */
+  it("lands on fallback, not picking, when no directory picker exists (F7)", async () => {
+    isDirectoryPickerSupportedMock.mockReturnValue(false);
+
+    await useSessionStore.getState().resumeLastDirectory();
+
+    expect(useSessionStore.getState().browseState).toBe("fallback");
+    // 已知為真的正對照：走查回報的就是這個值，它一旦回來，這條就掉。
+    expect(useSessionStore.getState().browseState).not.toBe("picking");
+  });
+
+  it("still reaches picking when a real picker is opened, so the waiting copy stays true (F7 negative control)", async () => {
+    isDirectoryPickerSupportedMock.mockReturnValue(true);
+    let releasePicker!: () => void;
+    pickDirectoryMock.mockReturnValue(new Promise((_resolve, reject) => {
+      releasePicker = () => reject(new DirectoryPickCancelledError());
+    }));
+
+    const pending = useSessionStore.getState().pickAndIndexDirectory();
+    // 選擇器真的開著、真的在等使用者的那一刻。
+    expect(useSessionStore.getState().browseState).toBe("picking");
+    releasePicker();
+    await pending;
   });
 });
 

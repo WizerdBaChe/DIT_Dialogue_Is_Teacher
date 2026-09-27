@@ -1,7 +1,7 @@
 /** 右側內容區：空狀態 / 錯誤 / 卡片清單 + 底部資料流提示。 */
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useSessionStore } from "@/store/sessionStore";
+import { selectCurrentPosition, useSessionStore } from "@/store/sessionStore";
 import { useDiagnosticCopy, useT } from "@/i18n";
 import { noticeable } from "@/core/diagnostics/contracts";
 import { SpanCard } from "./SpanCard";
@@ -32,6 +32,7 @@ export function MainView(): ReactNode {
     getItemKey: (index) => viewItems[index]?.id ?? index,
   });
   const selectedId = playingId ?? activeId;
+  const position = selectCurrentPosition({ viewItems, activeId, playingId });
   const virtualItems = virtualizer.getVirtualItems();
   const visibleStart = virtualItems[0]?.index ?? 0;
   const visibleEnd = virtualItems[virtualItems.length - 1]?.index ?? visibleStart;
@@ -63,6 +64,13 @@ export function MainView(): ReactNode {
 
   return (
     <main className="main-content dense-main">
+      <div className="reader-heading">
+        <div className="reader-heading-copy">
+          <span className="eyebrow">{t.workspace.tabs.reader}</span>
+          <h2 title={doc.session.title}>{doc.session.title}</h2>
+        </div>
+        <span className="reader-position">{t.structure.position(position.current === null ? "—" : position.current, position.total)}</span>
+      </div>
       {/* fatal 由阻斷面負責 (DSM-2)，這裡只呈現使用者可以忽略的 warn。 */}
       {noticeable(diagnostics).length > 0 && !warningsDismissed && (
         <NoticeBanner tone="warn" onDismiss={dismissWarnings}>

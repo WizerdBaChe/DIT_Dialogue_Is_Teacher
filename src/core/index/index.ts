@@ -1,4 +1,6 @@
 export type {
+  ChainHead,
+  ChainLink,
   DirectoryFile,
   DirectorySource,
   SessionIndex,
@@ -7,6 +9,7 @@ export type {
   SessionKindReason,
   TitleSource,
 } from "./contracts";
+export { chainMembers, foldChains, resolveChains, type FoldedEntry } from "./chains";
 export { classifySession, isSubagentPath, isSyntheticPrompt } from "./classifySession";
 export {
   buildSessionIndex,

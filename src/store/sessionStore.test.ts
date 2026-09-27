@@ -404,6 +404,10 @@ describe("session-scoped state reset discipline (R9 RC-5)", () => {
   /** 生命週期不屬於單一 session 的欄位——設定、能力狀態、UI 偏好、載入進度。 */
   const NOT_SESSION_SCOPED = new Set([
     "doc", "viewItems", "sessionOrigin", "primaryView", "sessionLoadProgress",
+    // 2026-09 UX 走查 F8: the cancel notice belongs to a load ATTEMPT, exactly like the progress
+    // it replaces on screen — not to the session that attempt was trying to open. It is cleared
+    // explicitly by reset(), by the next load, and by dismissing it; see sessionLoadCancel.test.ts.
+    "sessionLoadNotice",
     // R12 M2: `activeSource` is a DISCOVERY choice, not session state. It outlives every load
     // for the same reason `browseState` and `indexEntries` do — clearing it on each load would
     // throw the user back to the level-1 menu after every session they open.

@@ -25,7 +25,7 @@ date: 2026-08-26
 |---|---|
 | **本檔 `DEFERRED.md`** | 已決定要做、**還沒有輪次收留**的工作歸誰 |
 | [`BACKLOG.md`](BACKLOG.md) | 長期備忘：想做、但**還沒決定要不要做**的東西 |
-| [`OUTSTANDING_2026-08-14.md`](OUTSTANDING_2026-08-14.md) | 2026-08-14 封版的那一份總表，是**快照**，不再更新 |
+| `OUTSTANDING_2026-08-14.md`（已移入 `archive/2026-09-18-cleanup/legacy-docs/docs/`） | 2026-08-14 封版的歷史快照；不再更新，也不是現況來源 |
 
 ## 登記表
 
@@ -83,7 +83,7 @@ date: 2026-08-26
 | id | home | 項目 | 證據 |
 |---|---|---|---|
 | DW-15 | unassigned | `src/` 註解語言統一（量到 1,308 行、涵蓋 65% 檔案）。純 chore，不需要輪次，任何一輪都可以順手吃掉 | 工單存放在 repo 之外 |
-| DW-16 | unassigned | **T-008** 壓縮過的 session 靠 `logicalParentUuid` 串成一場對話。主題上最接近 R12 的探索半邊（哪些檔案屬於同一場 session），但**明確不在 R12 v0.1 的卡片集內——這行不是承諾** | `references/DIT-tickets.md` T-008 |
+| DW-16 | 2026-09-compact-chain | **T-008** 壓縮過的 session 靠 `logicalParentUuid` 串成一場對話。**2026-09-06 由 `2026-09-compact-chain` 吃下**（實測鏈結鍵是 boundary 本身的 uuid，`logicalParentUuid` 只是母檔判準的一半，見該輪 PSM §1）。原文如下 主題上最接近 R12 的探索半邊（哪些檔案屬於同一場 session），但**明確不在 R12 v0.1 的卡片集內——這行不是承諾** | `references/DIT-tickets.md` T-008 |
 | DW-18 | R12 | ~~**Codex 索引條目的 `id` 是檔名，不是 session id。**~~ **DONE 2026-08-26（R12 M5）**：`absorb()` 加讀 `session_meta.payload.id`；實測 358 筆全部拿到真正的 session id，退回檔名的 0 筆。原文如下 `absorb()` 只讀 Claude 的 `record.sessionId`；Codex 自報在 `session_meta.payload.id`，沒人去看，於是「沒去看」被記成「沒有」。M5 的 sidecar join 用的正是那把鑰匙，所以**若 M5 照降級順序被砍，這一項不會跟著消失**——它同時是 Codex session 在索引層的身分基準 | R12 M3 施工時量到；`sessionIndexer.ts` `pickTitle` 上方的 `stats.sessionId ?? baseName(...)` |
 | DW-19 | R12 | ~~**`src/core/index/directorySource.ts` 零測試。**~~ **DONE 2026-08-27（R12 M8）**：`directorySource.test.ts`，18 支。R9.1 RC-A 兩側都釘住（選擇器自己的 `AbortError` 是取消；拿到 handle 之後的 `AbortError` 不是），加上權限重查、`walk` 路徑語意、以及兩個後端的路徑一致性。原文如下 這是 File System Access 的核心（`pickDirectory`／`restoreDirectorySource`／遞迴 `walk`／webkitdirectory 後備），而且守著一個這個 repo **真的踩過**的不變式——R9.1 RC-A：「使用者取消」與「拿到權限之後才失敗」不得混為一談，混了會讓索引失敗偽裝成使用者不想選。目前只靠 try/catch 的作用範圍維持，沒有任何測試守著 | 證據稽核 2026-08-27，排序第一 |
 | DW-20 | R12 | ~~**`src/core/ingest/session.worker.ts` 零測試。**~~ **DONE 2026-08-27（R12 M8）**：`session.worker.test.ts`，13 支，逐檔隔離與進度累加兩側都測。**寫測試時量到一個缺陷並修掉**：位元組總和算在 try 之外，請求裡少一個 blob 就會拋在所有處理器之外，一則訊息都不回、呼叫端永遠停擺（見 D-020）。原文如下 裡面有逐檔隔離 (DSM-1) 與跨檔進度累加，是真邏輯不是轉發。對照組 `sessionLoader.ts` 用依賴注入做到 8 支測試涵蓋所有失敗模式，手法可以直接沿用（測試環境可 stub `self`） | 證據稽核 2026-08-27 |

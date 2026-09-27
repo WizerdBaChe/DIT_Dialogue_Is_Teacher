@@ -7,12 +7,29 @@ const PHASES = ["reading", "parsing", "organizing", "validating", "ready"] as co
 export function SessionLoadStatus(): ReactNode {
   const t = useT();
   const progress = useSessionStore((state) => state.sessionLoadProgress);
+  const notice = useSessionStore((state) => state.sessionLoadNotice);
   const cancel = useSessionStore((state) => state.cancelSessionLoad);
   const dismiss = useSessionStore((state) => state.dismissSessionLoadStatus);
 
   // R9：載入失敗不再由這裡呈現。fatal 有唯一的擁有者 (`error`) 與唯一的表面 (阻斷面)，
   // 進度條只負責進度——這是 RC-5「同一件事兩個擁有者、兩處顯示」的解法。
-  if (!progress) return null;
+  if (!progress) {
+    /*
+     * 2026-09 UX 走查 F8：取消之後進度列整個消失，畫面上沒有任何交代——使用者不知道取消成功
+     * 了沒，也不知道原本那份文件還在不在。它一直都在（那正是上面「載入期間保留目前文件」講的
+     * 事），但那句話跟著進度條一起走了。這一行是同一個表面的收尾狀態：同一個位置、同一顆
+     * 關閉鈕，只是不再有進度可報。
+     */
+    if (!notice) return null;
+    return (
+      <div className="session-load-status ready" role="status" aria-live="polite">
+        <div className="session-load-copy">
+          <strong>{t.sessionLoad.cancelled}</strong>
+        </div>
+        <button type="button" className="btn" onClick={dismiss}>{t.sessionLoad.dismiss}</button>
+      </div>
+    );
+  }
 
   const percent = progress.totalBytes > 0
     ? Math.min(100, Math.round((progress.loadedBytes / progress.totalBytes) * 100))

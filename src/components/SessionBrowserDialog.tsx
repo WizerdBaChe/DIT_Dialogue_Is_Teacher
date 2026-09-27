@@ -11,7 +11,7 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { useSessionStore } from "@/store/sessionStore";
 import { useBlockingSurface } from "./useBlockingSurface";
 import { useDiagnosticCopy, useT } from "@/i18n";
-import { isDirectoryPickerSupported, type SessionIndexEntry, type SessionKind } from "@/core/index";
+import { foldChains, isDirectoryPickerSupported, type SessionIndexEntry, type SessionKind } from "@/core/index";
 import { profileFor } from "@/core/source/profiles";
 
 const KIND_ORDER: SessionKind[] = ["dialogue", "subagent", "machine", "unknown"];
@@ -117,6 +117,14 @@ export function SessionBrowserDialog(): ReactNode {
           )}
 
           {browseState === "picking" && <p className="session-browser-status">{t.browser.picking}</p>}
+          {/*
+            F7：`fallback` 與 `picking` 是兩種現實。前者沒有任何選擇器被打開，等的是使用者去按
+            上面那顆「選擇資料夾」（它的 choose() 在這個瀏覽器裡會落到隱藏的 <input>）。
+            用 role=status 播報，因為狀態是**因為使用者剛按了載入**才變成這樣的。
+          */}
+          {browseState === "fallback" && (
+            <p className="session-browser-status" role="status" aria-live="polite">{t.browser.fallbackPrompt}</p>
+          )}
           {browseState === "indexing" && (
             <p className="session-browser-status" role="status" aria-live="polite">
               {t.browser.indexing(progress?.[0] ?? 0, progress?.[1] ?? 0)}
@@ -137,8 +145,9 @@ export function SessionBrowserDialog(): ReactNode {
 
           {visible.length > 0 && (
             <ul className="session-browser-list">
-              {visible.map((entry) => (
-                <SessionRow key={entry.path} entry={entry} onOpen={() => void loadIndexEntry(entry.path)} />
+              {/* 2026-09-compact-chain: one row per logical session; a resolved continuation folds under its parent. */}
+              {foldChains(visible).map(({ entry, members }) => (
+                <SessionRow key={entry.path} entry={entry} members={members} onOpen={() => void loadIndexEntry(entry.path)} />
               ))}
             </ul>
           )}
@@ -161,8 +170,9 @@ export function SessionBrowserDialog(): ReactNode {
   );
 }
 
-function SessionRow({ entry, onOpen }: { entry: SessionIndexEntry; onOpen: () => void }): ReactNode {
+function SessionRow({ entry, members, onOpen }: { entry: SessionIndexEntry; members: string[]; onOpen: () => void }): ReactNode {
   const t = useT();
+  const memberNames = members.map((path) => path.slice(path.lastIndexOf("/") + 1));
   return (
     <li className="session-browser-row">
       <button type="button" className="session-browser-row-button" onClick={onOpen} title={t.browser.open}>
@@ -183,6 +193,9 @@ function SessionRow({ entry, onOpen }: { entry: SessionIndexEntry; onOpen: () =>
           <span>{formatSize(entry.sizeBytes)}</span>
           {entry.subagentPaths.length > 0 && <span>{t.browser.subagentCount(entry.subagentPaths.length)}</span>}
           {entry.hasCompaction && <span className="session-browser-tag">{t.browser.compaction}</span>}
+          {members.length > 0 && (
+            <span className="session-browser-tag" title={t.browser.chainMembers(memberNames)}>{t.browser.chainCount(members.length)}</span>
+          )}
           {/* R11 WC-1.2: the picker now mixes Claude Code and Codex, so the source must be visible per row. */}
           {entry.source && <span className="session-browser-tag">{profileFor(entry.source).label}</span>}
         </span>
