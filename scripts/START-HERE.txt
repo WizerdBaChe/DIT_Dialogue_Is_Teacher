@@ -7,7 +7,8 @@ DIT — Dialogue Is Teacher（本地端點開即用）
 4. 想停止的話，直接關閉那個黑色視窗即可（伺服器只在你電腦本機執行，沒有對外開放）。
 
 【去哪裡找你的 session .jsonl 檔案】
-DIT 支援兩種來源，畫面內的「載入 .jsonl」會自動判斷是哪一種，不用手動選：
+DIT 支援兩種來源。在「總覽」頁先選 Claude Code 或 Codex，再按「選擇一則對話」選檔；
+不知道是哪個檔，就改按「從對話集選擇」，選資料夾後用標題挑：
 - Claude Code： ~/.claude/projects/<你的專案>/*.jsonl
 - Codex CLI： ~/.codex/sessions/rollout-*.jsonl
 （Windows 上「~」通常對應 C:\Users\<你的帳號>）
@@ -43,7 +44,8 @@ DIT — Dialogue Is Teacher (double-click and go)
 4. To stop it, just close that console window (the server only runs locally on your machine; nothing is exposed externally).
 
 [Where to find your session .jsonl file]
-DIT supports two sources; "Load .jsonl" in the app detects which one automatically:
+DIT supports two sources. In the Overview tab, choose Claude Code or Codex, then use "Open one conversation" to pick a file;
+if you are not sure which file, use "Choose from your conversations" and pick by title from a folder:
 - Claude Code: ~/.claude/projects/<your-project>/*.jsonl
 - Codex CLI: ~/.codex/sessions/rollout-*.jsonl
 (On Windows, "~" usually maps to C:\Users\<your-username>)
