@@ -96,7 +96,7 @@ function finalizeMeta(meta: Partial<SessionMeta>, events: RawEvent[]): SessionMe
   if (!meta.source) {
     /*
      * R12 M7：這裡原本是無聲的 `?? "claude-code"`——**一個猜錯來源的預設值**，而且沒有走
-     * fallback 通道（上面那個 id 有走）。CLAUDE.md 的不變式明寫「每個 `?? somethingElse`
+     * fallback 通道（上面那個 id 有走）。AGENTS.md 的不變式明寫「每個 `?? somethingElse`
      * 都必須呼叫 `reportFallback`」，這一處漏了。
      *
      * 為什麼特別嚴重：`source` 決定側寫，側寫決定降噪工具名、標題階梯、來歷種類——猜錯一次，
