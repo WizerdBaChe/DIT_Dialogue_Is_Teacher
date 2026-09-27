@@ -31,8 +31,8 @@ aliases: [開發者文件, 開發入口, 文件地圖, DEV_README, dev guide]
 ## 現行狀態邊界
 
 - R12 已併入 `main`，但作者免除的是等待，不是驗收；R12 的 acceptance 仍未逐項判定。
-- `2026-09-compact-chain` 已完成施工與自動檢查，待作者驗收，尚未併入 `main`。
-- `2026-09-editorial-workspace` 已完成施工與自動檢查，待作者視覺驗收，尚未併入 `main`。
+- `2026-09-compact-chain` 已完成施工與自動檢查，2026-09-27 併入 `main`（v0.4.0）；作者驗收仍未做。
+- `2026-09-editorial-workspace` 已完成施工與自動檢查，2026-09-27 併入 `main`（v0.4.0）；作者視覺驗收仍未做。
 - 目前狀態以 `ROUNDS.md`、`references/DIT-*.md`、`docs/DEFERRED.md` 與本輪 UAT/PSM 為準；不要從資料夾名稱或舊 progress snapshot 推測現況。
 
 ## 開發與驗證
