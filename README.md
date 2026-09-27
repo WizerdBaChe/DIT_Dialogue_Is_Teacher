@@ -105,12 +105,17 @@ npm run dev      # 開發模式，預設 http://localhost:5173
 
 啟動後會**自動載入一份內建範例**（一個修 Todo bug 的 session），讓你立刻看到效果，不用先準備自己的資料。
 
-想看自己的 session？左上角「載入 .jsonl」，選擇你電腦上留下的紀錄檔即可：
+想看自己的 session？在「總覽」頁（或右上「設定」的 Session 區）先選你用的是 **Claude Code** 還是 **Codex**，選好後會出現兩個入口：
 
-- **Claude Code**：通常在 `~/.claude/projects/<某專案>/*.jsonl`
-- **Codex CLI**：通常在 `~/.codex/sessions/rollout-*.jsonl`
+- **「從對話集選擇」**：選一個資料夾，用看得懂的標題挑一份 session，不必先知道檔名；Claude Code 的子代理紀錄會一併帶入。
+- **「選擇一則對話」**：已經知道是哪個檔時，直接選那個 `.jsonl`。
 
-DIT 會自動判斷是哪個來源，不需要手動選擇。
+紀錄檔通常在：
+
+- **Claude Code**：`~/.claude/projects/<某專案>/*.jsonl`
+- **Codex CLI**：`~/.codex/sessions/rollout-*.jsonl`
+
+載入成功後會直接進「閱讀」頁；想確認來源與步驟數，切回「總覽」分頁即可。要換一套系統，按系統名稱旁的「換一套」。檔案內容若與你選的系統不符，DIT 以檔案內容為準並具名提示，不會默默讀錯。
 
 #### 想串接教學講解（可選）
 
@@ -308,12 +313,17 @@ npm run dev      # dev mode, defaults to http://localhost:5173
 
 On first launch DIT **automatically loads a built-in sample session** (a Todo-bug-fix session) so you can see it in action right away, without preparing your own data first.
 
-Want to load your own session? Use "Load .jsonl" in the top-left corner and pick a trace file from your machine:
+Want to load your own session? In the Overview tab (or the Session group under Settings, top right), first choose whether you use **Claude Code** or **Codex**. Two entries then appear:
 
-- **Claude Code**: usually under `~/.claude/projects/<some-project>/*.jsonl`
-- **Codex CLI**: usually under `~/.codex/sessions/rollout-*.jsonl`
+- **"Choose from your conversations"**: pick a folder and choose a session by its readable title — no need to know the file name. Claude Code subagent transcripts come along automatically.
+- **"Open one conversation"**: when you already know the file, pick that `.jsonl` directly.
 
-DIT detects which source it is automatically — no manual selection needed.
+Trace files usually live at:
+
+- **Claude Code**: `~/.claude/projects/<some-project>/*.jsonl`
+- **Codex CLI**: `~/.codex/sessions/rollout-*.jsonl`
+
+A successful load takes you straight to the Reader; switch back to the Overview tab to check the source and step count. To change systems, use "Switch system" next to the system name. If a file's content does not match the system you chose, DIT goes by the content and says so by name rather than silently misreading it.
 
 #### Wiring up the teaching explanation layer (optional)
 

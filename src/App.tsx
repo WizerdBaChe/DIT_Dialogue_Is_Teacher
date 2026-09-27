@@ -21,7 +21,7 @@ export default function App(): ReactNode {
   const loadPersistedConfig = useSessionStore((s) => s.loadPersistedConfig);
   const checkOnboarding = useSessionStore((s) => s.checkOnboarding);
 
-  // 首次載入內建範例，讓使用者立即看到效果 (可再用「載入 .jsonl」替換)。
+  // 首次載入內建範例，讓使用者立即看到效果 (可再用「選擇一則對話」替換)。
   useEffect(() => {
     if (!hasDoc) loadFromText(sampleSession, "sample");
     // eslint-disable-next-line react-hooks/exhaustive-deps
