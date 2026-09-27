@@ -124,6 +124,9 @@ const zhTW: CopyTable = {
   INDEX_SIDECAR_SHAPE_CHANGED: { line: (d) => `存放 session 目的的檔案結構跟預期不同（找不到 ${d.detail}），可能是該工具改版了。清單照常，只是少了那些標題。` },
   INDEX_SIDECAR_ENTRY_SKIPPED: { line: (d) => `有 ${n(d)} 筆 session 目的的格式不認得，已略過。` },
   INDEX_SIDECAR_TRUNCATED: { line: (d) => `存放 session 目的的檔案 (${d.detail}) 超過可讀取的上限，未完整讀入；清單照常，只是少了部分標題。` },
+  INDEX_CHAIN_UNRESOLVED: { line: (d) => `${n(d)} 個續接檔找不到它接續的母檔（${d.detail}），先各自列出；母檔可能已被清理。` },
+  INDEX_CHAIN_SEARCH_CAPPED: { line: (d) => `${n(d)} 個續接檔的母檔搜尋在讀取預算用完前無法判定，先各自列出；改選較小的資料夾可以再試。` },
+  CHAIN_DUPLICATES_DROPPED: { line: (d) => `續接檔重複帶入的 ${n(d)} 筆紀錄已去除，每筆只顯示一次。` },
 };
 
 const en: CopyTable = {
@@ -228,6 +231,9 @@ const en: CopyTable = {
   INDEX_SIDECAR_SHAPE_CHANGED: { line: (d) => `The file holding session purposes is not shaped as expected (${d.detail} was not found) — the tool may have changed its format. The list is unaffected; those titles are just missing.` },
   INDEX_SIDECAR_ENTRY_SKIPPED: { line: (d) => `${n(d)} session purpose(s) were in an unrecognised format and were skipped.` },
   INDEX_SIDECAR_TRUNCATED: { line: (d) => `The file holding session purposes (${d.detail}) is past the size the reader will load, so it was not read in full. The list is unaffected; some titles are missing.` },
+  INDEX_CHAIN_UNRESOLVED: { line: (d) => `${n(d)} continuation file(s) could not be matched to the transcript they continue (${d.detail}); listed on their own. The parent may have been cleaned up.` },
+  INDEX_CHAIN_SEARCH_CAPPED: { line: (d) => `The parent search for ${n(d)} continuation file(s) could not rule before the read budget ran out; listed on their own. Picking a smaller folder lets it try again.` },
+  CHAIN_DUPLICATES_DROPPED: { line: (d) => `Dropped ${n(d)} record(s) a continuation file had copied from earlier in the chain; each appears once.` },
 };
 
 const TABLES: Record<Locale, CopyTable> = { "zh-TW": zhTW, en };

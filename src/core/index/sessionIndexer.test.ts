@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildSessionIndex, INDEX_SCAN_HEAD_BYTES, INDEX_SCAN_TAIL_BYTES } from "./sessionIndexer";
 import type { DirectoryFile, DirectorySource } from "./contracts";
+import { chainChildSession, chainInFileSession } from "@/fixtures";
 
 const line = (record: Record<string, unknown>): string => JSON.stringify(record);
 
@@ -152,6 +153,36 @@ describe("buildSessionIndex", () => {
     );
     const { entries } = await buildSessionIndex(sourceOf([["p/c.jsonl", withCompaction]]));
     expect(entries[0]).toMatchObject({ hasCompaction: true, projectPath: "D:\\AIWork\\DIT" });
+  });
+
+  /**
+   * 2026-09-compact-chain: a continuation file starts with a boundary whose logical parent the file
+   * has not shown yet; an in-file compaction shows that record BEFORE its boundary. Both carry
+   * `hasCompaction`; only the first gets a chain head. Resolution itself is covered in chains.test.ts.
+   */
+  it("captures a chain head from a continuation's head window and none from an in-file compaction", async () => {
+    const { entries } = await buildSessionIndex(sourceOf([["p/child.jsonl", chainChildSession], ["p/infile.jsonl", chainInFileSession]]));
+    const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+    expect(byPath.get("p/child.jsonl")).toMatchObject({
+      hasCompaction: true,
+      chain: { head: { boundaryUuid: "B1", logicalParentUuid: "p-hook", boundaryTimestamp: "2026-09-01T10:05:00.000Z" } },
+    });
+    expect(byPath.get("p/infile.jsonl")).toMatchObject({ hasCompaction: true, chain: { head: null, parentPath: null } });
+  });
+
+  it("a boundary that only shows up in the tail window is never taken for a chain head", async () => {
+    // Bigger than head + tail, so the middle is never read: from the tail's point of view the
+    // boundary's logical parent is "not seen yet" — which is exactly why the tail must not judge.
+    const filler = Array.from({ length: 40 }, (_, i) => assistantLine(`${i}-${"pad".repeat(3000)}`));
+    const tailBoundary = line({
+      type: "system", subtype: "compact_boundary", uuid: "B-tail", parentUuid: null, logicalParentUuid: "somewhere-in-the-middle",
+      timestamp: "2026-07-20T01:00:00Z", sessionId: "s1", compactMetadata: { trigger: "auto" },
+    });
+    const content = transcript(userLine("開頭"), ...filler, tailBoundary, assistantLine("結尾"));
+    expect(content.length).toBeGreaterThan(INDEX_SCAN_HEAD_BYTES + INDEX_SCAN_TAIL_BYTES);
+    const { entries, diagnostics } = await buildSessionIndex(sourceOf([["p/big.jsonl", content]]));
+    expect(entries[0]).toMatchObject({ hasCompaction: true, chain: { head: null, parentPath: null } });
+    expect(diagnostics.filter((d) => d.code.startsWith("INDEX_CHAIN"))).toEqual([]);
   });
 
   it("ignores injected preamble and tool results when counting human prompts", async () => {

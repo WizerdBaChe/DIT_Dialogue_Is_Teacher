@@ -1,4 +1,4 @@
-import type { PipelineResult } from "@/core/pipeline";
+import type { PipelineResult, TranscriptRole } from "@/core/pipeline";
 import type { Diagnostic, FallbackRecord } from "@/core/diagnostics";
 
 export type SessionLoadPhase = "reading" | "parsing" | "organizing" | "validating" | "ready";
@@ -14,6 +14,8 @@ export interface SessionLoadProgress {
 export interface SessionBlobInput {
   path: string;
   blob: Blob;
+  /** 2026-09-compact-chain: `continuation` for a later file of the same conversation; absent = main. */
+  role?: TranscriptRole;
 }
 
 export interface SessionWorkerLoadRequest {

@@ -23,7 +23,8 @@ import { isUsableTitle } from "@/core/text/titleQuality";
 import type { SourceId } from "@/types/spanTree";
 import { classifySession, isSubagentPath, isSyntheticPrompt } from "./classifySession";
 import { readSidecars } from "./sidecarReader";
-import type { DirectoryFile, DirectorySource, SessionIndex, SessionIndexEntry, TitleSource } from "./contracts";
+import type { ChainHead, DirectoryFile, DirectorySource, SessionIndex, SessionIndexEntry, TitleSource } from "./contracts";
+import { resolveChains } from "./chains";
 
 export const INDEX_SCAN_HEAD_BYTES = 128 * 1024;
 export const INDEX_SCAN_TAIL_BYTES = 128 * 1024;
@@ -73,6 +74,16 @@ interface ScanStats {
    * unconditionally and defeat its purpose (see `ClassificationInput.codexSignalUsable`).
    */
   codexMessageSeen: boolean;
+  /**
+   * 2026-09-compact-chain: uuids of the records fed so far from the HEAD window. Only the head
+   * feeds it (a few thousand ids at most); it exists so the first boundary can ask "does this file
+   * already hold the record my `logicalParentUuid` names?" — see `noteChainHead`.
+   */
+  seenUuids: Set<string>;
+  /** The head boundary that makes this file a continuation, or null. */
+  chainHead: ChainHead | null;
+  /** True once the first head-window boundary has been judged; later boundaries never qualify. */
+  chainHeadSettled: boolean;
 }
 
 function emptyStats(): ScanStats {
@@ -93,6 +104,9 @@ function emptyStats(): ScanStats {
     sidechainCount: 0,
     recordCount: 0,
     codexMessageSeen: false,
+    seenUuids: new Set(),
+    chainHead: null,
+    chainHeadSettled: false,
   };
 }
 
@@ -133,7 +147,27 @@ function walkPath(value: unknown, path: readonly string[]): unknown {
   return current;
 }
 
-function absorb(stats: ScanStats, record: Record<string, unknown>): void {
+/** Which window a record came from. Only the head can settle a chain head (see `noteChainHead`). */
+type ScanPhase = "head" | "tail";
+
+/**
+ * 2026-09-compact-chain: the FIRST boundary of the head window decides whether this file is a
+ * continuation of another transcript. It is one iff its `logicalParentUuid` names a record this
+ * file has not shown yet — in a continuation that record only appears later, as a preserved copy;
+ * in an in-file compaction (the AppData shape, measured 2026-09-06) it appears before the boundary.
+ * Tail boundaries never qualify: the tail window starts mid-file, so "not seen yet" would be true
+ * for every ordinary in-file compaction that happens to land there.
+ */
+function noteChainHead(stats: ScanStats, record: Record<string, unknown>, phase: ScanPhase, timestamp: string | null): void {
+  if (phase !== "head" || stats.chainHeadSettled) return;
+  stats.chainHeadSettled = true;
+  const boundaryUuid = typeof record.uuid === "string" ? record.uuid : null;
+  const logicalParentUuid = typeof record.logicalParentUuid === "string" ? record.logicalParentUuid : null;
+  if (!boundaryUuid || !logicalParentUuid || stats.seenUuids.has(logicalParentUuid)) return;
+  stats.chainHead = { boundaryUuid, logicalParentUuid, boundaryTimestamp: timestamp };
+}
+
+function absorb(stats: ScanStats, record: Record<string, unknown>, phase: ScanPhase): void {
   stats.recordCount += 1;
   if (typeof record.sessionId === "string" && !stats.sessionId) stats.sessionId = record.sessionId;
 
@@ -195,7 +229,10 @@ function absorb(stats: ScanStats, record: Record<string, unknown>): void {
       stats.assistantCount += 1;
       break;
     case "system":
-      if (record.subtype === "compact_boundary") stats.hasCompaction = true;
+      if (record.subtype === "compact_boundary") {
+        stats.hasCompaction = true;
+        noteChainHead(stats, record, phase, timestamp);
+      }
       break;
     case "user": {
       const turn = humanTurn(record);
@@ -232,6 +269,8 @@ function absorb(stats: ScanStats, record: Record<string, unknown>): void {
     default:
       break;
   }
+  // After the switch on purpose: a boundary must be judged against the records BEFORE it.
+  if (phase === "head" && typeof record.uuid === "string") stats.seenUuids.add(record.uuid);
 }
 
 /**
@@ -245,7 +284,7 @@ function completeLines(text: string, dropFirst: boolean, dropLast: boolean): str
   return lines;
 }
 
-function feed(stats: ScanStats, lines: string[], seen: Set<string>): void {
+function feed(stats: ScanStats, lines: string[], seen: Set<string>, phase: ScanPhase): void {
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -254,7 +293,7 @@ function feed(stats: ScanStats, lines: string[], seen: Set<string>): void {
     if (seen.has(key)) continue;
     seen.add(key);
     try {
-      absorb(stats, JSON.parse(trimmed) as Record<string, unknown>);
+      absorb(stats, JSON.parse(trimmed) as Record<string, unknown>, phase);
     } catch {
       // 索引階段的壞行不值得打擾使用者——載入時 adapter 會正式報告一次。
     }
@@ -286,7 +325,7 @@ async function scanFile(file: DirectoryFile): Promise<ScanResult> {
   // 來源判定用檔頭：與載入時走的是同一個 detectAdapter，索引與載入不會有兩套看法。
   let source = detectAdapter(headText)?.id;
 
-  feed(stats, completeLines(headText, false, !whole), seen);
+  feed(stats, completeLines(headText, false, !whole), seen, "head");
 
   /*
    * 視窗邊界必定切掉一行，而被切掉的那一行有時就是唯一的真人訊息：夾帶截圖的使用者訊息
@@ -304,7 +343,7 @@ async function scanFile(file: DirectoryFile): Promise<ScanResult> {
     // line (or nothing at all). Re-running detectAdapter against the widened text is what this
     // widening exists for — a stale verdict here is what made a legitimate session vanish.
     source = detectAdapter(headText)?.id;
-    feed(stats, completeLines(headText, false, headWindow < file.size), seen);
+    feed(stats, completeLines(headText, false, headWindow < file.size), seen, "head");
   }
 
   // 檔頭一筆完整紀錄都讀不到（第一行就超過放大後的視窗）：計數全不可信，分類必須棄權。
@@ -314,7 +353,7 @@ async function scanFile(file: DirectoryFile): Promise<ScanResult> {
     const tailStart = Math.max(headWindow, file.size - INDEX_SCAN_TAIL_BYTES);
     if (tailStart < file.size) {
       const tailText = await readText(file, { start: tailStart, end: file.size });
-      feed(stats, completeLines(tailText, true, false), seen);
+      feed(stats, completeLines(tailText, true, false), seen, "tail");
     }
   }
 
@@ -602,11 +641,16 @@ export async function buildSessionIndex(
       countsExact,
       hasCompaction: stats.hasCompaction,
       subagentPaths,
+      chain: { head: stats.chainHead, parentPath: null },
       kind,
       kindReason: reason,
     });
   }
   options.onProgress?.(scanned.length, scanned.length);
+
+  // 2026-09-compact-chain: link continuation files to the transcript they continue. Bounded
+  // full reads, only for files with a chain head, only over time-filtered candidates (chains.ts).
+  diagnostics.push(...(await resolveChains(entries, scanned)));
 
   if (unreadable > 0) {
     diagnostics.push({ tier: "warn", code: "INDEX_FILE_UNREADABLE", count: unreadable, detail: unreadableDetail });
