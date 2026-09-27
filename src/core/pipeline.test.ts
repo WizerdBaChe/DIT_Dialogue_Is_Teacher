@@ -85,7 +85,7 @@ describe("buildSessionDocument (pipeline snapshot)", () => {
    *
    * This is the regression case for the failure that made the fix worth doing: R11.2's F-01/F-02
    * fallback opened a route from a real user load to this function, so a throw here stopped being
-   * unreachable. The repo invariant it restores is stated in CLAUDE.md — "one unreadable file in
+   * unreachable. The repo invariant it restores is stated in AGENTS.md — "one unreadable file in
    * a batch must not fail the batch".
    */
   describe("per-file parse isolation (DW-02)", () => {
