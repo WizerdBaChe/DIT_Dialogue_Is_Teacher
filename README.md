@@ -62,11 +62,12 @@ DIT 想驗證的核心假設很簡單：**只要把一條雜亂的執行軌跡�
 - 📋 **高密度閱讀模式（預設）**：逐步卡片時間軸，思考層可展開、參數與結果可摺疊，給你想深挖細節時用。
 - 🐟 **Session 地圖（魚骨骨架導覽）**：隨時按 `M` 或點「地圖」，把整段 session 蒸餾成一條橫向主線（目標 → 決策 → 決策 → 結果），下面掛上取證／錯誤／重試／反覆修改等支線；三段縮放層級（全局／區段／細節）可切換，點節點會回到閱讀畫面對應位置。
 - ▶️ **Step-through 重播**：像播放器一樣一步步往前走，逐步高亮目前在哪個節點。
-- 🧠 **教學講解層（可選）**：對每個節點生成「做了什麼／為什麼這樣做／這類問題的通用做法」三段式講解，可在三種來源間切換：
-  - `none`　完全不外傳，零成本
-  - `ollama`　接你本機跑的 Ollama，code/log 完全不出機器
-  - `cloud`（OpenCode 橋接）　接你本機跑的 [OpenCode](https://opencode.ai) CLI，由它轉送到你設定好的雲端模型（預設 `deepseek-v4-flash-free`）。DIT 本身不存金鑰，送出前會先在本機做去識別化並顯示「實際會送出的內容」預覽，你確認後才真的發送。
-- 🔒 **隱私把關**：切換講解來源時，頂部橫幅即時變色變字告訴你這個選擇會不會外傳；`cloud` 模式額外多一道「確認送往 OpenCode 的內容」關卡，疑似金鑰/密碼會直接擋下、不能略過確認。
+- 🧠 **教學講解層（可選）**：對每個節點生成「做了什麼／為什麼這樣做／這類問題的通用做法」三段式講解。「設定 → 講解來源」共有九個選項，分成四類（完整比較見下方〈[講解來源怎麼選](#講解來源怎麼選)〉）：
+  - **不講解**（預設）　完全不外傳，零成本
+  - **本機模型**：Ollama／LM Studio／Jan　接你自己電腦上跑的模型，code/log 不出機器；需要先安裝該軟體並下載模型
+  - **本地代理（OpenCode）**　接你本機跑的 [OpenCode](https://opencode.ai) CLI，由它轉送到你在 OpenCode 裡設定好的雲端模型（預設 `deepseek-v4-flash-free`）；金鑰存在 OpenCode 裡，DIT 不碰
+  - **自帶金鑰直連雲端**：Anthropic／OpenRouter／Groq／自訂端點（任一 OpenAI 相容端點）　瀏覽器直接呼叫該服務，需要你自己的 API 金鑰 (API key)，用的是你自己的額度
+- 🔒 **隱私把關**：切換講解來源時，頂部橫幅即時變色變字告訴你這個選擇會不會外傳。**所有會外傳的來源**（本地代理與四個自帶金鑰選項）送出前都會先在本機做去識別化 (de-identification)，並跳出「實際會送出的內容」預覽，你確認後才真的發送（同一份 session 對同一端點與模型確認一次後沿用；換金鑰、端點或模型會重新詢問）；疑似金鑰/密碼會直接擋下、不能略過。
 - 📤 **匯出**：把整理好的 session 匯出成 JSON（結構化資料）或一個**不需要任何伺服器、雙擊就能開**的單檔 HTML 快照，方便存檔或分享給別人看，對方不需要安裝或跑 DIT。
 
 ---
@@ -113,19 +114,31 @@ DIT 會自動判斷是哪個來源，不需要手動選擇。
 
 #### 想串接教學講解（可選）
 
-講解來源在「設定」對話框裡切換，有兩種本機優先的選項：
+講解來源在「設定」對話框的「講解來源」下拉選單切換。不設定也完全能用——預設是「不講解」。以下依類別說明怎麼接（各選項比較見〈[講解來源怎麼選](#講解來源怎麼選)〉）：
 
-**本地 Ollama**（完全不外傳）
+**本機模型：Ollama（不外傳，需安裝）**
 
 1. 安裝並啟動 [Ollama](https://ollama.com)，記得設定 `OLLAMA_ORIGINS` 允許瀏覽器跨域連線。
-2. `ollama pull <model>` 拉一個 7–8B 等級的 coder 模型即可（例如 Qwen2.5-Coder 7B）。
-3. 把「講解來源」切到「本地 Ollama」，下方引導面板會即時顯示連線狀態並給你可直接複製的啟動指令。
+2. `ollama pull <model>` 拉一個 7–8B 等級的 coder 模型即可（DIT 預設找 `qwen2.5-coder:7b`）。
+3. 把「講解來源」切到「Ollama」，下方引導面板會即時顯示連線狀態並給你可直接複製的啟動指令。
 
-**雲端 AI（OpenCode 橋接，會外傳）**
+**本機模型：LM Studio／Jan（不外傳，需安裝）**
+
+1. 安裝 [LM Studio](https://lmstudio.ai) 或 [Jan](https://jan.ai)，下載一個模型，並開啟該軟體的本機伺服器（OpenAI 相容 API）。DIT 預設連 LM Studio 的 `http://localhost:1234/v1`、Jan 的 `http://127.0.0.1:1337/v1`，面板裡可改。
+2. 把「講解來源」切到「LM Studio」或「Jan」，面板會顯示連線狀態與可用模型；若顯示「被瀏覽器擋下 (CORS)」，請在該軟體的伺服器設定裡允許跨來源連線。
+
+**本地代理：OpenCode（會外傳，需安裝）**
 
 1. 安裝 [OpenCode](https://opencode.ai) CLI，並依它的文件登入你要用的雲端模型供應商（金鑰存在 OpenCode 裡，DIT 不碰）。
-2. 把「講解來源」切到「雲端 AI」，面板會給你一行啟動指令可複製（本機起一個 loopback server，只接受 DIT 這個網頁來源的連線）；**下方指令為 Windows 範例，macOS／Linux 請把 `opencode.cmd` 換成 `opencode`**。
-3. 每次送出前，DIT 會先在本機做去識別化並跳出「確認送往 OpenCode 的內容」預覽，你按確認才會真的發送；疑似金鑰或密碼會直接擋下，無法略過。
+2. 把「講解來源」切到「本地代理」，面板會給你一行啟動指令可複製（本機起一個 loopback server，只接受 DIT 這個網頁來源的連線）；**面板指令為 Windows 範例，macOS／Linux 請把 `opencode.cmd` 換成 `opencode`**。
+3. 送出前，DIT 會先在本機做去識別化並跳出「實際會送出的內容」預覽，你按確認才會真的發送；疑似金鑰或密碼會直接擋下，無法略過。
+
+**自帶金鑰直連雲端：Anthropic／OpenRouter／Groq／自訂端點（會外傳，需要你自己的 API 金鑰）**
+
+1. 到該服務申請 API 金鑰 (API key)。費用依該服務計價，由你自己的帳號支付。
+2. 把「講解來源」切到對應選項，在面板貼上金鑰（「自訂端點」還要填端點網址與模型名稱，接受任一 OpenAI 相容端點；金鑰同樣必填）。
+3. 金鑰只留在這個分頁的記憶體裡，DIT 不會存進瀏覽器；重新整理後要再貼一次。想免重貼，可把 `dit.config.example.json` 複製成 `dit.config.json` 填入金鑰，放在 `index.html` 同一層（原始碼版放 `public/`，release 版放 `app/`；此檔已被 git 忽略、不會打包進 release），且必須透過本機伺服器開啟 DIT（`npm run dev` 或 `start-dit.bat`）才讀得到。
+4. 送出前一樣經過本機去識別化與「實際會送出的內容」確認。「自訂端點」若被瀏覽器 CORS 擋下，代表該服務不支援瀏覽器直連，請改用「本地代理」。
 
 #### Build
 
@@ -138,13 +151,23 @@ npm run preview   # 預覽 build 產物
 
 ---
 
-### 隱私模式怎麼選
+### 講解來源怎麼選
 
-| 講解來源 | 資料會外傳嗎 | 適合誰 |
-|---|---|---|
-| `none`（預設） | 完全不外傳 | 只想看降噪後的結構，不需要 AI 講解 |
-| `ollama` | 不外傳，純本機運算 | 想要 AI 講解、但 code/log 不想離開自己電腦 |
-| `cloud`（OpenCode 橋接） | 會外傳到你設定的雲端模型 | 想要更高品質講解、能接受資料送出本機；送出前有本機去識別化 + 逐次確認把關 |
+講解層整個是**選配**：九個選項裡只有「不講解」什麼都不用準備，其餘都要你另外安裝軟體或提供自己的金鑰。下表的名稱就是「設定 → 講解來源」下拉選單裡看到的字。
+
+| 講解來源（設定裡的名稱） | 資料會外傳嗎 | 需要你準備什麼 | 費用 |
+|---|---|---|---|
+| 不講解（預設） | 完全不外傳 | 無 | 免費 |
+| Ollama | 不外傳，純本機運算 | 安裝 Ollama + 下載模型 | 免費（吃你的電腦資源） |
+| LM Studio | 不外傳，純本機運算 | 安裝 LM Studio + 下載模型 + 開啟本機伺服器 | 免費（吃你的電腦資源） |
+| Jan | 不外傳，純本機運算 | 安裝 Jan + 下載模型 + 開啟本機伺服器 | 免費（吃你的電腦資源） |
+| 本地代理（OpenCode） | **會外傳**，經本機 OpenCode 轉送到你在 OpenCode 設定的雲端模型 | 安裝 OpenCode CLI 並登入供應商；DIT 不碰金鑰 | 依你在 OpenCode 選的供應商與模型而定 |
+| Anthropic | **會外傳**，瀏覽器直連 Anthropic | 你自己的 Anthropic API 金鑰 | 付費，扣你的帳號額度 |
+| OpenRouter | **會外傳**，瀏覽器直連 OpenRouter | 你自己的 OpenRouter API 金鑰 | 依模型計價，扣你的帳號額度 |
+| Groq | **會外傳**，瀏覽器直連 Groq | 你自己的 Groq API 金鑰 | 依該服務計價，扣你的帳號額度 |
+| 自訂端點 | **會外傳**（即使你填的是本機網址，DIT 也一律當作外傳處理） | 端點網址 + 模型名稱 + API 金鑰（必填）；需是 OpenAI 相容端點且允許瀏覽器直連 | 依該服務計價 |
+
+所有標「會外傳」的選項，送出前都經過本機去識別化與「實際會送出的內容」確認關卡。
 
 ---
 
@@ -157,14 +180,15 @@ DIT 是純前端的網頁應用，**沒有安裝檔，也不挑作業系統**—
 - **想要完整的 DIT 本體、不只是快照？** 從 [Releases](../../releases) 下載打包好的 zip，解壓後雙擊 `start-dit.bat` 即可——它會在背景開一個只接受本機連線的小型伺服器並自動開啟瀏覽器，不需要安裝 Node.js／Python。DIT 本體放在解壓後的 `app/` 子資料夾（跟啟動腳本分開放，資料夾看起來乾淨），直接雙擊 `app/index.html` 會是白畫面：瀏覽器基於安全限制擋掉了 ES module，一定要透過 `start-dit.bat` 開。macOS／Linux 使用者可 `cd` 進 `app/` 資料夾後改用 `npx serve .` 或 `python3 -m http.server`。
 - **行動裝置**：目前是桌面優先的版面，手機／平板可以打開但排版未特別優化，屬已知限制。
 
-**可選的本機講解引擎**（不影響 DIT 本體是否能用，只影響「教學講解」這個功能）：
+**可選的本機講解引擎**（不影響 DIT 本體是否能用，只影響「教學講解」這個功能；自帶金鑰的雲端選項不需要安裝任何東西）：
 
 | 引擎 | 支援平台 | 備註 |
 |---|---|---|
 | Ollama | Windows / macOS / Linux 皆支援官方安裝檔 | 面板提供的啟動指令為 PowerShell 語法；macOS/Linux 請改用你 shell 對應寫法（如 `OLLAMA_ORIGINS="*" ollama serve`） |
+| LM Studio／Jan | 以各自官方網站為準 | 在該軟體裡開啟本機伺服器即可，DIT 不提供啟動指令；連線狀態顯示在面板 |
 | OpenCode | Windows / macOS / Linux 皆支援官方安裝檔 | 面板提供的啟動指令含 Windows 專用的 `opencode.cmd`；macOS/Linux 把它換成 `opencode` 即可，其餘參數（`--port`／`--hostname`／`--cors`）跨平台一致 |
 
-三種操作模式（不外傳 / 本地 Ollama / 雲端 OpenCode）在任何作業系統上的**行為與 UI 完全相同**——差別只在於你要不要、以及怎麼在你的作業系統上啟動對應的本機引擎。
+九個講解來源在任何作業系統上的**行為與 UI 完全相同**——差別只在於你要不要、以及怎麼在你的作業系統上啟動對應的本機引擎。
 
 切換時介面會即時顯示對應的責任說明，不會悄悄幫你做選擇。
 
@@ -174,7 +198,7 @@ DIT 是純前端的網頁應用，**沒有安裝檔，也不挑作業系統**—
 
 DIT 的 R12 construction 已併入 `main`，但作者免除的是等待，不是逐項 acceptance；目前仍是持續開發中的個人專案：
 
-- ✅ 已落地：Claude Code + Codex 多來源 `.jsonl` 解析、確定性降噪、Overview／Reader／Subagents 導覽、Session Map、step-through 閱讀、本地與 OpenCode 講解、去識別化、JSON／單檔 HTML 匯出，以及繁中/英雙語介面。
+- ✅ 已落地：Claude Code + Codex 多來源 `.jsonl` 解析、確定性降噪、Overview／Reader／Subagents 導覽、Session Map、step-through 閱讀、九種講解來源（不講解／本機模型／OpenCode 本地代理／自帶金鑰雲端）、去識別化、JSON／單檔 HTML 匯出，以及繁中/英雙語介面。
 - ⏳ 待確認：R12 的人工 acceptance、`2026-09-compact-chain` 的人工驗收，以及 `2026-09-editorial-workspace` 的視覺驗收；這些不是自動化 gate 可以代替的項目。
 - 📌 仍在規劃：跨 session／個人技能庫等更高層級串接與全局摘要；目前以單一 session 的可追蹤閱讀為產品邊界，新增來源仍透過 `src/core` 的 source profile/adapter 契約擴充。
 
@@ -241,11 +265,12 @@ The core hypothesis DIT is testing is simple: **just denoising, structuring, and
 - 📋 **High-density reading mode (default)**: a step-by-step card timeline where the thinking layer, parameters, and results can all expand/collapse — for when you want to dig into details.
 - 🐟 **Session map (fishbone skeleton view)**: press `M` or click "Map" any time to distill the whole session into one horizontal spine (goal → decision → decision → outcome), with evidence / errors / retries / repeated-edit branches hanging off it; three zoom levels (global / section / detail) are switchable, and clicking a node jumps back to the matching spot in the reading view.
 - ▶️ **Step-through replay**: walk forward one step at a time like a player, highlighting the current node as you go.
-- 🧠 **Teaching explanation layer (optional)**: generates a three-part explanation per node — "what happened / why it was done this way / the general pattern for this kind of problem" — switchable between three sources:
-  - `none` — nothing leaves your machine, zero cost
-  - `ollama` — talks to Ollama running locally; code/logs never leave your machine
-  - `cloud` (OpenCode bridge) — talks to the [OpenCode](https://opencode.ai) CLI running locally, which forwards to whichever cloud model you've configured (default `deepseek-v4-flash-free`). DIT itself never stores any API keys; it de-identifies content locally and shows you a preview of "what will actually be sent" before you confirm.
-- 🔒 **Privacy gating**: switching the explanation source updates the top banner's color and text immediately to tell you whether that choice sends data out; `cloud` mode adds one more gate — a "confirm what's being sent to OpenCode" preview — and anything that looks like a key or password is blocked outright, with no way to skip the confirmation.
+- 🧠 **Teaching explanation layer (optional)**: generates a three-part explanation per node — "what happened / why it was done this way / the general pattern for this kind of problem". "Settings → Notes source" offers nine options in four groups (full comparison in [Choosing an explanation source](#choosing-an-explanation-source) below):
+  - **No notes** (default) — nothing leaves your machine, zero cost
+  - **Local models**: Ollama / LM Studio / Jan — talk to a model running on your own computer; code/logs never leave it. You install the app and download a model first
+  - **Local proxy (OpenCode)** — talks to the [OpenCode](https://opencode.ai) CLI running locally, which forwards to whichever cloud model you configured in OpenCode (default `deepseek-v4-flash-free`); the key lives in OpenCode, DIT never touches it
+  - **Bring-your-own-key cloud**: Anthropic / OpenRouter / Groq / Custom (any OpenAI-compatible endpoint) — the browser calls that service directly with your own API key, on your own quota
+- 🔒 **Privacy gating**: switching the explanation source updates the top banner's color and text immediately to tell you whether that choice sends data out. **Every option that sends data out** (the local proxy and the four bring-your-own-key options) de-identifies content locally first and shows a preview of "what will actually be sent"; nothing goes out until you confirm (one confirmation per session, endpoint, and model — changing the key, endpoint, or model asks again), and anything that looks like a key or password is blocked outright with no way to skip it.
 - 📤 **Export**: export the cleaned-up session as JSON (structured data) or as a **single-file HTML snapshot that needs no server and opens on double-click** — handy for archiving or sharing with someone who doesn't need to install or run DIT themselves.
 
 ---
@@ -292,19 +317,31 @@ DIT detects which source it is automatically — no manual selection needed.
 
 #### Wiring up the teaching explanation layer (optional)
 
-The explanation source is switched inside the "Settings" dialog, with two local-first options:
+The explanation source is switched with the "Notes source" drop-down in the "Settings" dialog. DIT works fully without it — the default is "No notes". How to wire up each group (comparison in [Choosing an explanation source](#choosing-an-explanation-source)):
 
-**Local Ollama** (nothing leaves your machine)
+**Local model: Ollama (nothing leaves your machine; install required)**
 
 1. Install and start [Ollama](https://ollama.com), and set `OLLAMA_ORIGINS` so your browser is allowed to connect cross-origin.
-2. `ollama pull <model>` a 7–8B-class coder model (e.g. Qwen2.5-Coder 7B) is enough.
-3. Switch "explanation source" to "Local Ollama" — the guidance panel below shows live connection status and a copy-pasteable start command.
+2. `ollama pull <model>` a 7–8B-class coder model (DIT looks for `qwen2.5-coder:7b` by default).
+3. Switch "Notes source" to "Ollama" — the guidance panel below shows live connection status and a copy-pasteable start command.
 
-**Cloud AI (OpenCode bridge, data leaves your machine)**
+**Local model: LM Studio / Jan (nothing leaves your machine; install required)**
+
+1. Install [LM Studio](https://lmstudio.ai) or [Jan](https://jan.ai), download a model, and turn on the app's local server (OpenAI-compatible API). DIT defaults to `http://localhost:1234/v1` for LM Studio and `http://127.0.0.1:1337/v1` for Jan; both are editable in the panel.
+2. Switch "Notes source" to "LM Studio" or "Jan" — the panel shows connection status and available models. If it reports "Blocked by the browser (CORS)", allow cross-origin requests in that app's server settings.
+
+**Local proxy: OpenCode (data leaves your machine; install required)**
 
 1. Install the [OpenCode](https://opencode.ai) CLI and log in to whichever cloud model provider you want, following its own docs (the key lives inside OpenCode; DIT never touches it).
-2. Switch "explanation source" to "Cloud AI" — the panel gives you a one-line start command to copy (it starts a local loopback server that only accepts connections from DIT's own web origin); **the command shown is a Windows example — on macOS/Linux, swap `opencode.cmd` for `opencode`**.
-3. Before every send, DIT de-identifies the content locally and pops up a "confirm what's being sent to OpenCode" preview; nothing actually goes out until you confirm, and anything that looks like a key or password is blocked outright with no way to skip it.
+2. Switch "Notes source" to "Proxy" — the panel gives you a one-line start command to copy (it starts a local loopback server that only accepts connections from DIT's own web origin); **the command shown is a Windows example — on macOS/Linux, swap `opencode.cmd` for `opencode`**.
+3. Before sending, DIT de-identifies the content locally and pops up a "what will actually be sent" preview; nothing goes out until you confirm, and anything that looks like a key or password is blocked outright with no way to skip it.
+
+**Bring-your-own-key cloud: Anthropic / OpenRouter / Groq / Custom (data leaves your machine; your own API key required)**
+
+1. Get an API key from that service. Usage is billed by that service to your own account.
+2. Switch "Notes source" to the matching option and paste the key into the panel ("Custom" also needs an endpoint URL and a model name, and accepts any OpenAI-compatible endpoint; the key is required there too).
+3. The key stays in this tab's memory only — DIT does not save it to the browser, so a reload means pasting it again. To avoid that, copy `dit.config.example.json` to `dit.config.json`, fill in your keys, and place it next to `index.html` (`public/` in a source checkout, `app/` in a release zip; the file is git-ignored and never packaged into a release). DIT can only read it when opened through a local server (`npm run dev` or `start-dit.bat`).
+4. The same local de-identification and "what will actually be sent" confirmation apply. If "Custom" is blocked by browser CORS, that service does not support direct browser calls — use "Proxy" instead.
 
 #### Build
 
@@ -317,13 +354,23 @@ npm run preview   # preview the build output
 
 ---
 
-### Choosing a privacy mode
+### Choosing an explanation source
 
-| Explanation source | Does data leave your machine? | Who it's for |
-|---|---|---|
-| `none` (default) | Never | You just want the denoised structure, no AI explanation needed |
-| `ollama` | No, fully local compute | You want AI explanations but don't want code/logs leaving your machine |
-| `cloud` (OpenCode bridge) | Yes, to whichever cloud model you configured | You want higher-quality explanations and are OK with data leaving locally; local de-identification + per-send confirmation gate it |
+The explanation layer is entirely **optional**: of the nine options, only "No notes" needs nothing from you — every other one needs an extra install or your own key. The names below are exactly what the "Settings → Notes source" drop-down shows (English UI).
+
+| Notes source (name in Settings) | Does data leave your machine? | What you need | Cost |
+|---|---|---|---|
+| No notes (default) | Never | Nothing | Free |
+| Ollama | No, fully local compute | Install Ollama + download a model | Free (uses your computer's resources) |
+| LM Studio | No, fully local compute | Install LM Studio + download a model + turn on its local server | Free (uses your computer's resources) |
+| Jan | No, fully local compute | Install Jan + download a model + turn on its local server | Free (uses your computer's resources) |
+| Proxy (OpenCode) | **Yes** — relayed by your local OpenCode to the cloud model configured in OpenCode | Install the OpenCode CLI and log in to a provider; DIT never touches the key | Depends on the provider and model you pick in OpenCode |
+| Anthropic | **Yes** — browser calls Anthropic directly | Your own Anthropic API key | Paid, billed to your account |
+| OpenRouter | **Yes** — browser calls OpenRouter directly | Your own OpenRouter API key | Per-model pricing, billed to your account |
+| Groq | **Yes** — browser calls Groq directly | Your own Groq API key | Per that service's pricing, billed to your account |
+| Custom | **Yes** (DIT treats it as outbound even if you enter a local URL) | Endpoint URL + model name + API key (required); must be OpenAI-compatible and allow direct browser calls | Per that service's pricing |
+
+Every option marked "Yes" passes local de-identification and the "what will actually be sent" confirmation before anything is sent.
 
 ---
 
@@ -336,14 +383,15 @@ DIT is a purely front-end web app — **no installer, and it doesn't care about 
 - **Want the full DIT app, not just a snapshot?** Download the packaged zip from [Releases](../../releases), unzip it, and double-click `start-dit.bat` — it starts a tiny local-only server in the background and opens your browser automatically, no Node.js/Python install required. DIT itself lives in the unzipped `app/` subfolder (kept separate from the launcher scripts to keep the top level tidy); double-clicking `app/index.html` directly gives you a blank page — browsers block ES modules for security reasons off `file://`, so it must be opened through `start-dit.bat`. macOS/Linux users can `cd` into `app/` and run `npx serve .` or `python3 -m http.server` instead.
 - **Mobile**: the layout is currently desktop-first; phones/tablets can open it, but the layout isn't specifically optimized — a known limitation.
 
-**Optional local explanation engines** (these don't affect whether DIT itself works — only the "teaching explanation" feature):
+**Optional local explanation engines** (these don't affect whether DIT itself works — only the "teaching explanation" feature; the bring-your-own-key cloud options need no install at all):
 
 | Engine | Supported platforms | Notes |
 |---|---|---|
 | Ollama | Official installers for Windows / macOS / Linux | The panel's start command is PowerShell syntax; on macOS/Linux use your shell's equivalent (e.g. `OLLAMA_ORIGINS="*" ollama serve`) |
+| LM Studio / Jan | See each app's official site | Turn on the local server inside the app; DIT gives no start command, and the panel shows connection status |
 | OpenCode | Official installers for Windows / macOS / Linux | The panel's start command includes the Windows-specific `opencode.cmd`; on macOS/Linux swap it for `opencode` — the rest of the flags (`--port` / `--hostname` / `--cors`) are the same across platforms |
 
-All three operation modes (nothing leaves your machine / local Ollama / cloud OpenCode) have **identical behavior and UI** across every OS — the only difference is whether, and how, you start the corresponding local engine on your platform.
+All nine explanation sources have **identical behavior and UI** across every OS — the only difference is whether, and how, you start the corresponding local engine on your platform.
 
 The interface always shows the relevant privacy disclosure the moment you switch modes — it never silently makes that choice for you.
 
@@ -353,7 +401,7 @@ The interface always shows the relevant privacy disclosure the moment you switch
 
 R12 construction has been merged into `main`, but the author waived the wait, not the item-by-item acceptance. The project remains an actively developed personal tool:
 
-- ✅ Landed: Claude Code + Codex multi-source `.jsonl` parsing, deterministic denoising, Overview/Reader/Subagents navigation, Session Map, step-through reading, local and OpenCode explanations, de-identification, JSON/single-file HTML export, and a bilingual (Traditional Chinese/English) UI.
+- ✅ Landed: Claude Code + Codex multi-source `.jsonl` parsing, deterministic denoising, Overview/Reader/Subagents navigation, Session Map, step-through reading, nine explanation sources (none / local models / OpenCode local proxy / bring-your-own-key cloud), de-identification, JSON/single-file HTML export, and a bilingual (Traditional Chinese/English) UI.
 - ⏳ Pending: manual acceptance for R12, manual acceptance for `2026-09-compact-chain`, and visual acceptance for `2026-09-editorial-workspace`; automated gates cannot replace those checks.
 - 📌 Still planned: cross-session/personal skill-library integration and global summaries. The product boundary remains traceable single-session review, with new sources extended through the `src/core` source-profile/adapter contract.
 
