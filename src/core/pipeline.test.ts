@@ -278,7 +278,7 @@ describe("buildSessionDocument — single-input fatal outcomes", () => {
 });
 
 /**
- * R9.1 RC-C：子代理身分不能靠路徑字串。「載入 .jsonl」的多選走一般 <input multiple>，
+ * R9.1 RC-C：子代理身分不能靠路徑字串。「選擇一則對話」的多選走一般 <input multiple>，
  * webkitRelativePath 是空字串，路徑會退化成裸檔名——`subagents/` 前綴整個消失。
  */
 describe("subagent identity comes from content, not from the path (R9.1 RC-C)", () => {

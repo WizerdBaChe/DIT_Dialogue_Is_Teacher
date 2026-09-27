@@ -90,7 +90,7 @@ function isSubagentPath(path: string): boolean {
 /**
  * 這份 transcript 內容上是不是子代理紀錄 (R9.1 RC-C)。
  *
- * 路徑不是可靠的判準。「載入 .jsonl」的多選走的是一般 `<input multiple>`，`webkitRelativePath`
+ * 路徑不是可靠的判準。「選擇一則對話」的多選走的是一般 `<input multiple>`，`webkitRelativePath`
  * 是空字串，於是路徑退化成 `agent-<id>.jsonl`——`subagents/` 前綴整個消失。選了一整個
  * `subagents/` 目錄的檔案時，第一個子代理檔就會被當成主檔收下，`NO_MAIN_TRANSCRIPT`
  * 那段寫好的說明因此永遠沒有機會出現，使用者拿到的是一份只有開始與結束的空骨架。
