@@ -53,13 +53,34 @@ AI 講解是選配功能（本機模型、OpenCode 本地代理或自帶金鑰�
    所有會外傳的選項，送出前必經去識別化預覽與逐 Session 同意（換金鑰、端點或模型會重新詢問）；Secret finding
    會阻擋請求。金鑰只留在分頁記憶體，重新整理需重貼（或改用 `dit.config.json`，見 README）。批次模式可補未處理、
    重試失敗或全部重跑，成功結果會保存到本機快取。
-8. **匯出**：設定匣「匯出」區塊提供兩種格式——「匯出 JSON」是帶版本標記的原始結構化資料（`ditExport` /
-   `exportVersion` / `exportedAt`），適合程式化重用或存檔；「匯出 HTML 快照」產出**單一可獨立開啟**的
+8. **匯出**：設定匣有兩個匯出區塊，用途不同。
+
+   **「匯出閱讀頁面快照」**（可還原成完整節點視圖 (node view) 的 Session 存檔）提供兩種格式——
+   「匯出 JSON」是帶版本標記的原始結構化資料（`ditExport` / `exportVersion` / `exportedAt`），適合程式化重用或存檔；「匯出 HTML 快照」產出**單一可獨立開啟**的
    `.html` 檔，雙擊即可用瀏覽器直接開啟重現 Overview／Reader／Map（含講解），不需要安裝 DIT、不需要
    dev server、不需要任何網路連線；快照本身不會對外發出任何請求。兩種格式都會把講解結果一併帶出。
    **隱私提醒**：匯出檔包含 session 的完整逐字內容，可能含 API 金鑰、路徑等內部資訊——分享前請自行確認
    內容，不要未經檢查就傳給他人。HTML 快照必須先用 `npm run build` 產出 production build，
    dev 模式下按此按鈕只會顯示提示，不會產出檔案。
+
+   **「匯出純對話紀錄」**（給人讀的逐字稿 (transcript)，不能還原成節點視圖）只收使用者提問、AI 思考與每輪回覆文字，
+   工具輸出全文不收，適合貼到筆記、回報問題或分享給別人看。輸出方式有四種：「匯出 Markdown」（`.md`）、
+   「匯出 HTML 檢視頁」（單檔 `.html`，附目錄）、「匯出 JSON」（結構化逐字稿）、「以 MD 形式複製到剪貼簿」
+   （Markdown 內容直接進剪貼簿；瀏覽器不允許存取剪貼簿時會提示改用匯出檔案）。按鈕上方的勾選項：
+
+   | 選項 | 預設 | 作用 |
+   |---|---|---|
+   | 包含 AI 思考 | 開 | 納入 AI 的思考段落 |
+   | 包含工具活動摘要 | 關 | 以摘要列出每輪的工具呼叫（仍不含工具輸出全文） |
+   | 包含子代理對話 | 關 | 納入子代理 (subagent) 旁鏈的內部發言；預設只輸出主線對話 |
+   | 遮蔽敏感資訊 | 關 | 在本機把密鑰、信箱、電話、使用者路徑、IP 換成佔位符 (placeholder) |
+   | 同時遮蔽高熵字串（實驗性） | 關 | 另外遮蔽長得像亂數的字串（未加註記的 token、UUID、git commit hash）；必然會誤擋一些無害字串，只在「遮蔽敏感資訊」開啟時生效 |
+
+   關掉的內容不會假裝不存在：檔案標頭仍會列出思考、工具呼叫、子代理的數量並註明「未納入」。
+   **遮蔽 (redaction) 的隱私行為**：遮蔽全程在本機執行，不會送出任何內容；它是盡力而為 (best-effort)，
+   分享前仍請自己看過。遮蔽後若仍有段落疑似含密鑰，DIT 會顯示警告並告知段數，而不是回報成功；高熵規則關閉時，
+   檔案內的遮蔽摘要仍會列出找到但沒遮的筆數。沒開遮蔽時，逐字稿與上面的快照一樣是完整逐字內容，
+   同一條隱私提醒適用。純對話紀錄的四種輸出在 dev 模式下也能使用，不需要 production build。
 
 ### 畫面寬度與快捷鍵
 
@@ -115,14 +136,38 @@ Load → Overview → Reader → structure jump → Map → Subagents → option
    Every outbound option requires a de-identified preview and per-Session consent (changing the key, endpoint, or model asks
    again); secret findings block the request. Keys live only in tab memory and must be re-pasted after a reload (or use
    `dit.config.json`, see README). Batch modes fill missing items, retry failures, or rerun all.
-8. **Export**: the Settings "Export" group offers two formats. "Export JSON" is the raw structured data with a versioned
-   wrapper (`ditExport` / `exportVersion` / `exportedAt`), suited for programmatic reuse or archiving. "Export HTML snapshot"
+8. **Export**: Settings has two export groups with different purposes.
+
+   **"Export reading-page snapshot"** (a Session archive that restores the full node view) offers two formats. "Export
+   JSON" is the raw structured data with a versioned wrapper (`ditExport` / `exportVersion` / `exportedAt`), suited for programmatic reuse or archiving. "Export HTML snapshot"
    produces a **single self-contained** `.html` file — double-click it to reopen Overview/Reader/Map (including
    explanations) in a browser, with no DIT install, no dev server, and no network access needed; the snapshot itself never
    makes outbound requests. Both formats include any saved explanations. **Privacy note**: the exported file contains the
    full verbatim session content, which may include API keys, paths, or other internal details — review it before sharing,
    never send it unchecked. The HTML snapshot requires a production build (`npm run build`) first; in dev mode this button
    only shows a notice and produces no file.
+
+   **"Export plain transcript"** (a human-readable transcript that cannot be restored into the node view) keeps only your
+   prompts, the AI's thinking, and each turn's reply text; full tool output is left out. It suits notes, bug reports, or
+   sharing with someone else. Four outputs: "Export Markdown" (`.md`), "Export HTML page" (a single `.html` file with an
+   outline), "Export JSON" (the structured transcript), and "Copy as Markdown to clipboard" (if the browser denies clipboard
+   access, a notice asks you to export a file instead). The checkboxes above the buttons:
+
+   | Option | Default | Effect |
+   |---|---|---|
+   | Include AI thinking | On | Includes the AI's thinking passages |
+   | Include tool activity summary | Off | Lists each turn's tool calls as a summary (still no full tool output) |
+   | Include subagent dialogue | Off | Includes subagent side-chain output; by default only the main thread is exported |
+   | Redact sensitive information | Off | Locally replaces secrets, emails, phone numbers, user paths and IPs with placeholders |
+   | Also redact high-entropy strings (experimental) | Off | Also redacts random-looking strings (unlabeled tokens, UUIDs, git commit hashes); inevitably catches some harmless strings, and only takes effect while "Redact sensitive information" is on |
+
+   Content you switch off is not hidden: the file header still lists the thinking, tool-call, and subagent counts, marked
+   "not included". **Redaction privacy behaviour**: redaction runs entirely on your machine and sends nothing anywhere; it is
+   best-effort, so still read the file before sharing it. If blocks that look like secrets remain after redaction, DIT shows
+   a warning with the block count instead of reporting success; while the high-entropy rule is off, the redaction summary in
+   the file still lists how many it found but did not redact. Without redaction, the transcript is full verbatim content just
+   like the snapshot above, and the same privacy note applies. All four transcript outputs also work in dev mode; no
+   production build is needed.
 
 ### Widths and shortcut
 
