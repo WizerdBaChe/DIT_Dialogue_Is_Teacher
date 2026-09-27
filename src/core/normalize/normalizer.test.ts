@@ -138,7 +138,7 @@ describe("normalize — tool_use with no resolvable name (R11.2 R2)", () => {
  * the `id` default right beside it which has always reported. That matters more than a normal
  * missing default: `source` selects the profile, and the profile drives denoise tool names, the
  * title ladder and attribution kinds — one wrong guess and the whole render path is wrong, with
- * nothing visible to say so. CLAUDE.md's invariant ("every `?? somethingElse` calls
+ * nothing visible to say so. AGENTS.md's invariant ("every `?? somethingElse` calls
  * reportFallback") had a hole exactly where this round's defect lives.
  */
 describe("normalize — an undetermined source is audible, not silent (R12 M7)", () => {

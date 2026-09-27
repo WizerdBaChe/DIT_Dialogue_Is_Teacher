@@ -46,6 +46,7 @@ const LIVE_RECORDS = [
   "references/DIT-tickets.md",
   "references/DIT-context.md",
   "docs/DEFERRED.md",
+  "AGENTS.md",
   "CLAUDE.md",
 ];
 
