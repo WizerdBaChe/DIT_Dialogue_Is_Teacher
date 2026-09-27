@@ -15,9 +15,11 @@ AI 講解是選配功能（本機模型、OpenCode 本地代理或自帶金鑰�
 
 載入 → 總覽 → 閱讀 → 結構跳轉 → 地圖 → 子代理 → 選配講解 → 匯出。
 
-1. **載入 Session**：選「載入 .jsonl」讀單一或多個檔案；選「載入 Session 資料夾」會開啟 **Session 瀏覽器**
-   ——先選一個目錄（例如 `~/.claude/projects/<專案>/`，或直接選 `projects/` 一次看全部），DIT 會列出裡面
-   每一個 session 的標題、時間、規模與分類，挑一個才真正載入。
+1. **載入 Session**：在「總覽」頁（或右上「設定」的 Session 區）先選要讀哪一套系統——**Claude Code** 或
+   **Codex**，選好後才會出現兩個入口（要換系統，按系統名稱旁的「換一套」）。「從對話集選擇」會開啟
+   **Session 瀏覽器**——先選一個目錄（例如 `~/.claude/projects/<專案>/`，或直接選 `projects/` 一次看全部），
+   DIT 會列出裡面每一個 session 的標題、時間、規模與分類，挑一個才真正載入；「選擇一則對話」則直接讀你
+   已經知道是哪個的單一或多個檔案。
 
    > **為什麼需要瀏覽器**：Claude Code 的檔名都是 UUID，而且主檔 `<session-id>.jsonl` 與它的子代理資料夾
    > `<session-id>/subagents/` 是**並排的兄弟**——主檔不在那個資料夾裡面。所以直接用系統檔案選擇器挑
@@ -25,12 +27,13 @@ AI 講解是選配功能（本機模型、OpenCode 本地代理或自帶金鑰�
 
    讀取期間會顯示階段、百分比、MiB 與行數；按「取消載入」會保留上一份有效 Session。載入失敗會回到清單，
    不會把你丟回空白畫面。
-2. **先看總覽**：啟動、載入成功或重置後都先進入總覽。確認來源、步驟數與解析提示，再按主按鈕開始或繼續閱讀。
+2. **用總覽確認**：啟動與重置後停在總覽（內建範例的著陸頁）；**自己載入的 Session 成功後直接進「閱讀」**。
+   想確認來源、步驟數與解析提示時切到「總覽」分頁，再按主按鈕開始或繼續閱讀。
 3. **沿 Reader 閱讀**：使用上一項、下一項或逐步瀏覽逐步移動。卡片保留思考、操作、參數、結果、群組與 why；
    手動選取會停止舊播放位置，讓 Header、結構與 Reader 指向同一項。
 4. **用結構直接跳轉**：寬度至少 720 px 時，結構固定在左側並可收合；390 等窄版由 Header 的「結構／位置」
    按鈕開啟左側 drawer。精簡圖例說明樹列符號所代表的事件類型（使用者、回覆、思考、操作、結果、子代理、群組）；
-   重要節點的目標／決策／里程碑／結果骨架圖例只在 Session 地圖顯示，總覽頁另有可收合的教學版兩層符號說明。
+   重要節點的目標／決策／里程碑／結果骨架圖例只在 Session 地圖顯示。
    選取後會關閉 drawer、回到 Reader 並定位同一項。
 5. **需要全局時開地圖**：Reader 的 Minimap 或可見「地圖」按鈕只負責開啟 Session Map。Global 顯示全局地標與
    cluster，Section 展開區段，Detail 顯示目前 station 與 ribs。地圖開啟時會把目前／選定節點置中，主線只連到最後一個節點；
@@ -72,9 +75,11 @@ AI 講解是選配功能（本機模型、OpenCode 本地代理或自帶金鑰�
 
 Load → Overview → Reader → structure jump → Map → Subagents → optional explanations → export.
 
-1. **Load a Session**: use “Load .jsonl” for one or more files, or “Load Session folder” to open the **Session browser** —
-   pick a directory (e.g. `~/.claude/projects/<project>/`, or `projects/` to see everything), and DIT lists every session in
-   it with title, time, size, and kind. Picking a row is what loads.
+1. **Load a Session**: in the Overview tab (or the Session group under Settings, top right), first choose which system to
+   read — **Claude Code** or **Codex**. Only then do the two entries appear (“Switch system” next to the system name goes
+   back). “Choose from your conversations” opens the **Session browser** — pick a directory (e.g.
+   `~/.claude/projects/<project>/`, or `projects/` to see everything), and DIT lists every session in it with title, time,
+   size, and kind; picking a row is what loads. “Open one conversation” reads one or more files you already know.
 
    > **Why a browser**: Claude Code names files by UUID, and the main transcript `<session-id>.jsonl` sits *next to* its
    > subagent folder `<session-id>/subagents/`, not inside it. Choosing "a session's folder" in a file picker therefore
@@ -82,15 +87,15 @@ Load → Overview → Reader → structure jump → Map → Subagents → option
 
    Loading shows phase, percent, MiB, and line count. Cancel keeps the previous valid Session. A failed load returns you to
    the list rather than to an empty app.
-2. **Start at Overview**: startup, a successful load, and reset all return to Overview. Confirm the source, item count, and
-   warnings, then use the primary action to start or continue.
+2. **Check in Overview**: startup and reset land on Overview (the built-in sample's landing page); **a session you load
+   yourself opens straight in the Reader**. Switch to the Overview tab to confirm the source, item count, and warnings,
+   then use the primary action to start or continue.
 3. **Read in Reader**: move with Previous, Next, or Step through. Cards retain thinking, actions, parameters, results, groups,
    and why. Manual selection stops stale playback so the Header, structure, and Reader stay on the same item.
 4. **Jump from structure**: at 720 px and wider, the collapsible structure Sidebar stays on the left. On narrow screens,
    the Header structure/position button opens a left drawer. A compact legend explains what each tree glyph means (user,
    reply, thinking, action, result, subagent, group); the objective/decision/milestone/outcome skeleton legend only appears
-   in the Session Map, and Overview has its own collapsible two-layer symbol guide for the teaching version. Selecting an
-   item closes the drawer and focuses it in Reader.
+   in the Session Map. Selecting an item closes the drawer and focuses it in Reader.
 5. **Open Map for global context**: the Reader Minimap and visible Map button only open Session Map. Global shows landmarks
    and clusters, Section expands a region, and Detail shows the current station and ribs. Opening Map centers the current or
    selected node; the spine ends at the last node, while text plus geometry identifies node and fishbone-rib types. Clusters
