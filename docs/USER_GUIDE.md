@@ -7,7 +7,7 @@ aliases: [使用手冊, 操作手冊, user guide, how to use DIT]
 # DIT 使用手冊 / User Guide
 
 DIT 將代理工作紀錄整理成可逐步閱讀、回看決策與延伸講解的 Session。所有結構化與瀏覽功能都可離線使用；
-Ollama 與 OpenCode 講解是選配功能。
+AI 講解是選配功能（本機模型、OpenCode 本地代理或自帶金鑰的雲端服務，皆需另外安裝或提供金鑰）。
 
 ## 繁體中文
 
@@ -37,8 +37,19 @@ Ollama 與 OpenCode 講解是選配功能。
    節點與魚骨支線以文字加形狀區分。cluster 只可繼續縮放，真實地標才可 Jump；紅色「關閉地圖」離開 modal。
 6. **查看子代理**：切到「子代理」查看分支摘要；選取分支後回 Reader 展開唯一完整內容，跨檔 parent linkage
    與時間順序不變。
-7. **選配講解**：設定內可選不講解、Ollama 或 OpenCode。OpenCode 外傳前必經去識別化預覽與逐 Session 同意；
-   Secret finding 會阻擋請求。批次模式可補未處理、重試失敗或全部重跑，成功結果會保存到本機快取。
+7. **選配講解**：設定的「講解來源」下拉選單有九個選項，預設「不講解」：
+
+   | 選項 | 資料外傳 | 需要 |
+   |---|---|---|
+   | 不講解 | 否 | 無 |
+   | Ollama／LM Studio／Jan | 否，純本機 | 安裝該軟體 + 下載模型（LM Studio／Jan 另需開啟本機伺服器） |
+   | 本地代理（OpenCode） | 是，經本機 OpenCode 轉送到雲端模型 | 安裝 OpenCode CLI 並登入供應商；費用依所選模型 |
+   | Anthropic／OpenRouter／Groq | 是，瀏覽器直連 | 你自己的 API 金鑰；扣你的帳號額度 |
+   | 自訂端點 | 是（本機網址也當外傳處理） | OpenAI 相容端點網址 + 模型 + API 金鑰；依該服務計價 |
+
+   所有會外傳的選項，送出前必經去識別化預覽與逐 Session 同意（換金鑰、端點或模型會重新詢問）；Secret finding
+   會阻擋請求。金鑰只留在分頁記憶體，重新整理需重貼（或改用 `dit.config.json`，見 README）。批次模式可補未處理、
+   重試失敗或全部重跑，成功結果會保存到本機快取。
 8. **匯出**：設定匣「匯出」區塊提供兩種格式——「匯出 JSON」是帶版本標記的原始結構化資料（`ditExport` /
    `exportVersion` / `exportedAt`），適合程式化重用或存檔；「匯出 HTML 快照」產出**單一可獨立開啟**的
    `.html` 檔，雙擊即可用瀏覽器直接開啟重現 Overview／Reader／Map（含講解），不需要安裝 DIT、不需要
@@ -86,8 +97,19 @@ Load → Overview → Reader → structure jump → Map → Subagents → option
    zoom, only real landmarks jump, and the red “Close map” control exits the modal.
 6. **Inspect Subagents**: the Subagents view lists branch summaries. Selecting a branch returns to its single complete Reader
    representation while preserving cross-file parent linkage and timestamp order.
-7. **Add explanations only when needed**: Settings offers none, Ollama, or OpenCode. OpenCode requires a de-identified preview
-   and per-Session consent; secret findings block the request. Batch modes fill missing items, retry failures, or rerun all.
+7. **Add explanations only when needed**: the Settings "Notes source" drop-down has nine options; the default is "No notes":
+
+   | Option | Data leaves the machine | Needs |
+   |---|---|---|
+   | No notes | No | Nothing |
+   | Ollama / LM Studio / Jan | No, fully local | Install the app + download a model (LM Studio / Jan also need their local server on) |
+   | Proxy (OpenCode) | Yes, relayed by local OpenCode to a cloud model | Install the OpenCode CLI and log in to a provider; cost depends on the model |
+   | Anthropic / OpenRouter / Groq | Yes, browser-direct | Your own API key; billed to your account |
+   | Custom | Yes (treated as outbound even for a local URL) | OpenAI-compatible endpoint URL + model + API key; that service's pricing |
+
+   Every outbound option requires a de-identified preview and per-Session consent (changing the key, endpoint, or model asks
+   again); secret findings block the request. Keys live only in tab memory and must be re-pasted after a reload (or use
+   `dit.config.json`, see README). Batch modes fill missing items, retry failures, or rerun all.
 8. **Export**: the Settings "Export" group offers two formats. "Export JSON" is the raw structured data with a versioned
    wrapper (`ditExport` / `exportVersion` / `exportedAt`), suited for programmatic reuse or archiving. "Export HTML snapshot"
    produces a **single self-contained** `.html` file — double-click it to reopen Overview/Reader/Map (including
