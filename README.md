@@ -68,7 +68,7 @@ DIT 想驗證的核心假設很簡單：**只要把一條雜亂的執行軌跡�
   - **本地代理（OpenCode）**　接你本機跑的 [OpenCode](https://opencode.ai) CLI，由它轉送到你在 OpenCode 裡設定好的雲端模型（預設 `deepseek-v4-flash-free`）；金鑰存在 OpenCode 裡，DIT 不碰
   - **自帶金鑰直連雲端**：Anthropic／OpenRouter／Groq／自訂端點（任一 OpenAI 相容端點）　瀏覽器直接呼叫該服務，需要你自己的 API 金鑰 (API key)，用的是你自己的額度
 - 🔒 **隱私把關**：切換講解來源時，頂部橫幅即時變色變字告訴你這個選擇會不會外傳。**所有會外傳的來源**（本地代理與四個自帶金鑰選項）送出前都會先在本機做去識別化 (de-identification)，並跳出「實際會送出的內容」預覽，你確認後才真的發送（同一份 session 對同一端點與模型確認一次後沿用；換金鑰、端點或模型會重新詢問）；疑似金鑰/密碼會直接擋下、不能略過。
-- 📤 **匯出**：把整理好的 session 匯出成 JSON（結構化資料）或一個**不需要任何伺服器、雙擊就能開**的單檔 HTML 快照，方便存檔或分享給別人看，對方不需要安裝或跑 DIT。
+- 📤 **匯出**：把整理好的 session 匯出成 JSON（結構化資料）或一個**不需要任何伺服器、雙擊就能開**的單檔 HTML 快照，方便存檔或分享給別人看，對方不需要安裝或跑 DIT。另有「匯出純對話紀錄」：只收提問、AI 思考與回覆文字的逐字稿 (transcript)，可存成 Markdown／HTML 檢視頁／JSON 或直接以 Markdown 複製到剪貼簿，並可選擇在本機遮蔽 (redact) 密鑰、信箱、電話、使用者路徑、IP 等敏感資訊（不會外傳；遮蔽是盡力而為，分享前仍請自己看過）。詳見[使用手冊](docs/USER_GUIDE.md)第 8 步。
 
 ---
 
@@ -181,7 +181,7 @@ npm run preview   # 預覽 build 產物
 DIT 是純前端的網頁應用，**沒有安裝檔，也不挑作業系統**——只要瀏覽器裝得起來，Windows／macOS／Linux 都能用，行為完全一致：
 
 - **瀏覽器**：建議近期版本的 Chrome、Edge、Firefox；Safari 需 15.4 以上（介面用到原生 `<dialog>` 對話框）。不支援舊版 IE / Legacy Edge。
-- **不需要伺服器也能看**：`npm run build` 額外會產出一份**單檔 HTML 快照**（`dist/snapshot.html`，也是「匯出」按鈕產生的檔案），雙擊即可離線開啟，不需要跑 `npm`、不需要網路。
+- **不需要伺服器也能看**：`npm run build` 額外會產出一份**單檔 HTML 快照**（`dist/snapshot.html`，也是「匯出 HTML 快照」按鈕產生的檔案），雙擊即可離線開啟，不需要跑 `npm`、不需要網路。
 - **想要完整的 DIT 本體、不只是快照？** 從 [Releases](https://github.com/WizerdBaChe/DIT_Dialogue_Is_Teacher/releases) 下載打包好的 zip，解壓後雙擊 `start-dit.bat` 即可——它會在背景開一個只接受本機連線的小型伺服器並自動開啟瀏覽器，不需要安裝 Node.js／Python。DIT 本體放在解壓後的 `app/` 子資料夾（跟啟動腳本分開放，資料夾看起來乾淨），直接雙擊 `app/index.html` 會是白畫面：瀏覽器基於安全限制擋掉了 ES module，一定要透過 `start-dit.bat` 開。macOS／Linux 使用者可 `cd` 進 `app/` 資料夾後改用 `npx serve .` 或 `python3 -m http.server`。
 - **行動裝置**：目前是桌面優先的版面，手機／平板可以打開但排版未特別優化，屬已知限制。
 
@@ -203,7 +203,7 @@ DIT 是純前端的網頁應用，**沒有安裝檔，也不挑作業系統**—
 
 DIT 的 R12 construction 已併入 `main`，但作者免除的是等待，不是逐項 acceptance；目前仍是持續開發中的個人專案：
 
-- ✅ 已落地：Claude Code + Codex 多來源 `.jsonl` 解析、確定性降噪、Overview／Reader／Subagents 導覽、Session Map、step-through 閱讀、九種講解來源（不講解／本機模型／OpenCode 本地代理／自帶金鑰雲端）、去識別化、JSON／單檔 HTML 匯出，以及繁中/英雙語介面。
+- ✅ 已落地：Claude Code + Codex 多來源 `.jsonl` 解析、確定性降噪、Overview／Reader／Subagents 導覽、Session Map、step-through 閱讀、九種講解來源（不講解／本機模型／OpenCode 本地代理／自帶金鑰雲端）、去識別化、JSON／單檔 HTML 匯出、純對話紀錄匯出（Markdown／HTML／JSON／複製，含本機遮蔽），以及繁中/英雙語介面。
 - ⏳ 待確認：R12 的人工 acceptance、`2026-09-compact-chain` 的人工驗收，以及 `2026-09-editorial-workspace` 的視覺驗收；這些不是自動化 gate 可以代替的項目。
 - 📌 仍在規劃：跨 session／個人技能庫等更高層級串接與全局摘要；目前以單一 session 的可追蹤閱讀為產品邊界，新增來源仍透過 `src/core` 的 source profile/adapter 契約擴充。
 
@@ -276,7 +276,7 @@ The core hypothesis DIT is testing is simple: **just denoising, structuring, and
   - **Local proxy (OpenCode)** — talks to the [OpenCode](https://opencode.ai) CLI running locally, which forwards to whichever cloud model you configured in OpenCode (default `deepseek-v4-flash-free`); the key lives in OpenCode, DIT never touches it
   - **Bring-your-own-key cloud**: Anthropic / OpenRouter / Groq / Custom (any OpenAI-compatible endpoint) — the browser calls that service directly with your own API key, on your own quota
 - 🔒 **Privacy gating**: switching the explanation source updates the top banner's color and text immediately to tell you whether that choice sends data out. **Every option that sends data out** (the local proxy and the four bring-your-own-key options) de-identifies content locally first and shows a preview of "what will actually be sent"; nothing goes out until you confirm (one confirmation per session, endpoint, and model — changing the key, endpoint, or model asks again), and anything that looks like a key or password is blocked outright with no way to skip it.
-- 📤 **Export**: export the cleaned-up session as JSON (structured data) or as a **single-file HTML snapshot that needs no server and opens on double-click** — handy for archiving or sharing with someone who doesn't need to install or run DIT themselves.
+- 📤 **Export**: export the cleaned-up session as JSON (structured data) or as a **single-file HTML snapshot that needs no server and opens on double-click** — handy for archiving or sharing with someone who doesn't need to install or run DIT themselves. There is also "Export plain transcript": a transcript of just the prompts, AI thinking, and reply text, saved as Markdown / an HTML page / JSON or copied to the clipboard as Markdown, with optional local redaction of secrets, emails, phone numbers, user paths, IPs, and similar details (nothing is sent anywhere; redaction is best-effort, so still read it before sharing). See step 8 of the [user guide](docs/USER_GUIDE.md).
 
 ---
 
@@ -389,7 +389,7 @@ Every option marked "Yes" passes local de-identification and the "what will actu
 DIT is a purely front-end web app — **no installer, and it doesn't care about OS**. As long as a browser can run, Windows/macOS/Linux all behave identically:
 
 - **Browser**: recent versions of Chrome, Edge, or Firefox recommended; Safari needs 15.4+ (the UI uses the native `<dialog>` element). Legacy IE/Edge is not supported.
-- **No server needed to view it**: `npm run build` also produces a **single-file HTML snapshot** (`dist/snapshot.html`, the same file the "Export" button generates) that you can double-click to open offline — no `npm`, no network required.
+- **No server needed to view it**: `npm run build` also produces a **single-file HTML snapshot** (`dist/snapshot.html`, the same file the "Export HTML snapshot" button generates) that you can double-click to open offline — no `npm`, no network required.
 - **Want the full DIT app, not just a snapshot?** Download the packaged zip from [Releases](https://github.com/WizerdBaChe/DIT_Dialogue_Is_Teacher/releases), unzip it, and double-click `start-dit.bat` — it starts a tiny local-only server in the background and opens your browser automatically, no Node.js/Python install required. DIT itself lives in the unzipped `app/` subfolder (kept separate from the launcher scripts to keep the top level tidy); double-clicking `app/index.html` directly gives you a blank page — browsers block ES modules for security reasons off `file://`, so it must be opened through `start-dit.bat`. macOS/Linux users can `cd` into `app/` and run `npx serve .` or `python3 -m http.server` instead.
 - **Mobile**: the layout is currently desktop-first; phones/tablets can open it, but the layout isn't specifically optimized — a known limitation.
 
@@ -411,7 +411,7 @@ The interface always shows the relevant privacy disclosure the moment you switch
 
 R12 construction has been merged into `main`, but the author waived the wait, not the item-by-item acceptance. The project remains an actively developed personal tool:
 
-- ✅ Landed: Claude Code + Codex multi-source `.jsonl` parsing, deterministic denoising, Overview/Reader/Subagents navigation, Session Map, step-through reading, nine explanation sources (none / local models / OpenCode local proxy / bring-your-own-key cloud), de-identification, JSON/single-file HTML export, and a bilingual (Traditional Chinese/English) UI.
+- ✅ Landed: Claude Code + Codex multi-source `.jsonl` parsing, deterministic denoising, Overview/Reader/Subagents navigation, Session Map, step-through reading, nine explanation sources (none / local models / OpenCode local proxy / bring-your-own-key cloud), de-identification, JSON/single-file HTML export, plain transcript export (Markdown/HTML/JSON/copy, with local redaction), and a bilingual (Traditional Chinese/English) UI.
 - ⏳ Pending: manual acceptance for R12, manual acceptance for `2026-09-compact-chain`, and visual acceptance for `2026-09-editorial-workspace`; automated gates cannot replace those checks.
 - 📌 Still planned: cross-session/personal skill-library integration and global summaries. The product boundary remains traceable single-session review, with new sources extended through the `src/core` source-profile/adapter contract.
 
