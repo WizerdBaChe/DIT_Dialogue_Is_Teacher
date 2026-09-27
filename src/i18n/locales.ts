@@ -357,12 +357,14 @@ const zhTW = {
 
   main: {
     emptyTitle: "載入一個 Claude Code 或 Codex session",
-    emptyBodyPrefix: "點右上「載入 .jsonl」，選擇 ",
+    // Shared by the Overview and Reader empty states, so it names both routes to the load
+    // entries instead of an edge: Overview renders them in-page, Settings (top right) holds a copy.
+    emptyBodyPrefix: "在「總覽」頁或右上「設定」裡先選 Claude Code 或 Codex，再按「選擇一則對話」，選擇 ",
     emptyPathClaude: "~/.claude/projects/<專案>/*.jsonl",
     emptyPathJoiner: "（Claude Code）或 ",
     emptyPathCodex: "~/.codex/sessions/rollout-*.jsonl",
     emptyPathSuffix2: "（Codex CLI）",
-    emptyBodySuffix: " 中的任一 session，DIT 會自動判斷來源、整理成可學習的節點。也可載入內建範例先看效果。",
+    emptyBodySuffix: " 中的任一 session，DIT 會整理成可學習的節點。不知道檔名就改按「從對話集選擇」，用標題挑；也可在「設定」按「重置」回到內建範例。",
     warnings: (warnings: string[]) =>
       `解析提示（${warnings.length}）：${warnings.slice(0, 3).join("；")}${warnings.length > 3 ? " …" : ""}`,
     infoTitle: "這是怎麼來的",
@@ -1045,12 +1047,12 @@ const en: Messages = {
 
   main: {
     emptyTitle: "Load a Claude Code or Codex session",
-    emptyBodyPrefix: 'Click "Load .jsonl" at the top right and pick any session under ',
+    emptyBodyPrefix: "In the Overview tab or under Settings (top right), choose Claude Code or Codex, then click “Open one conversation” and pick any session under ",
     emptyPathClaude: "~/.claude/projects/<project>/*.jsonl",
-    emptyPathJoiner: "(Claude Code) or ",
+    emptyPathJoiner: " (Claude Code) or ",
     emptyPathCodex: "~/.codex/sessions/rollout-*.jsonl",
-    emptyPathSuffix2: "(Codex CLI)",
-    emptyBodySuffix: "; DIT will detect the source automatically and organize it into learnable nodes. You can also load the built-in sample first.",
+    emptyPathSuffix2: " (Codex CLI)",
+    emptyBodySuffix: "; DIT organizes it into learnable nodes. Not sure which file? Use “Choose from your conversations” to pick by title, or press Reset in Settings to return to the built-in sample.",
     warnings: (warnings: string[]) =>
       `Parse notes (${warnings.length}): ${warnings.slice(0, 3).join("; ")}${warnings.length > 3 ? " …" : ""}`,
     infoTitle: "Where this comes from",
