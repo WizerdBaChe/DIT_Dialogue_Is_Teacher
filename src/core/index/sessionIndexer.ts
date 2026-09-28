@@ -496,7 +496,7 @@ export async function buildSessionIndex(
   const maxFiles = options.maxFiles ?? INDEX_MAX_FILES;
   const diagnostics: Diagnostic[] = [];
 
-  const listed = await source.list();
+  const { files: listed, unreadable: unlisted } = await source.list();
   /*
    * R12 M3：三層，語意各不相同，不能合併。實測 `~/.codex` 才看清楚為什麼（9,699 個檔案、
    * 361 個 `.jsonl`、358 個 rollout）：
@@ -550,8 +550,16 @@ export async function buildSessionIndex(
   }
 
   const entries: SessionIndexEntry[] = [];
-  let unreadable = 0;
-  let unreadableDetail = "";
+  /*
+   * 2026-09 folder-listing-isolation: entries the listing itself could not reach join the same
+   * count as files that failed to scan — to the user both are "a session that is not listed and
+   * why". A non-`.jsonl` file was never a candidate (see the three layers above), so its failure
+   * stays as quiet as its success would have been; a directory is counted because it may hold
+   * sessions.
+   */
+  const unlistedCandidates = unlisted.filter((entry) => entry.kind === "directory" || /\.jsonl$/i.test(entry.path));
+  let unreadable = unlistedCandidates.length;
+  let unreadableDetail = unlistedCandidates[0] ? `${unlistedCandidates[0].path} (${unlistedCandidates[0].reason})` : "";
   let otherSource = 0;
 
   for (const [done, file] of scanned.entries()) {
