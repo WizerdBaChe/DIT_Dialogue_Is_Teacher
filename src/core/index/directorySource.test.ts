@@ -226,8 +226,9 @@ describe("walking a directory", () => {
       dirAt("empty", []),
     ])));
 
-    const files = await source.list();
+    const { files, unreadable } = await source.list();
 
+    expect(unreadable).toEqual([]);
     expect(files.map((file) => file.path).sort()).toEqual([
       "proj-a/main.jsonl",
       "proj-a/subagents/agent-1.jsonl",
@@ -237,14 +238,56 @@ describe("walking a directory", () => {
     expect(files.every((file) => !file.path.startsWith("projects/"))).toBe(true);
   });
 
+  it("keeps listing when one file cannot be opened, and names the file it skipped", async () => {
+    /*
+     * 2026-09 folder-listing-isolation — the 0.4.1 defect. On Windows a file whose full path is
+     * over MAX_PATH (260) makes `getFile()` reject; the real `~/.claude/projects` had 48 of them
+     * among 3,693 files. With no catch in the walk, that one rejection became `list()` rejecting,
+     * and the whole folder showed "could not read this folder" with zero sessions.
+     */
+    const tooLong = new DOMException("A requested file or directory could not be found.", "NotFoundError");
+    const source = directorySourceFromHandle(asHandle(dirAt("projects", [
+      dirAt("proj-a", [fileAt("ok-1.jsonl")]),
+      dirAt("C--Users-very-long-scratch-workspace", [
+        { kind: "file", name: "02e231ee.jsonl", getFile: async () => { throw tooLong; } },
+        fileAt("ok-2.jsonl"),
+      ]),
+    ])));
+
+    const { files, unreadable } = await source.list();
+
+    expect(files.map((file) => file.path).sort()).toEqual([
+      "C--Users-very-long-scratch-workspace/ok-2.jsonl",
+      "proj-a/ok-1.jsonl",
+    ]);
+    expect(unreadable).toEqual([{
+      path: "C--Users-very-long-scratch-workspace/02e231ee.jsonl",
+      kind: "file",
+      reason: "NotFoundError: A requested file or directory could not be found.",
+    }]);
+  });
+
+  it("keeps listing when a subdirectory cannot be enumerated, but not when the picked root cannot", async () => {
+    // Two-sided on purpose: the root failing is still a failure of the whole listing (R9.1 RC-A,
+    // pinned above), so isolation must stop exactly one level below it.
+    const denied = new DOMException("Denied.", "NotReadableError");
+    const brokenDir: FakeHandle = { kind: "directory", name: "locked", values: () => { throw denied; } };
+
+    const nested = await directorySourceFromHandle(asHandle(dirAt("projects", [brokenDir, fileAt("top.jsonl")]))).list();
+    expect(nested.files.map((file) => file.path)).toEqual(["top.jsonl"]);
+    expect(nested.unreadable).toEqual([{ path: "locked", kind: "directory", reason: "NotReadableError: Denied." }]);
+
+    await expect(directorySourceFromHandle(asHandle(brokenDir)).list()).rejects.toBe(denied);
+  });
+
   it("yields nothing for an empty directory instead of failing", async () => {
-    await expect(directorySourceFromHandle(asHandle(dirAt("projects", []))).list()).resolves.toEqual([]);
+    await expect(directorySourceFromHandle(asHandle(dirAt("projects", []))).list()).resolves.toEqual({ files: [], unreadable: [] });
   });
 
   it("carries size, and reads whole or by range", async () => {
     const source = directorySourceFromHandle(asHandle(dirAt("projects", [fileAt("a.jsonl", "abcdefgh")])));
 
-    const [file] = await source.list();
+    const { files: [file] } = await source.list();
 
     expect(file.size).toBe(8);
     // Ranged reads are what makes the index cheap: the head scan never loads a whole transcript.
@@ -272,7 +315,7 @@ describe("directorySourceFromFileList · the webkitdirectory fallback", () => {
       withRelativePath(new File(["y"], "agent-1.jsonl"), "projects/proj-a/subagents/agent-1.jsonl"),
     ], "projects");
 
-    const files = await source.list();
+    const { files } = await source.list();
 
     expect(source.kind).toBe("webkitdirectory");
     expect(files.map((file) => file.path)).toEqual([
@@ -284,12 +327,12 @@ describe("directorySourceFromFileList · the webkitdirectory fallback", () => {
   it("produces the same paths the FSA walk produces for the same tree", async () => {
     const viaHandle = await directorySourceFromHandle(asHandle(dirAt("projects", [
       dirAt("proj-a", [fileAt("main.jsonl"), dirAt("subagents", [fileAt("agent-1.jsonl")])]),
-    ]))).list();
+    ]))).list().then((listing) => listing.files);
 
     const viaFileList = await directorySourceFromFileList([
       withRelativePath(new File(["x"], "main.jsonl"), "projects/proj-a/main.jsonl"),
       withRelativePath(new File(["y"], "agent-1.jsonl"), "projects/proj-a/subagents/agent-1.jsonl"),
-    ], "projects").list();
+    ], "projects").list().then((listing) => listing.files);
 
     expect(viaFileList.map((f) => f.path).sort()).toEqual(viaHandle.map((f) => f.path).sort());
   });
@@ -297,12 +340,12 @@ describe("directorySourceFromFileList · the webkitdirectory fallback", () => {
   it("falls back to the bare filename when there is no relative path", async () => {
     // The multi-select `<input>` (not webkitdirectory) leaves `webkitRelativePath` empty. The
     // pipeline already knows this: it is why subagent detection moved from path to CONTENT.
-    const files = await directorySourceFromFileList([new File(["x"], "agent-1.jsonl")], "selection").list();
+    const { files } = await directorySourceFromFileList([new File(["x"], "agent-1.jsonl")], "selection").list();
     expect(files.map((file) => file.path)).toEqual(["agent-1.jsonl"]);
   });
 
   it("reads by range like the FSA backend does", async () => {
-    const [file] = await directorySourceFromFileList([new File(["abcdefgh"], "a.jsonl")], "selection").list();
+    const { files: [file] } = await directorySourceFromFileList([new File(["abcdefgh"], "a.jsonl")], "selection").list();
     expect(file.size).toBe(8);
     await expect((await file.read({ start: 1, end: 4 })).text()).resolves.toBe("bcd");
   });

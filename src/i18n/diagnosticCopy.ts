@@ -91,7 +91,9 @@ const zhTW: CopyTable = {
   },
 
   INDEX_TRUNCATED: { line: (d) => `這個目錄的檔案較多，只掃描了前 ${d.detail} 個，其餘 ${n(d)} 個未列入清單。` },
-  INDEX_FILE_UNREADABLE: { line: (d) => `${n(d)} 個檔案無法讀取，未列入清單（${d.detail}）。` },
+  INDEX_FILE_UNREADABLE: {
+    line: (d) => `${n(d)} 個項目無法讀取，未列入清單，其餘照常列出（第一個：${d.detail}）。常見原因是 Windows 上完整路徑超過 260 字元，或檔案正被其他程式鎖住。`,
+  },
   INDEX_PERMISSION_LOST: {
     line: () => "已失去對上次資料夾的存取權限。",
     title: "需要重新授權資料夾",
@@ -199,7 +201,9 @@ const en: CopyTable = {
   },
 
   INDEX_TRUNCATED: { line: (d) => `This directory is large; only the first ${d.detail} files were scanned, ${n(d)} were not listed.` },
-  INDEX_FILE_UNREADABLE: { line: (d) => `${n(d)} file(s) could not be read and were not listed (${d.detail}).` },
+  INDEX_FILE_UNREADABLE: {
+    line: (d) => `${n(d)} item(s) could not be read and were not listed; everything else is (first: ${d.detail}). A common cause is a full path over 260 characters on Windows, or a file locked by another program.`,
+  },
   INDEX_PERMISSION_LOST: {
     line: () => "Access to the previous folder was lost.",
     title: "The folder needs re-authorizing",

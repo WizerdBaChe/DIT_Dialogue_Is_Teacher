@@ -8,7 +8,7 @@
  */
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DirectorySource } from "@/core/index";
+import type { DirectoryListing, DirectorySource } from "@/core/index";
 
 const pickDirectoryMock = vi.fn();
 const isDirectoryPickerSupportedMock = vi.fn();
@@ -188,8 +188,8 @@ describe("WebKit fallback failure exit (R11 M3)", () => {
  */
 describe("closing the dialog keeps it closed, even if indexing finishes afterwards (R11.2 C6)", () => {
   it("does not reopen once a background index run resolves after close", async () => {
-    let resolveList!: (files: never[]) => void;
-    const listPromise = new Promise<never[]>((resolve) => { resolveList = resolve; });
+    let resolveList!: (listing: DirectoryListing) => void;
+    const listPromise = new Promise<DirectoryListing>((resolve) => { resolveList = resolve; });
     directorySourceFromFileListMock.mockReturnValue({
       kind: "webkitdirectory",
       name: "projects",
@@ -207,7 +207,7 @@ describe("closing the dialog keeps it closed, even if indexing finishes afterwar
     expect(useSessionStore.getState().browseState).toBe("closed");
 
     // The background scan (which the user can't cancel) now completes.
-    resolveList([]);
+    resolveList({ files: [], unreadable: [] });
     await indexing;
 
     expect(useSessionStore.getState().browseState).toBe("closed");
