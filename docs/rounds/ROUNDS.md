@@ -55,6 +55,7 @@ aliases: [輪次登記表, 配置登記表, round id registry, ROUNDS]
 | R12 | `r12-source-first-navigation` | 施工完成，**已併入 `main`**（2026-08-30，`aa74fd9`）。作者裁決免除本輪 UAT 等待——**不等於驗收通過**，`UAT_R12_v1.0.md` 的項目未被逐項判定 | 探索 (discovery) 依 agent 系統分流、檢視 (viewing) 收斂回同一套 |
 | 2026-09-compact-chain | `2026-09-compact-chain` | 施工完成，**待驗收；已併入 `main`**（2026-09-06 配置並施工；2026-09-27 經 PR #3 併入並隨 v0.4.0 發布，分支已刪；PSM §4 是驗收清單） | T-008／DW-16：壓縮後的續接檔以 `compact_boundary` 的 uuid 串成一場對話——索引層分組、載入時拼接並跨檔去重 |
 | 2026-09-editorial-workspace | `2026-09-editorial-workspace` | 施工與自動檢查完成，待作者視覺驗收；2026-09-27 經 PR #3 併入 `main` 並隨 v0.4.0 發布，分支已刪 | 延續編輯排版風格，重整首頁資訊層級、載入入口與閱讀定位 |
+| 2026-09-perf-survey | `2026-09-perf-survey` | 已配置，**調查未開工**（2026-09-28；純調查輪，不改 `src/`；交接卡 `HANDOFF_2026-09-perf-survey.md`，T-009） | 效能調查：點選 session 時重列整棵目錄（v0.4.2 修正時發現）＋作者要求的全面效能評估，產出量測基準與排序建議 |
 
 ## R 編號到 R12 為止封號 (numeric namespace closed at R12)
 
