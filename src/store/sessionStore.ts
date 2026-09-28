@@ -1029,7 +1029,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const generation = browseGeneration;
     set({ browseState: "loading" });
     try {
-      const files = await source.list();
+      const { files } = await source.list();
       const byPath = new Map(files.map((file) => [file.path, file]));
       /*
        * 2026-09-compact-chain: a row stands for its whole chain. Blobs go in chain order — the

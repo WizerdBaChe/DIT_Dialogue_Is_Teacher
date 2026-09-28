@@ -27,7 +27,7 @@ function fileOf(path: string, content: string): DirectoryFile {
 
 function sourceOf(files: Array<[string, string]>): DirectorySource {
   const entries = files.map(([path, content]) => fileOf(path, content));
-  return { kind: "webkitdirectory", name: "projects", list: async () => entries };
+  return { kind: "webkitdirectory", name: "projects", list: async () => ({ files: entries, unreadable: [] }) };
 }
 
 const SIMPLE = transcript(userLine("幫我修一個 bug"), assistantLine("好的"));
@@ -138,12 +138,40 @@ describe("buildSessionIndex", () => {
     const source: DirectorySource = {
       kind: "fsa",
       name: "projects",
-      list: async () => [broken, fileOf("p/ok.jsonl", SIMPLE)],
+      list: async () => ({ files: [broken, fileOf("p/ok.jsonl", SIMPLE)], unreadable: [] }),
     };
 
     const { entries, diagnostics } = await buildSessionIndex(source);
     expect(entries.map((entry) => entry.path)).toEqual(["p/ok.jsonl"]);
     expect(diagnostics).toContainEqual(expect.objectContaining({ tier: "warn", code: "INDEX_FILE_UNREADABLE", count: 1 }));
+  });
+
+  it("lists a folder with entries the listing could not reach, and counts only possible sessions", async () => {
+    // 2026-09 folder-listing-isolation: the end-to-end half of the 0.4.1 defect, with the source
+    // chosen as Claude Code exactly as the author had it. A `.jsonl` or a directory might have
+    // been a session, so both are counted; a `.txt` never was a candidate and stays quiet.
+    const source: DirectorySource = {
+      kind: "fsa",
+      name: "projects",
+      list: async () => ({
+        files: [fileOf("p/ok.jsonl", SIMPLE)],
+        unreadable: [
+          { path: "long/02e231ee.jsonl", kind: "file", reason: "NotFoundError: too long" },
+          { path: "long/tool-results", kind: "directory", reason: "NotReadableError: denied" },
+          { path: "p/notes.txt", kind: "file", reason: "NotFoundError: too long" },
+        ],
+      }),
+    };
+
+    const { entries, diagnostics } = await buildSessionIndex(source, { expectSource: "claude-code" });
+
+    expect(entries.map((entry) => entry.path)).toEqual(["p/ok.jsonl"]);
+    expect(diagnostics).toContainEqual({
+      tier: "warn",
+      code: "INDEX_FILE_UNREADABLE",
+      count: 2,
+      detail: "long/02e231ee.jsonl (NotFoundError: too long)",
+    });
   });
 
   it("flags compaction and reads the project path from the record's own cwd", async () => {

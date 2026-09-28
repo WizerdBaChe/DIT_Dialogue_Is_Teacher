@@ -14,7 +14,7 @@ function fileOf(path: string, content: string): DirectoryFile {
 }
 
 function sourceOf(files: DirectoryFile[]): DirectorySource {
-  return { kind: "webkitdirectory", name: "projects", list: async () => files };
+  return { kind: "webkitdirectory", name: "projects", list: async () => ({ files, unreadable: [] }) };
 }
 
 function entryAt(entries: SessionIndexEntry[], path: string): SessionIndexEntry {

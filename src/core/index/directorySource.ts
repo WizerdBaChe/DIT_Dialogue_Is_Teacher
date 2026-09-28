@@ -7,7 +7,7 @@
  *
  * `isDirectoryPickerSupported()` 是唯一的分歧點；其餘程式碼只認介面。
  */
-import type { DirectoryFile, DirectorySource } from "./contracts";
+import type { DirectoryFile, DirectoryListing, DirectorySource } from "./contracts";
 
 interface FileSystemDirectoryHandleLike {
   name: string;
@@ -61,15 +61,43 @@ function fileFromHandle(path: string, file: File): DirectoryFile {
   };
 }
 
+function reasonOf(error: unknown): string {
+  if (error instanceof DOMException) return `${error.name}: ${error.message}`;
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * 一個項目失敗只影響那個項目 (AGENTS.md：one unreadable file must not fail a batch)。
+ *
+ * 原本這裡沒有任何 try：Windows 上完整路徑超過 MAX_PATH (260) 的檔案，`getFile()` 會拒絕，
+ * 而那一個拒絕沿著 `walk` → `list()` → `buildSessionIndex` 一路上拋，整個資料夾落到
+ * `index_failed`。索引器的逐檔 try/catch 在列目錄**之後**，保護不到這一步。
+ *
+ * 只有**根目錄本身**列不出來時才上拋——那時確實什麼都讀不到，而且 R9.1 RC-A 的測試釘住了
+ * 「列目錄失敗是失敗、不是取消」這件事，它仍然成立。
+ */
 async function walk(
   handle: FileSystemDirectoryHandleLike,
   prefix: string,
-  out: DirectoryFile[],
+  out: DirectoryListing,
 ): Promise<void> {
-  for await (const entry of handle.values()) {
-    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.kind === "directory") await walk(entry, path, out);
-    else out.push(fileFromHandle(path, await (entry as FileSystemFileHandleLike).getFile()));
+  const isRoot = prefix === "";
+  try {
+    for await (const entry of handle.values()) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.kind === "directory") {
+        await walk(entry, path, out);
+        continue;
+      }
+      try {
+        out.files.push(fileFromHandle(path, await (entry as FileSystemFileHandleLike).getFile()));
+      } catch (error) {
+        out.unreadable.push({ path, kind: "file", reason: reasonOf(error) });
+      }
+    }
+  } catch (error) {
+    if (isRoot) throw error;
+    out.unreadable.push({ path: prefix, kind: "directory", reason: reasonOf(error) });
   }
 }
 
@@ -78,7 +106,7 @@ export function directorySourceFromHandle(handle: FileSystemDirectoryHandleLike)
     kind: "fsa",
     name: handle.name,
     list: async () => {
-      const out: DirectoryFile[] = [];
+      const out: DirectoryListing = { files: [], unreadable: [] };
       await walk(handle, "", out);
       return out;
     },
@@ -157,6 +185,8 @@ export function directorySourceFromFileList(files: File[], name: string): Direct
   return {
     kind: "webkitdirectory",
     name,
-    list: async () => entries,
+    // The browser already enumerated the FileList; anything it could not reach is simply absent,
+    // and a later read failure is counted by the indexer's own per-file catch.
+    list: async () => ({ files: entries, unreadable: [] }),
   };
 }

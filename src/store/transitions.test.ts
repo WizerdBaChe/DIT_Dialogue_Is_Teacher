@@ -22,17 +22,17 @@ function sourceOf(files: Array<[string, string]>): DirectorySource {
   return {
     kind: "webkitdirectory",
     name: "projects",
-    list: async () => files.map(([path, content]) => {
+    list: async () => ({ unreadable: [], files: files.map(([path, content]) => {
       const blob = new Blob([content]);
       return { path, size: blob.size, read: async (range?: { start: number; end: number }) => (range ? blob.slice(range.start, range.end) : blob) };
-    }),
+    }) }),
   };
 }
 
 /** 直接注入來源，繞過需要使用者手勢的目錄選擇器。 */
 async function indexSource(files: Array<[string, string]>): Promise<void> {
   const source = sourceOf(files);
-  const listed = await source.list();
+  const { files: listed } = await source.list();
   const asFiles = await Promise.all(listed.map(async (entry) => {
     const file = new File([await entry.read()], entry.path.split("/").pop() ?? entry.path);
     Object.defineProperty(file, "webkitRelativePath", { value: `projects/${entry.path}` });
