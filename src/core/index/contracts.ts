@@ -113,9 +113,32 @@ export interface DirectoryFile {
   read(range?: { start: number; end: number }): Promise<Blob>;
 }
 
+/** 列目錄時碰不到的一個項目。只有列目錄這一步會產生它；讀檔失敗由索引器自己記。 */
+export interface UnreadableEntry {
+  /** 相對於挑選目錄的路徑，一律正斜線。 */
+  path: string;
+  kind: "file" | "directory";
+  reason: string;
+}
+
+/**
+ * 列目錄的結果。
+ *
+ * 2026-09 folder-listing-isolation：`list()` 原本回傳 `DirectoryFile[]`，於是列目錄只有
+ * 「全成功」或「整個拒絕」兩種結果——一個檔案的 `getFile()` 失敗就讓整個資料夾變成
+ * `index_failed`。實測 `~/.claude/projects` 有 48 個完整路徑超過 260 字元的檔案，正是這樣
+ * 讓 0.4.1 對整個資料夾「什麼都讀不到」。碰不到的項目現在是回傳值的一部分，呼叫端必須處理，
+ * 不能被一個 throw 帶走其他 3,600 個讀得到的檔案。
+ */
+export interface DirectoryListing {
+  files: DirectoryFile[];
+  unreadable: UnreadableEntry[];
+}
+
 export interface DirectorySource {
   kind: "fsa" | "webkitdirectory";
   /** 顯示用的目錄名稱。 */
   name: string;
-  list(): Promise<DirectoryFile[]>;
+  /** 只有「所選目錄本身列不出來」會拒絕；底下個別項目的失敗進 `unreadable`。 */
+  list(): Promise<DirectoryListing>;
 }
